@@ -6,15 +6,36 @@ __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
+.eggs/
 dist/
 build/
+
+# Jupyter
+.ipynb_checkpoints/
 
 # LAMMPS output
 log.lammps
 *.restart
 *.dump
 *.data.out
+*.lammpstrj
+
+# Output data (large files)
+output/
+*.h5
+*.hdf5
+*.npy
+*.npz
 
 # OS
 .DS_Store
 Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary
+*.swp
+*.swo
+*~
