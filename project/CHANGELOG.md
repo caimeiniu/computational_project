@@ -481,3 +481,105 @@ per-site ΔE for Ni(Cu) for direct spectrum comparison.
 - `project/docs/project presentation.pptx` added — documents current scope and is a
   shared artifact for the team
 - UMA-related files moved to `{docs,scripts}/archive/` (not deleted — kept as history)
+
+## 2026-04-22 (evening) — Commit to 3D Voronoi and switch to Al-Mg
+
+### Supersedes
+
+- The 2026-04-22 afternoon decision to "start with 2D columnar Cu-Ni and scale to 3D later".
+- HMC pipeline itself is unchanged (LAMMPS `fix atom/swap`, a-CNA GB identification,
+  per-site ΔE, `(T, X_c)` scan). What's being replaced is the **structure generator**, the
+  **equilibration protocol**, and the **alloy system**.
+
+### 2D columnar → 3D Voronoi (committed)
+
+The advisor's `create_nanocrystal.py` builds a 2D columnar polycrystal
+(~5 × 200 × 173 Å, 4 grains rotated only around `[110]`, ~15 k atoms). Physical limits:
+
+- GB character is restricted to a ~2D slice of the full 5D macroscopic GB character space
+  — all boundaries are pure tilt around `[110]`; no twist, no mixed character.
+- No triple points, no quadruple points (only triple *lines* along the ~5 Å thin x axis).
+- ΔE histogram is artificially narrowed vs Wagih's 3D polycrystal; solute-solute g(r) at
+  GB lacks triple-line / quadruple-point enrichment sites.
+- Quantitative comparison to Wagih Fig 2 / Fig 5 is impossible because those are 3D
+  (20³ nm³, 16 grains).
+
+These all directly weaken the headline figure (HMC X_GB vs Fermi-Dirac X_GB): the
+dilute-limit breakdown plausibly originates at GB heterogeneity / special sites absent from
+columnar geometry.
+
+**Decision:** skip the 2D pipeline-validation phase entirely and go straight to 3D. The
+only things 2D would have validated that 3D would not (LAMMPS input-deck syntax,
+`fix atom/swap` parameters) are trivial to check in isolation. The real risks — Voronoi
+tessellation quality, Wagih-style annealing convergence, GB identification at scale — only
+manifest in 3D and have to be debugged there anyway.
+
+### Consequences of going 3D (what changes, what stays)
+
+Reusable from advisor's example:
+- `Cu_Ni_Fischer_2018.eam.alloy` potential file (only if we keep Cu-Ni — see below).
+- HMC input-deck skeleton (`fix atom/swap 100 10 <seed> T ke yes types 1 2` is
+  system-agnostic) and thermo/dump conventions.
+
+Must be rebuilt:
+- **Structure generator** — replace `create_nanocrystal.py` with Atomsk Voronoi
+  tessellation (paper ref 71) or a custom `scipy.spatial.Voronoi` script. Atomsk is the
+  default since it matches Wagih exactly.
+- **Equilibration protocol** — replace the CG + 10 ps NVT at 300 K in
+  `in_ncCuNi_equilibriate.lammps` with Wagih's protocol (paper_notes.md §1): anneal at
+  0.3–0.5 T_melt for 250 ps, slow cool at 3 K/ps to 0 K, final CG. The 10 ps recipe is
+  adequate for a columnar structure whose GBs have already been cleaned by `pdist`-based
+  close-pair removal, but is insufficient for fresh Voronoi cells whose GBs start with
+  large geometric distortion and high strain energy.
+
+### Cu-Ni → Al-Mg
+
+Cu-Ni was picked on 2026-04-22 afternoon specifically because the advisor shipped a
+ready-to-run 2D structure generator + equilibration deck. With both being thrown out, the
+only remaining Cu-Ni advantage is the Fischer 2018 EAM file — a single potential
+downloadable from NIST in seconds. The tradeoff flips:
+
+| Criterion | Cu-Ni | Al-Mg |
+|-----------|-------|-------|
+| Wagih paper coverage | Table 1 row + Fig 4/5 | Fig 2 headline + MAE benchmark |
+| Spectrum params | μ ≈ −2, σ ≈ 8 kJ/mol | μ ≈ −2, σ ≈ 4, α ≈ −0.4 kJ/mol |
+| ΔE range | ~60 kJ/mol | ~100 kJ/mol |
+| X_GB at 5% X_c | ~15% | ~30% |
+| Atoms in 20³ nm³ | ~680 k (a=3.61 Å) | ~481 k (a=4.05 Å, ~30% cheaper) |
+| NIST EAM options | Fischer 2018 | Mendelev 2014, Mishin, Liu-Adams-Wolfer |
+| Zenodo per-site ΔE | Ni(Cu) present | Al(Mg) present, directly matches Fig 2 |
+
+**Decisive factor — signal strength:** the headline figure is X_GB^HMC vs X_GB^FD as a
+function of X_c; the breakdown is a *deviation* of X_GB^HMC from the Fermi-Dirac prediction.
+At 5% X_c, Al(Mg) reaches ~30% X_GB vs ~15% for Ni(Cu), giving 2× the baseline and 2× the
+dynamic range for the deviation to be detected above HMC statistical noise. Al-Mg also
+maps onto Wagih Fig 2 at the level of fitted skew-normal parameters `(μ, σ, α)`, not just
+a scalar MAE — much more stringent comparison.
+
+### Revised scale plan
+
+| Stage | Box | Grains | Atoms (Al) | HMC / (T, X_c) (EAM, 16–32 core MPI) |
+|-------|-----|--------|------------|-------------------------------------|
+| Prototype | 10³ nm³ | 4–8 | ~60 k | ~10 min |
+| Production | 20³ nm³ | 16 | ~481 k | ~1–2 h |
+
+Prototype stage exists to debug Voronoi quality, the Wagih-style annealing protocol, and
+GB identification on a system small enough that iteration is fast. Production mirrors
+Wagih exactly for direct figure-by-figure comparison.
+
+### Housekeeping
+
+- `project/data/examples/cra_example/` removed (W CRA Frenkel-insertion template; its only
+  pedagogical value was the hand-written MC loop pattern, which `fix atom/swap` replaces).
+
+### Next steps (revised)
+
+1. Install / locate Atomsk on Euler (check module availability first).
+2. Download Al-Mg EAM potential from NIST (Mendelev 2014, the Wagih default).
+3. Write `scripts/generate_polycrystal.py` — Atomsk Voronoi → LAMMPS data file,
+   parameterized by box size, grain count, lattice parameter.
+4. Extend equilibration deck to Wagih-style anneal
+   (0.3–0.5 T_melt × 250 ps → 3 K/ps cool to 0 K → CG).
+5. Run the prototype end-to-end (10³ nm³): structure → anneal → a-CNA GB ID →
+   visualize in OVITO → confirm GB site count and GB fraction are sensible
+   (expected f_gb ≈ 10–20% for 10 nm grain size).
