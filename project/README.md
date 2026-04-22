@@ -1,6 +1,8 @@
-# GB Segregation with UMA MLIP
+# GB Segregation — HMC probe of the dilute-limit assumption
 
-Grain boundary (GB) solute segregation study using Hybrid Monte Carlo and UMA universal machine learning interatomic potential.
+Grain boundary (GB) solute segregation study using Hybrid Monte Carlo to test where
+Wagih's independent-site (non-interacting solute) framework breaks down as a function
+of solute concentration and temperature.
 
 ## Reference
 
@@ -28,7 +30,10 @@ conda activate gb-seg
 ## Workflow
 
 1. Generate polycrystalline structure (Voronoi tessellation + thermal annealing)
-2. Identify GB sites via structural analysis (CNA/PTM)
-3. Compute segregation energies (substitutional solute at each GB site)
-4. Hybrid Monte Carlo to sample equilibrium segregation state
-5. Compare: classical potential vs UMA MLIP
+2. Identify GB sites via structural analysis (a-CNA)
+3. Compute per-site segregation energies ΔE_i (single solute, 0 K, CG relax) → spectrum
+4. Hybrid Monte Carlo on a `(T, X_c)` grid to sample equilibrium occupation
+5. Compare `X_GB(T, X_c)` and site-resolved `P_i` from HMC vs Fermi-Dirac prediction
+   built from the 0 K ΔE spectrum → locate the dilute-limit breakdown concentration
+6. Solute-solute `g(r)` at GB + local-density vs `P_i` correlation to diagnose the
+   physical origin of the breakdown

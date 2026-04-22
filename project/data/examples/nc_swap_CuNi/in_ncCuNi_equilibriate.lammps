@@ -1,0 +1,57 @@
+log log_equil.lammps
+#
+# General simulation parameters
+#
+dimension    3
+atom_style   atomic
+units        metal
+#
+# Read in pure copper nc sample
+#
+read_data mdyn_nc.lammps
+set group all type/fraction 2 0.025 123937
+#
+# Define atomic masses of atom (Cu and Zr)
+#
+mass 1 63.546  
+mass 2 58.693
+#
+# Save starting configuration
+#
+write_data initial_lattice.lammps
+#
+# Define empirical interatomic force
+#
+pair_style    eam/alloy
+pair_coeff    * * Cu_Ni_Fischer_2018.eam.alloy Cu Ni
+#
+# Define neighbour list parameters
+#
+neighbor   0.3  bin
+neigh_modify  every  1  delay  0  check  yes
+#
+#
+#
+minimize 1.0e-15 1e-15 10000 10000
+write_data initial_lattice_relaxed.lammps
+
+#
+# Set temperature to 300K
+#
+velocity all create 300.0 12345
+#
+# Define output of thermodynamic variables
+#
+thermo 100
+thermo_style custom step time temp pe ke press vol
+#
+# Set time step of 1 femto-second
+#
+timestep 0.001
+#
+# Equilibriation: high temperature NVT liquid simulation at zero pressure & T=4000K
+#
+fix 1 all nvt temp 300.0 300.0 0.001
+run 10000
+write_data initial_lattice_300K.lammps
+

@@ -19,6 +19,7 @@ log.lammps
 *.dump
 *.data.out
 *.lammpstrj
+*.atom
 
 # Output data (large files)
 output/
