@@ -1,5 +1,531 @@
 # Changelog
 
+Entries in reverse chronological order (newest first).
+
+## 2026-04-23 — 3D polycrystal generator implemented (FCC / BCC / HCP)
+
+Added `scripts/generate_polycrystal.py` — parametric 3D Voronoi polycrystal
+generator supporting all three lattice families covered by Wagih et al.
+(FCC / BCC / HCP), reusable as a module (`build_polycrystal`, `write_lammps_data`)
+or CLI. Replaces advisor's 2D columnar `create_nanocrystal.py`. Chose a pure
+numpy/scipy implementation over Atomsk (next-steps item 1 from 2026-04-22
+evening) so teammates can `import` it without an external tool dependency;
+Atomsk remains a backup if we need exact Wagih reproducibility.
+
+### Algorithm
+
+1. Random grain centers in the periodic box + uniform SO(3) orientations per
+   grain (scipy `Rotation.random`, which samples via quaternions with correct
+   Haar measure — NOT naive Euler-angle sampling, which biases toward polar
+   axes).
+2. Per-structure crystal template (FCC conventional cell, BCC conventional
+   cell, HCP primitive cell with hexagonal lattice vectors) sized to cover
+   the box diagonal plus one lattice spacing after rotation.
+3. Rotate + translate template to each grain center; keep atoms falling
+   **inside** `[0, L)³` (no PBC wrap of the oversized template — wrapping
+   would map multiple template atoms to the same position and double the
+   density; an earlier draft hit this exact bug, 2× atom count on a 30 Å test).
+4. Voronoi ownership via PBC-nearest grain center over 27 periodic images
+   (KDTree built once outside the grain loop).
+5. Close-pair removal at `NN_dist / 2` per structure (FCC `a/(2√2)`,
+   BCC `a√3/4`, HCP `a/2`), matching the advisor's example logic.
+
+### Safety checks
+
+- **Minimum grain-center PBC separation** = `2 × lattice_a` (rejects literal
+  overlaps; normal Poisson min separation is `~0.55 · L · n_grains^(-1/3)`,
+  far looser).
+- Perfect-lattice vs actual atom count printed so users can spot anomalies
+  (> ~5% deficit = something wrong with Voronoi tessellation or close-pair
+  cutoff).
+
+### Validation
+
+| System | Box | Grains | N_atoms | Ideal | Deficit | Mean NN | Ideal NN |
+|--------|-----|--------|---------|-------|---------|---------|----------|
+| Al/FCC | 60 Å | 8 | 12 691 | 13 006 | 2.4% | — | 2.864 |
+| Al/FCC | 100 Å | 8 | 59 256 | 60 214 | 1.6% | 2.677 | 2.864 |
+| Fe/BCC | 60 Å | 8 | 17 978 | 18 351 | 2.0% | 2.283 | 2.482 |
+| Mg/HCP | 60 Å | 8 | 9 027 | 9 244 | 2.3% | 2.882 | 3.209 |
+
+Prototype-scale FCC output matches the planned ~60 k atoms for 10³ nm³ Al.
+
+### Known limitations / follow-ups
+
+1. **No grain_id in LAMMPS output** — atoms carry only type 1. For 5D GB
+   character analysis (misorientation × GB-plane normal) we'll need per-atom
+   grain ownership. Options: sidecar `grain_ids.npy`, or switch to
+   `atom_style molecular` and store grain_id in the molecule-ID field.
+2. **No metadata sidecar** — should emit a JSON with `{box, structure,
+   lattice_a/c, structure_seed, n_grains, centers, orientations_quat}` for
+   reproducibility and downstream plotting.
+3. **No misorientation-angle sanity check** — expected to follow the
+   Mackenzie distribution (cubic symmetry, 0°–62.8°, peak at 45°) for FCC/BCC
+   and Handscomb for HCP; small `n_grains` (= few `C(n, 2)` pairs) may
+   visibly deviate and should be flagged.
+4. **Close-pair removal is greedy by pair index**, not by inter-atom distance.
+   Matches advisor's example; physically harmless but non-optimal. Could sort
+   pairs by distance and drop the closer conflict first.
+5. **`write_lammps_data` uses per-atom `f.write`** — ~5 s for 500 k atoms.
+   Fine for one-shot use but could be vectorized with `np.savetxt`.
+6. **`_crystal_template` sizing uses shortest lattice vector** — HCP over-
+   generates ~2× along `c`; negligible at prototype scale.
+7. **No unit tests yet.**
+
+### Key concepts introduced (English terms for future reference)
+
+- **Voronoi tessellation** — grain construction method; Wagih default.
+- **SO(3) / Haar measure / Shoemake quaternion method** — correct uniform
+  random rotation sampling.
+- **Lattice parameter** `a` (and `c` for HCP); **conventional unit cell**
+  (cubic for FCC/BCC) vs **primitive cell** (hexagonal for HCP).
+- **Nearest-neighbor (NN) distance** and **coordination number** — FCC
+  `a/√2` / 12, BCC `a√3/2` / 8, HCP `a` / 12.
+- **Ideal c/a** = √(8/3) ≈ 1.633 for hard-sphere-packed HCP.
+- **GB atom fraction** `f_gb ≈ 3t/d` (one-shell geometry estimate); higher
+  orders come from triple-line/quadruple-point inclusion-exclusion
+  corrections. Wagih measures ~15% via a-CNA on 20³ nm³ / 16-grain samples.
+- **GB character (5D)** = 3 misorientation DOFs + 2 GB-plane-normal DOFs.
+  2D columnar (advisor's original) only sampled a 2D slice of this space —
+  one of the reasons we switched to 3D.
+- **Mackenzie distribution** (cubic)/ **Handscomb** (hexagonal) —
+  theoretical misorientation-angle distribution under random texture; used
+  as sanity check on grain-orientation sampling.
+- **Close pair** — construction artifact at GBs where two grains' rotated
+  lattices place atoms < NN/2 apart; removed geometrically before any MD.
+- **RNG seed separation**: `structure_seed` (this script) vs `solute_seed`
+  (`set type/fraction`) vs `swap_seed` (`fix atom/swap`) vs `velocity_seed`
+  (`velocity create`). Name them distinctly in all downstream LAMMPS decks.
+
+### Impact on downstream work
+
+- Equilibration deck (next-steps item 2) must handle a fresh Voronoi
+  structure with large geometric distortion — the advisor's 10 ps NVT at
+  300 K is insufficient; need Wagih's protocol (0.3–0.5 T_melt × 250 ps →
+  3 K/ps cool → CG).
+- `f_gb` target for prototype (10³ nm³, 8 grains, ~5 nm mean grain size) is
+  ~20–30% (higher than Wagih's 15% at 20³ nm³ / 8 nm grains) — this is an
+  expected finite-size effect, not a bug.
+- Grain ID persistence becomes necessary once we move beyond scalar
+  `X_GB(T, X_c)` curves to per-GB-character resolution (follow-up 1 above).
+
+Covers next-steps items 1 and 3 from the 2026-04-22 evening entry.
+
+## 2026-04-22 (evening) — Commit to 3D Voronoi and switch to Al-Mg
+
+### Supersedes
+
+- The 2026-04-22 afternoon decision to "start with 2D columnar Cu-Ni and scale to 3D later".
+- HMC pipeline itself is unchanged (LAMMPS `fix atom/swap`, a-CNA GB identification,
+  per-site ΔE, `(T, X_c)` scan). What's being replaced is the **structure generator**, the
+  **equilibration protocol**, and the **alloy system**.
+
+### 2D columnar → 3D Voronoi (committed)
+
+The advisor's `create_nanocrystal.py` builds a 2D columnar polycrystal
+(~5 × 200 × 173 Å, 4 grains rotated only around `[110]`, ~15 k atoms). Physical limits:
+
+- GB character is restricted to a ~2D slice of the full 5D macroscopic GB character space
+  — all boundaries are pure tilt around `[110]`; no twist, no mixed character.
+- No triple points, no quadruple points (only triple *lines* along the ~5 Å thin x axis).
+- ΔE histogram is artificially narrowed vs Wagih's 3D polycrystal; solute-solute g(r) at
+  GB lacks triple-line / quadruple-point enrichment sites.
+- Quantitative comparison to Wagih Fig 2 / Fig 5 is impossible because those are 3D
+  (20³ nm³, 16 grains).
+
+These all directly weaken the headline figure (HMC X_GB vs Fermi-Dirac X_GB): the
+dilute-limit breakdown plausibly originates at GB heterogeneity / special sites absent from
+columnar geometry.
+
+**Decision:** skip the 2D pipeline-validation phase entirely and go straight to 3D. The
+only things 2D would have validated that 3D would not (LAMMPS input-deck syntax,
+`fix atom/swap` parameters) are trivial to check in isolation. The real risks — Voronoi
+tessellation quality, Wagih-style annealing convergence, GB identification at scale — only
+manifest in 3D and have to be debugged there anyway.
+
+### Consequences of going 3D (what changes, what stays)
+
+Reusable from advisor's example:
+- `Cu_Ni_Fischer_2018.eam.alloy` potential file (only if we keep Cu-Ni — see below).
+- HMC input-deck skeleton (`fix atom/swap 100 10 <seed> T ke yes types 1 2` is
+  system-agnostic) and thermo/dump conventions.
+
+Must be rebuilt:
+- **Structure generator** — replace `create_nanocrystal.py` with Atomsk Voronoi
+  tessellation (paper ref 71) or a custom `scipy.spatial.Voronoi` script. Atomsk is the
+  default since it matches Wagih exactly.
+- **Equilibration protocol** — replace the CG + 10 ps NVT at 300 K in
+  `in_ncCuNi_equilibriate.lammps` with Wagih's protocol (paper_notes.md §1): anneal at
+  0.3–0.5 T_melt for 250 ps, slow cool at 3 K/ps to 0 K, final CG. The 10 ps recipe is
+  adequate for a columnar structure whose GBs have already been cleaned by `pdist`-based
+  close-pair removal, but is insufficient for fresh Voronoi cells whose GBs start with
+  large geometric distortion and high strain energy.
+
+### Cu-Ni → Al-Mg
+
+Cu-Ni was picked on 2026-04-22 afternoon specifically because the advisor shipped a
+ready-to-run 2D structure generator + equilibration deck. With both being thrown out, the
+only remaining Cu-Ni advantage is the Fischer 2018 EAM file — a single potential
+downloadable from NIST in seconds. The tradeoff flips:
+
+| Criterion | Cu-Ni | Al-Mg |
+|-----------|-------|-------|
+| Wagih paper coverage | Table 1 row + Fig 4/5 | Fig 2 headline + MAE benchmark |
+| Spectrum params | μ ≈ −2, σ ≈ 8 kJ/mol | μ ≈ −2, σ ≈ 4, α ≈ −0.4 kJ/mol |
+| ΔE range | ~60 kJ/mol | ~100 kJ/mol |
+| X_GB at 5% X_c | ~15% | ~30% |
+| Atoms in 20³ nm³ | ~680 k (a=3.61 Å) | ~481 k (a=4.05 Å, ~30% cheaper) |
+| NIST EAM options | Fischer 2018 | Mendelev 2014, Mishin, Liu-Adams-Wolfer |
+| Zenodo per-site ΔE | Ni(Cu) present | Al(Mg) present, directly matches Fig 2 |
+
+**Decisive factor — signal strength:** the headline figure is X_GB^HMC vs X_GB^FD as a
+function of X_c; the breakdown is a *deviation* of X_GB^HMC from the Fermi-Dirac prediction.
+At 5% X_c, Al(Mg) reaches ~30% X_GB vs ~15% for Ni(Cu), giving 2× the baseline and 2× the
+dynamic range for the deviation to be detected above HMC statistical noise. Al-Mg also
+maps onto Wagih Fig 2 at the level of fitted skew-normal parameters `(μ, σ, α)`, not just
+a scalar MAE — much more stringent comparison.
+
+### Revised scale plan
+
+| Stage | Box | Grains | Atoms (Al) | HMC / (T, X_c) (EAM, 16–32 core MPI) |
+|-------|-----|--------|------------|-------------------------------------|
+| Prototype | 10³ nm³ | 4–8 | ~60 k | ~10 min |
+| Production | 20³ nm³ | 16 | ~481 k | ~1–2 h |
+
+Prototype stage exists to debug Voronoi quality, the Wagih-style annealing protocol, and
+GB identification on a system small enough that iteration is fast. Production mirrors
+Wagih exactly for direct figure-by-figure comparison.
+
+### Housekeeping
+
+- `project/data/examples/cra_example/` removed (W CRA Frenkel-insertion template; its only
+  pedagogical value was the hand-written MC loop pattern, which `fix atom/swap` replaces).
+
+### Next steps (revised)
+
+1. Install / locate Atomsk on Euler (check module availability first).
+2. Download Al-Mg EAM potential from NIST (Mendelev 2014, the Wagih default).
+3. Write `scripts/generate_polycrystal.py` — Atomsk Voronoi → LAMMPS data file,
+   parameterized by box size, grain count, lattice parameter.
+4. Extend equilibration deck to Wagih-style anneal
+   (0.3–0.5 T_melt × 250 ps → 3 K/ps cool to 0 K → CG).
+5. Run the prototype end-to-end (10³ nm³): structure → anneal → a-CNA GB ID →
+   visualize in OVITO → confirm GB site count and GB fraction are sensible
+   (expected f_gb ≈ 10–20% for 10 nm grain size).
+
+## 2026-04-22 (afternoon) — Cu-Ni starting system + concrete HMC plan
+
+### Example code review (from advisor)
+
+Two reference archives received and extracted under `project/data/examples/`:
+
+**`cra_example/`** — W bulk Frenkel-insertion (CRA) simulation, NOT GB segregation.
+Irrelevant in physics, but useful as a LAMMPS scripting template:
+- variable/loop/minimize structure for iterative MC-like operations
+- `fix box/relax` for zero-stress relaxation
+- random atom selection via LAMMPS `random()` variable
+
+**`nc_swap_CuNi/`** — directly aligned with our project. Complete 3-step pipeline:
+1. `create_nanocrystal.py` — 2D **columnar** FCC nanocrystal, 4 grains, `[110]×[112]×[111]`
+   orientation, ~5 × 200 × 173 Å box, ~14,782 Cu atoms. Grains rotated by random
+   angles around x. Removes too-close atom pairs at GBs via `scipy.spatial.pdist`.
+2. `in_ncCuNi_equilibriate.lammps` — loads pure Cu NC, uses
+   `set group all type/fraction 2 0.025` to convert 2.5% of atoms to Ni, CG-minimizes,
+   then NVT 300 K for 10 ps. Outputs `initial_lattice_300K.lammps`.
+3. `in_ncCuNi_hybrid_md-mc.lammps` — **HMC loop** implemented via LAMMPS built-in
+   `fix atom/swap 100 10 <seed> 300.0 ke yes types 1 2` (every 100 MD steps, attempt
+   10 Metropolis type 1↔2 swaps at T=300 K).
+
+### Key simplifier: `fix atom/swap`
+
+LAMMPS has a built-in semi-grand-canonical swap fix. We do **not** need to write our
+own Python MC loop — `fix atom/swap` interleaves Metropolis swaps with NVT MD natively.
+This collapses the previous "MC simulation script skeleton" step into configuring one
+LAMMPS input line.
+
+### Scale: columnar vs 3D
+
+The example uses ~15 k atoms (2D columnar, 4 grains). Wagih's paper uses ~500 k atoms
+(3D Voronoi, 16 grains, 20³ nm³). Columnar is ~30× cheaper per HMC step and sufficient
+for validating the pipeline and mapping the X_GB vs X_c curve. 3D may be needed later
+for publication-grade statistics on the ΔE spectrum, but is not required for the
+dilute-limit breakdown result.
+
+### System choice: Cu-Ni first, Al-Mg later (if time allows)
+
+**Revised from earlier today**: start with **Cu-Ni** (not Al-Mg) because the advisor's
+example includes:
+- working structure generation script (columnar NC)
+- validated `Cu_Ni_Fischer_2018.eam.alloy` potential (Fischer et al., Acta Mater. 2019)
+- complete equilibration + HMC input decks
+
+Al-Mg remains the preferred target for direct Wagih Fig 2/5 comparison, but Cu-Ni gets
+us to a working HMC result fastest. Al-Mg becomes a Phase B goal after Cu-Ni validates.
+
+**Trade-off accepted**: Wagih's Ni(Cu) data is less featured in the paper (μ ≈ -2,
+σ ≈ 8, X_GB ≈ 15 % at 5 % total) than Al(Mg), but the Zenodo dataset should still have
+per-site ΔE for Ni(Cu) for direct spectrum comparison.
+
+### Execution plan (phases)
+
+**Phase 0 — Euler environment** (day 0)
+- Set up `/cluster/scratch/cainiu/nc_CuNi_HMC/` (home 50 GB limit)
+- Load modules: `stack/2024-06`, `openmpi/4.1.6`, `lammps/<version>` (confirm on Euler)
+- Verify `lmp -h` and `lmp -i in_ncCuNi_equilibriate.lammps -l log.test` runs
+
+**Phase 1 — Reproduce example exactly** (day 1–2)
+- Copy `nc_swap_CuNi/` to scratch, run all three steps unchanged
+- Compare our `log_mcmd.lammps` against the supplied one (PE trajectory, swap stats)
+- Visualize `dump_hybrid_md-mc.atom` in OVITO — confirm 4-grain columnar structure and
+  visible Ni segregation to GBs
+
+**Phase 2 — GB site identification** (day 2–3)
+- Apply a-CNA via OVITO Python or `ase.spacegroup.symmetrize` to
+  `initial_lattice_relaxed.lammps` (pure Cu, before adding Ni) — get boolean GB mask
+- Record GB site fraction `f_gb` and number of GB sites N_GB
+
+**Phase 3 — Per-site ΔE spectrum** (day 3–5)
+- For each GB site (sample ≥200 sites if N_GB is large):
+  - Substitute 1 Cu → Ni, CG relax, record ΔE_seg = E_GB^Ni − E_bulk^Ni
+  - Reference E_bulk^Ni: 1 Ni substituted at an interior bulk site, CG relax
+- Build ΔE histogram, fit skew-normal `F(ΔE) = (μ, σ, α)`
+- Compare against Wagih's Ni(Cu) spectrum
+
+**Phase 4 — HMC concentration scan** (week 2)
+- X_c ∈ {0.005, 0.01, 0.02, 0.05, 0.10, 0.20} at T = 300 K
+- Per run: equilibrate (Phase B style, 10 ps NVT) → HMC (100 ps, `atom/swap` every 100
+  steps × 10 attempts) → measure X_GB from final frame averaged over last 10 ps
+- Track swap acceptance rate and PE convergence to set run length adaptively
+
+**Phase 5 — Compare to Fermi-Dirac prediction** (week 2–3)
+- For each X_c, compute
+  `X_GB^FD(X_c, T) = (1/N_GB) Σ_i 1/[1 + ((1-X_c)/X_c) exp(ΔE_i/kT)]`
+  using Phase 3 ΔE spectrum
+- Plot X_GB^HMC vs X_GB^FD — define breakdown concentration as first X_c where
+  disagreement exceeds ML noise floor (~4 kJ/mol equivalent) or a fixed ratio threshold
+
+**Phase 6 — Diagnostics** (week 3, if breakdown observed)
+- Solute-solute g(r) at GB atoms
+- Site occupation `P_i` vs local Ni density — look for cooperative / anti-cooperative
+  signatures
+- Temperature axis: repeat Phase 4 at T = 600 K to probe finite-T contribution
+
+### Git housekeeping
+
+- `*.atom` added to `.gitignore` (LAMMPS dump trajectories are large and regenerable)
+- Original zip archives `cra_example.zip` and `nc_swap_simulation_CuNi.zip` removed —
+  content is now unpacked under `project/data/examples/`, git history is authoritative
+- `project/docs/project presentation.pptx` added — documents current scope and is a
+  shared artifact for the team
+- UMA-related files moved to `{docs,scripts}/archive/` (not deleted — kept as history)
+
+## 2026-04-22 — Scope narrowed: drop UMA, single focus on dilute-limit breakdown
+
+### Direction change
+
+The project is narrowed to **one** central scientific question:
+
+> At what solute concentration does Wagih's independent-site (dilute-limit) assumption
+> break down, and what is the physical mechanism of the breakdown?
+
+**Removed from scope:**
+- UMA MLIP integration (previously Phase 2 / Extension ⑦ / fig3)
+- "Systematic temperature effects" as a standalone extension
+
+**Still in scope:**
+- HMC scan on a `(T, X_c)` grid for the chosen binary system
+- Comparison of `X_GB(T, X_c)` from HMC vs Fermi-Dirac prediction from 0 K ΔE spectrum
+- Solute-solute spatial analysis (`g(r)`, local-density vs `P_i` correlation) to diagnose
+  where and why the framework fails
+
+### Why temperature is no longer a separate direction
+
+Advisor's point: HMC is by construction a finite-T simulation — it samples the Boltzmann
+distribution at temperature T with all degrees of freedom (vibrations, thermal expansion,
+GB relaxation, solute-solute interactions). Comparing HMC against the paper's
+Fermi-Dirac formula at multiple `(T, X_c)` automatically captures:
+- vibrational / anharmonic corrections to ΔE (what the previous "temperature extension"
+  was going to test)
+- solute-solute interaction effects (the dilute-limit breakdown question)
+
+The two effects can be separated cleanly at the experiment level: at `X_c → 0`, any
+HMC/FD disagreement can only come from finite-T corrections, so the dilute end of the
+concentration sweep isolates the temperature effect automatically. A separate
+"temperature-only" sweep would reproduce work the grid scan already does.
+
+**Conclusion:** Temperature is an axis of the core experiment, not a separate extension.
+
+### Why UMA is dropped
+
+Captured in the 2026-03-24 (evening) UMA feasibility analysis above, restated here:
+
+- UMA + Wagih's accelerated ML (SOAP/PCA/k-means → 100 pts → 10⁵ sites) adds ~4 kJ/mol
+  ML noise on top of any potential-accuracy difference, diluting UMA's benefit.
+- Direct UMA relaxation on a full 20³ nm³ polycrystal (~480 K atoms) is ~7.5 days per
+  100 sites on GPU — borderline infeasible at project scale.
+- UMA's true value (alloys with no EAM, multi-component / HEA) is far from the core
+  scientific question of this project.
+- Keeping two loosely-coupled threads (HMC verification + UMA integration) dilutes the
+  headline result. One sharp question is stronger than two weak ones.
+
+### Choice of binary system (tentative): Al-Mg
+
+**Starting system:** Al(Mg), pending advisor confirmation.
+
+Reasoning:
+1. Direct reproducibility of Wagih Fig 2 & Fig 5 (Al(Mg) MAE = 2.4 kJ/mol high-fidelity,
+   4.2 kJ/mol accelerated) — gives an immediate sanity check for the pipeline.
+2. Multiple well-validated EAM potentials on NIST (Mendelev, Mishin, Liu-Adams-Wolfer);
+   LAMMPS `pair_style eam/alloy` reads them directly.
+3. Moderate segregation strength (ΔE range [-60, +40] kJ/mol, X_GB ≈ 30% at X_tot = 5%)
+   — strong enough to observe cleanly, not so strong that the GB saturates and hides the
+   dilute→concentrated crossover.
+4. Cheap: FCC, a = 4.05 Å, ~480 K atoms in 20³ nm³, fast CG relaxation on Euler.
+5. Wagih's Zenodo data (doi:10.5281/zenodo.4107058) contains Al(Mg) → direct comparison
+   of ΔE spectra.
+
+**Backup systems** if Al-Mg runs into potential / convergence issues:
+- Cu-Ag (FCC, strong segregation, classic test case)
+- Ni-Cu (weaker signal but full Wagih data available)
+
+### Revised project roadmap
+
+1. **Baseline pipeline (Al-Mg)** — polycrystal generation → a-CNA GB ID → per-site ΔE
+   for a subset of GB sites → compare to Wagih spectrum.
+2. **HMC on (T, X_c) grid** — measure X_GB and site-resolved P_i.
+3. **Dilute-limit failure analysis** — fit X_GB(X_c) from HMC vs Fermi-Dirac, define
+   breakdown concentration, quantify divergence.
+4. **Physical diagnosis** — solute-solute g(r) at GB, local density vs P_i correlation.
+5. **(Optional)** replicate on a second alloy (Cu-Ag) to check universality.
+
+### Figures status
+
+- `fig_divergence_schematic.{py,png}` — **promoted to core figure** (no longer
+  supplementary); illustrates HMC vs Wagih divergence with increasing X_c.
+- `fig3_uma_integration.png` — retired. Keep in history but excluded from future writeups.
+- `fig1_paper_pipeline.png`, `fig2_hmc_pipeline.png`, `method_overview.png`,
+  `fig_procedure.png` — unchanged, still used.
+
+### Next steps
+
+1. Confirm Al-Mg choice with advisor (and which EAM potential to use)
+2. Get the nanocrystalline structure generation code from advisor
+3. Set up Euler environment (`module load stack/2024-06 openmpi/4.1.6 lammps/...`)
+   and confirm available LAMMPS version
+4. Move large simulation outputs to `/cluster/scratch/cainiu/` (home limit 50 GB)
+5. Run 10-site sanity check: random GB sites → place Mg → CG relax → ΔE in
+   [-60, +40] kJ/mol? If yes, pipeline is working.
+
+## 2026-03-24 (evening) — Environment + UMA Feasibility + Project Directions
+
+### LAMMPS installed
+
+- `conda install -c conda-forge lammps` in gb-seg environment
+- Version: 2024-08-29, Python interface working
+- Key packages: MANYBODY (EAM), MEAM, MC, VORONOI, ML-IAP, USER-MLIP
+- EAM pair styles: eam, eam/alloy, eam/fs
+- Minimize styles: cg, fire, sd
+
+### UMA CPU/GPU benchmark (Al FCC supercells, uma-s-1p1)
+
+**CPU benchmark:**
+
+| N_atoms | Box (Å) | Time (s) | ms/atom |
+|---------|---------|----------|---------|
+| 27      | 12.2    | 0.26     | 9.6     |
+| 125     | 20.3    | 0.90     | 7.2     |
+| 512     | 32.4    | 7.0      | 13.6    |
+| 1,000   | 40.5    | 14.3     | 14.3    |
+
+**GPU benchmark (NVIDIA RTX A6000):**
+
+| N_atoms | Box (Å) | Time (s) | ms/atom |
+|---------|---------|----------|---------|
+| 125     | 20.3    | 0.07     | 0.58    |
+| 512     | 32.4    | 0.24     | 0.47    |
+| 1,000   | 40.5    | 0.45     | 0.45    |
+| 3,375   | 60.8    | 1.50     | 0.45    |
+
+GPU ~32× faster than CPU at 1000 atoms. Scaling ~N^1.05 (near-linear).
+
+**Extrapolation to polycrystal sizes (GPU):**
+
+| System           | N_atoms | 1 force eval | 1 relaxation (~30 CG) | 100 sites |
+|------------------|---------|-------------|----------------------|-----------|
+| Al 10³ nm³       | 60K     | ~27 s       | ~13 min              | ~22 hr    |
+| Al 20³ nm³       | 480K    | ~216 s      | ~1.8 hr              | ~7.5 days |
+| Ni 20³ nm³       | 730K    | ~336 s      | ~2.8 hr              | ~12 days  |
+
+**Conclusion: CPU completely infeasible. GPU marginal for 20³ nm³ (7.5 days for 100 sites).**
+
+### UMA + ML acceleration: marginal value argument
+
+If using Wagih's accelerated model (SOAP + PCA + k-means → 100 training points):
+
+**Error chain analysis:**
+- Potential accuracy (EAM vs UMA vs DFT): ~5–20 kJ/mol difference
+- ML prediction error (100 pts → 10⁵ pts): ~4.2 kJ/mol MAE
+
+The ML prediction step introduces ~4 kJ/mol noise regardless of whether training data
+comes from EAM or UMA. **UMA's accuracy improvement is diluted by ML prediction error.**
+
+Why not use DFT for the 100 points? Because each relaxation is done on the FULL
+supercell (~480K atoms) — DFT is impossible at this scale. So the choice is only
+EAM vs UMA, and the difference may be smaller than the ML noise floor.
+
+**Verdict: UMA + Wagih's accelerated ML pipeline = not worth the extra computation.**
+
+UMA is only valuable when:
+1. Computing ALL sites directly (no ML), on a small system (5³–10³ nm³)
+2. Predicting alloys where NO EAM potential exists
+But small systems can't capture polycrystalline GB statistics adequately.
+
+### Revised project directions — beyond HMC verification
+
+The project should focus on **stress-testing Wagih's framework**, not on replacing EAM.
+
+**① Dilute-limit breakdown boundary (⭐⭐⭐ core contribution)**
+- Wagih assumes independent sites (no solute-solute interaction)
+- MC can test this directly by varying total concentration:
+  X_tot = 1%, 5%, 10%, 20% → compare X_GB^MC vs X_GB^Wagih
+- Define a "critical concentration" above which the framework fails
+- This is the paper's potential key figure
+
+**② Solute-solute spatial analysis (⭐⭐⭐ pairs with ①)**
+- When MC disagrees with Wagih, WHY?
+- Measure: solute clustering at GB, solute-solute g(r), P_i correlation with local density
+- Provides physical basis for correcting Wagih's model
+
+**③ Temperature effects (⭐⭐ easy addition)**
+- Run MC at multiple temperatures (300K–1200K)
+- Compare X_GB(T) curves with Wagih's Fermi-Dirac prediction
+- 0K ΔE_seg may not capture vibrational entropy effects at high T
+
+**④ Active learning for training point selection (⭐⭐ methodological)**
+- Replace k-means (unsupervised) with uncertainty-guided active learning
+- Could achieve same accuracy with 50 points instead of 100
+- Or better accuracy (MAE < 4.2 kJ/mol) with same 100 points
+
+**⑤ Multi-configuration statistics (⭐ supplementary)**
+- Generate 5–10 different Voronoi polycrystal configurations
+- Check if segregation spectra are robust across configurations
+- Quantify configuration-to-configuration variance
+
+**Recommended project story:**
+1. MC verification of Wagih at standard conditions (baseline)
+2. Concentration sweep → dilute-limit failure boundary (core result)
+3. Spatial analysis of solute-solute interactions (physical insight)
+4. Temperature sweep (supplementary)
+5. (Optional) ML improvement / multi-config statistics
+
+### Next steps
+
+1. **Get advisor's nanocrystalline structure generation code**
+2. **Pick alloy system** (likely Al-Mg, pending advisor input)
+3. **Download EAM potential** from NIST repository
+4. **Download Wagih's data** from Zenodo (doi:10.5281/zenodo.4107058) for comparison
+5. **Prepare MC simulation script skeleton** (LAMMPS Python interface)
+
 ## 2026-03-24 — Project initialization
 
 - Created project directory `/scratch/cainiu/UMA/Computational/`
@@ -169,417 +695,3 @@ Multi-component GB segregation is also more physically complex:
 
 Step 3 is the real contribution, but Steps 1–2 are necessary to establish credibility.
 
-## 2026-03-24 (evening) — Environment + UMA Feasibility + Project Directions
-
-### LAMMPS installed
-
-- `conda install -c conda-forge lammps` in gb-seg environment
-- Version: 2024-08-29, Python interface working
-- Key packages: MANYBODY (EAM), MEAM, MC, VORONOI, ML-IAP, USER-MLIP
-- EAM pair styles: eam, eam/alloy, eam/fs
-- Minimize styles: cg, fire, sd
-
-### UMA CPU/GPU benchmark (Al FCC supercells, uma-s-1p1)
-
-**CPU benchmark:**
-
-| N_atoms | Box (Å) | Time (s) | ms/atom |
-|---------|---------|----------|---------|
-| 27      | 12.2    | 0.26     | 9.6     |
-| 125     | 20.3    | 0.90     | 7.2     |
-| 512     | 32.4    | 7.0      | 13.6    |
-| 1,000   | 40.5    | 14.3     | 14.3    |
-
-**GPU benchmark (NVIDIA RTX A6000):**
-
-| N_atoms | Box (Å) | Time (s) | ms/atom |
-|---------|---------|----------|---------|
-| 125     | 20.3    | 0.07     | 0.58    |
-| 512     | 32.4    | 0.24     | 0.47    |
-| 1,000   | 40.5    | 0.45     | 0.45    |
-| 3,375   | 60.8    | 1.50     | 0.45    |
-
-GPU ~32× faster than CPU at 1000 atoms. Scaling ~N^1.05 (near-linear).
-
-**Extrapolation to polycrystal sizes (GPU):**
-
-| System           | N_atoms | 1 force eval | 1 relaxation (~30 CG) | 100 sites |
-|------------------|---------|-------------|----------------------|-----------|
-| Al 10³ nm³       | 60K     | ~27 s       | ~13 min              | ~22 hr    |
-| Al 20³ nm³       | 480K    | ~216 s      | ~1.8 hr              | ~7.5 days |
-| Ni 20³ nm³       | 730K    | ~336 s      | ~2.8 hr              | ~12 days  |
-
-**Conclusion: CPU completely infeasible. GPU marginal for 20³ nm³ (7.5 days for 100 sites).**
-
-### UMA + ML acceleration: marginal value argument
-
-If using Wagih's accelerated model (SOAP + PCA + k-means → 100 training points):
-
-**Error chain analysis:**
-- Potential accuracy (EAM vs UMA vs DFT): ~5–20 kJ/mol difference
-- ML prediction error (100 pts → 10⁵ pts): ~4.2 kJ/mol MAE
-
-The ML prediction step introduces ~4 kJ/mol noise regardless of whether training data
-comes from EAM or UMA. **UMA's accuracy improvement is diluted by ML prediction error.**
-
-Why not use DFT for the 100 points? Because each relaxation is done on the FULL
-supercell (~480K atoms) — DFT is impossible at this scale. So the choice is only
-EAM vs UMA, and the difference may be smaller than the ML noise floor.
-
-**Verdict: UMA + Wagih's accelerated ML pipeline = not worth the extra computation.**
-
-UMA is only valuable when:
-1. Computing ALL sites directly (no ML), on a small system (5³–10³ nm³)
-2. Predicting alloys where NO EAM potential exists
-But small systems can't capture polycrystalline GB statistics adequately.
-
-### Revised project directions — beyond HMC verification
-
-The project should focus on **stress-testing Wagih's framework**, not on replacing EAM.
-
-**① Dilute-limit breakdown boundary (⭐⭐⭐ core contribution)**
-- Wagih assumes independent sites (no solute-solute interaction)
-- MC can test this directly by varying total concentration:
-  X_tot = 1%, 5%, 10%, 20% → compare X_GB^MC vs X_GB^Wagih
-- Define a "critical concentration" above which the framework fails
-- This is the paper's potential key figure
-
-**② Solute-solute spatial analysis (⭐⭐⭐ pairs with ①)**
-- When MC disagrees with Wagih, WHY?
-- Measure: solute clustering at GB, solute-solute g(r), P_i correlation with local density
-- Provides physical basis for correcting Wagih's model
-
-**③ Temperature effects (⭐⭐ easy addition)**
-- Run MC at multiple temperatures (300K–1200K)
-- Compare X_GB(T) curves with Wagih's Fermi-Dirac prediction
-- 0K ΔE_seg may not capture vibrational entropy effects at high T
-
-**④ Active learning for training point selection (⭐⭐ methodological)**
-- Replace k-means (unsupervised) with uncertainty-guided active learning
-- Could achieve same accuracy with 50 points instead of 100
-- Or better accuracy (MAE < 4.2 kJ/mol) with same 100 points
-
-**⑤ Multi-configuration statistics (⭐ supplementary)**
-- Generate 5–10 different Voronoi polycrystal configurations
-- Check if segregation spectra are robust across configurations
-- Quantify configuration-to-configuration variance
-
-**Recommended project story:**
-1. MC verification of Wagih at standard conditions (baseline)
-2. Concentration sweep → dilute-limit failure boundary (core result)
-3. Spatial analysis of solute-solute interactions (physical insight)
-4. Temperature sweep (supplementary)
-5. (Optional) ML improvement / multi-config statistics
-
-### Next steps
-
-1. **Get advisor's nanocrystalline structure generation code**
-2. **Pick alloy system** (likely Al-Mg, pending advisor input)
-3. **Download EAM potential** from NIST repository
-4. **Download Wagih's data** from Zenodo (doi:10.5281/zenodo.4107058) for comparison
-5. **Prepare MC simulation script skeleton** (LAMMPS Python interface)
-
-## 2026-04-22 — Scope narrowed: drop UMA, single focus on dilute-limit breakdown
-
-### Direction change
-
-The project is narrowed to **one** central scientific question:
-
-> At what solute concentration does Wagih's independent-site (dilute-limit) assumption
-> break down, and what is the physical mechanism of the breakdown?
-
-**Removed from scope:**
-- UMA MLIP integration (previously Phase 2 / Extension ⑦ / fig3)
-- "Systematic temperature effects" as a standalone extension
-
-**Still in scope:**
-- HMC scan on a `(T, X_c)` grid for the chosen binary system
-- Comparison of `X_GB(T, X_c)` from HMC vs Fermi-Dirac prediction from 0 K ΔE spectrum
-- Solute-solute spatial analysis (`g(r)`, local-density vs `P_i` correlation) to diagnose
-  where and why the framework fails
-
-### Why temperature is no longer a separate direction
-
-Advisor's point: HMC is by construction a finite-T simulation — it samples the Boltzmann
-distribution at temperature T with all degrees of freedom (vibrations, thermal expansion,
-GB relaxation, solute-solute interactions). Comparing HMC against the paper's
-Fermi-Dirac formula at multiple `(T, X_c)` automatically captures:
-- vibrational / anharmonic corrections to ΔE (what the previous "temperature extension"
-  was going to test)
-- solute-solute interaction effects (the dilute-limit breakdown question)
-
-The two effects can be separated cleanly at the experiment level: at `X_c → 0`, any
-HMC/FD disagreement can only come from finite-T corrections, so the dilute end of the
-concentration sweep isolates the temperature effect automatically. A separate
-"temperature-only" sweep would reproduce work the grid scan already does.
-
-**Conclusion:** Temperature is an axis of the core experiment, not a separate extension.
-
-### Why UMA is dropped
-
-Captured in the 2026-03-24 (evening) UMA feasibility analysis above, restated here:
-
-- UMA + Wagih's accelerated ML (SOAP/PCA/k-means → 100 pts → 10⁵ sites) adds ~4 kJ/mol
-  ML noise on top of any potential-accuracy difference, diluting UMA's benefit.
-- Direct UMA relaxation on a full 20³ nm³ polycrystal (~480 K atoms) is ~7.5 days per
-  100 sites on GPU — borderline infeasible at project scale.
-- UMA's true value (alloys with no EAM, multi-component / HEA) is far from the core
-  scientific question of this project.
-- Keeping two loosely-coupled threads (HMC verification + UMA integration) dilutes the
-  headline result. One sharp question is stronger than two weak ones.
-
-### Choice of binary system (tentative): Al-Mg
-
-**Starting system:** Al(Mg), pending advisor confirmation.
-
-Reasoning:
-1. Direct reproducibility of Wagih Fig 2 & Fig 5 (Al(Mg) MAE = 2.4 kJ/mol high-fidelity,
-   4.2 kJ/mol accelerated) — gives an immediate sanity check for the pipeline.
-2. Multiple well-validated EAM potentials on NIST (Mendelev, Mishin, Liu-Adams-Wolfer);
-   LAMMPS `pair_style eam/alloy` reads them directly.
-3. Moderate segregation strength (ΔE range [-60, +40] kJ/mol, X_GB ≈ 30% at X_tot = 5%)
-   — strong enough to observe cleanly, not so strong that the GB saturates and hides the
-   dilute→concentrated crossover.
-4. Cheap: FCC, a = 4.05 Å, ~480 K atoms in 20³ nm³, fast CG relaxation on Euler.
-5. Wagih's Zenodo data (doi:10.5281/zenodo.4107058) contains Al(Mg) → direct comparison
-   of ΔE spectra.
-
-**Backup systems** if Al-Mg runs into potential / convergence issues:
-- Cu-Ag (FCC, strong segregation, classic test case)
-- Ni-Cu (weaker signal but full Wagih data available)
-
-### Revised project roadmap
-
-1. **Baseline pipeline (Al-Mg)** — polycrystal generation → a-CNA GB ID → per-site ΔE
-   for a subset of GB sites → compare to Wagih spectrum.
-2. **HMC on (T, X_c) grid** — measure X_GB and site-resolved P_i.
-3. **Dilute-limit failure analysis** — fit X_GB(X_c) from HMC vs Fermi-Dirac, define
-   breakdown concentration, quantify divergence.
-4. **Physical diagnosis** — solute-solute g(r) at GB, local density vs P_i correlation.
-5. **(Optional)** replicate on a second alloy (Cu-Ag) to check universality.
-
-### Figures status
-
-- `fig_divergence_schematic.{py,png}` — **promoted to core figure** (no longer
-  supplementary); illustrates HMC vs Wagih divergence with increasing X_c.
-- `fig3_uma_integration.png` — retired. Keep in history but excluded from future writeups.
-- `fig1_paper_pipeline.png`, `fig2_hmc_pipeline.png`, `method_overview.png`,
-  `fig_procedure.png` — unchanged, still used.
-
-### Next steps
-
-1. Confirm Al-Mg choice with advisor (and which EAM potential to use)
-2. Get the nanocrystalline structure generation code from advisor
-3. Set up Euler environment (`module load stack/2024-06 openmpi/4.1.6 lammps/...`)
-   and confirm available LAMMPS version
-4. Move large simulation outputs to `/cluster/scratch/cainiu/` (home limit 50 GB)
-5. Run 10-site sanity check: random GB sites → place Mg → CG relax → ΔE in
-   [-60, +40] kJ/mol? If yes, pipeline is working.
-
-## 2026-04-22 (afternoon) — Cu-Ni starting system + concrete HMC plan
-
-### Example code review (from advisor)
-
-Two reference archives received and extracted under `project/data/examples/`:
-
-**`cra_example/`** — W bulk Frenkel-insertion (CRA) simulation, NOT GB segregation.
-Irrelevant in physics, but useful as a LAMMPS scripting template:
-- variable/loop/minimize structure for iterative MC-like operations
-- `fix box/relax` for zero-stress relaxation
-- random atom selection via LAMMPS `random()` variable
-
-**`nc_swap_CuNi/`** — directly aligned with our project. Complete 3-step pipeline:
-1. `create_nanocrystal.py` — 2D **columnar** FCC nanocrystal, 4 grains, `[110]×[112]×[111]`
-   orientation, ~5 × 200 × 173 Å box, ~14,782 Cu atoms. Grains rotated by random
-   angles around x. Removes too-close atom pairs at GBs via `scipy.spatial.pdist`.
-2. `in_ncCuNi_equilibriate.lammps` — loads pure Cu NC, uses
-   `set group all type/fraction 2 0.025` to convert 2.5% of atoms to Ni, CG-minimizes,
-   then NVT 300 K for 10 ps. Outputs `initial_lattice_300K.lammps`.
-3. `in_ncCuNi_hybrid_md-mc.lammps` — **HMC loop** implemented via LAMMPS built-in
-   `fix atom/swap 100 10 <seed> 300.0 ke yes types 1 2` (every 100 MD steps, attempt
-   10 Metropolis type 1↔2 swaps at T=300 K).
-
-### Key simplifier: `fix atom/swap`
-
-LAMMPS has a built-in semi-grand-canonical swap fix. We do **not** need to write our
-own Python MC loop — `fix atom/swap` interleaves Metropolis swaps with NVT MD natively.
-This collapses the previous "MC simulation script skeleton" step into configuring one
-LAMMPS input line.
-
-### Scale: columnar vs 3D
-
-The example uses ~15 k atoms (2D columnar, 4 grains). Wagih's paper uses ~500 k atoms
-(3D Voronoi, 16 grains, 20³ nm³). Columnar is ~30× cheaper per HMC step and sufficient
-for validating the pipeline and mapping the X_GB vs X_c curve. 3D may be needed later
-for publication-grade statistics on the ΔE spectrum, but is not required for the
-dilute-limit breakdown result.
-
-### System choice: Cu-Ni first, Al-Mg later (if time allows)
-
-**Revised from earlier today**: start with **Cu-Ni** (not Al-Mg) because the advisor's
-example includes:
-- working structure generation script (columnar NC)
-- validated `Cu_Ni_Fischer_2018.eam.alloy` potential (Fischer et al., Acta Mater. 2019)
-- complete equilibration + HMC input decks
-
-Al-Mg remains the preferred target for direct Wagih Fig 2/5 comparison, but Cu-Ni gets
-us to a working HMC result fastest. Al-Mg becomes a Phase B goal after Cu-Ni validates.
-
-**Trade-off accepted**: Wagih's Ni(Cu) data is less featured in the paper (μ ≈ -2,
-σ ≈ 8, X_GB ≈ 15 % at 5 % total) than Al(Mg), but the Zenodo dataset should still have
-per-site ΔE for Ni(Cu) for direct spectrum comparison.
-
-### Execution plan (phases)
-
-**Phase 0 — Euler environment** (day 0)
-- Set up `/cluster/scratch/cainiu/nc_CuNi_HMC/` (home 50 GB limit)
-- Load modules: `stack/2024-06`, `openmpi/4.1.6`, `lammps/<version>` (confirm on Euler)
-- Verify `lmp -h` and `lmp -i in_ncCuNi_equilibriate.lammps -l log.test` runs
-
-**Phase 1 — Reproduce example exactly** (day 1–2)
-- Copy `nc_swap_CuNi/` to scratch, run all three steps unchanged
-- Compare our `log_mcmd.lammps` against the supplied one (PE trajectory, swap stats)
-- Visualize `dump_hybrid_md-mc.atom` in OVITO — confirm 4-grain columnar structure and
-  visible Ni segregation to GBs
-
-**Phase 2 — GB site identification** (day 2–3)
-- Apply a-CNA via OVITO Python or `ase.spacegroup.symmetrize` to
-  `initial_lattice_relaxed.lammps` (pure Cu, before adding Ni) — get boolean GB mask
-- Record GB site fraction `f_gb` and number of GB sites N_GB
-
-**Phase 3 — Per-site ΔE spectrum** (day 3–5)
-- For each GB site (sample ≥200 sites if N_GB is large):
-  - Substitute 1 Cu → Ni, CG relax, record ΔE_seg = E_GB^Ni − E_bulk^Ni
-  - Reference E_bulk^Ni: 1 Ni substituted at an interior bulk site, CG relax
-- Build ΔE histogram, fit skew-normal `F(ΔE) = (μ, σ, α)`
-- Compare against Wagih's Ni(Cu) spectrum
-
-**Phase 4 — HMC concentration scan** (week 2)
-- X_c ∈ {0.005, 0.01, 0.02, 0.05, 0.10, 0.20} at T = 300 K
-- Per run: equilibrate (Phase B style, 10 ps NVT) → HMC (100 ps, `atom/swap` every 100
-  steps × 10 attempts) → measure X_GB from final frame averaged over last 10 ps
-- Track swap acceptance rate and PE convergence to set run length adaptively
-
-**Phase 5 — Compare to Fermi-Dirac prediction** (week 2–3)
-- For each X_c, compute
-  `X_GB^FD(X_c, T) = (1/N_GB) Σ_i 1/[1 + ((1-X_c)/X_c) exp(ΔE_i/kT)]`
-  using Phase 3 ΔE spectrum
-- Plot X_GB^HMC vs X_GB^FD — define breakdown concentration as first X_c where
-  disagreement exceeds ML noise floor (~4 kJ/mol equivalent) or a fixed ratio threshold
-
-**Phase 6 — Diagnostics** (week 3, if breakdown observed)
-- Solute-solute g(r) at GB atoms
-- Site occupation `P_i` vs local Ni density — look for cooperative / anti-cooperative
-  signatures
-- Temperature axis: repeat Phase 4 at T = 600 K to probe finite-T contribution
-
-### Git housekeeping
-
-- `*.atom` added to `.gitignore` (LAMMPS dump trajectories are large and regenerable)
-- Original zip archives `cra_example.zip` and `nc_swap_simulation_CuNi.zip` removed —
-  content is now unpacked under `project/data/examples/`, git history is authoritative
-- `project/docs/project presentation.pptx` added — documents current scope and is a
-  shared artifact for the team
-- UMA-related files moved to `{docs,scripts}/archive/` (not deleted — kept as history)
-
-## 2026-04-22 (evening) — Commit to 3D Voronoi and switch to Al-Mg
-
-### Supersedes
-
-- The 2026-04-22 afternoon decision to "start with 2D columnar Cu-Ni and scale to 3D later".
-- HMC pipeline itself is unchanged (LAMMPS `fix atom/swap`, a-CNA GB identification,
-  per-site ΔE, `(T, X_c)` scan). What's being replaced is the **structure generator**, the
-  **equilibration protocol**, and the **alloy system**.
-
-### 2D columnar → 3D Voronoi (committed)
-
-The advisor's `create_nanocrystal.py` builds a 2D columnar polycrystal
-(~5 × 200 × 173 Å, 4 grains rotated only around `[110]`, ~15 k atoms). Physical limits:
-
-- GB character is restricted to a ~2D slice of the full 5D macroscopic GB character space
-  — all boundaries are pure tilt around `[110]`; no twist, no mixed character.
-- No triple points, no quadruple points (only triple *lines* along the ~5 Å thin x axis).
-- ΔE histogram is artificially narrowed vs Wagih's 3D polycrystal; solute-solute g(r) at
-  GB lacks triple-line / quadruple-point enrichment sites.
-- Quantitative comparison to Wagih Fig 2 / Fig 5 is impossible because those are 3D
-  (20³ nm³, 16 grains).
-
-These all directly weaken the headline figure (HMC X_GB vs Fermi-Dirac X_GB): the
-dilute-limit breakdown plausibly originates at GB heterogeneity / special sites absent from
-columnar geometry.
-
-**Decision:** skip the 2D pipeline-validation phase entirely and go straight to 3D. The
-only things 2D would have validated that 3D would not (LAMMPS input-deck syntax,
-`fix atom/swap` parameters) are trivial to check in isolation. The real risks — Voronoi
-tessellation quality, Wagih-style annealing convergence, GB identification at scale — only
-manifest in 3D and have to be debugged there anyway.
-
-### Consequences of going 3D (what changes, what stays)
-
-Reusable from advisor's example:
-- `Cu_Ni_Fischer_2018.eam.alloy` potential file (only if we keep Cu-Ni — see below).
-- HMC input-deck skeleton (`fix atom/swap 100 10 <seed> T ke yes types 1 2` is
-  system-agnostic) and thermo/dump conventions.
-
-Must be rebuilt:
-- **Structure generator** — replace `create_nanocrystal.py` with Atomsk Voronoi
-  tessellation (paper ref 71) or a custom `scipy.spatial.Voronoi` script. Atomsk is the
-  default since it matches Wagih exactly.
-- **Equilibration protocol** — replace the CG + 10 ps NVT at 300 K in
-  `in_ncCuNi_equilibriate.lammps` with Wagih's protocol (paper_notes.md §1): anneal at
-  0.3–0.5 T_melt for 250 ps, slow cool at 3 K/ps to 0 K, final CG. The 10 ps recipe is
-  adequate for a columnar structure whose GBs have already been cleaned by `pdist`-based
-  close-pair removal, but is insufficient for fresh Voronoi cells whose GBs start with
-  large geometric distortion and high strain energy.
-
-### Cu-Ni → Al-Mg
-
-Cu-Ni was picked on 2026-04-22 afternoon specifically because the advisor shipped a
-ready-to-run 2D structure generator + equilibration deck. With both being thrown out, the
-only remaining Cu-Ni advantage is the Fischer 2018 EAM file — a single potential
-downloadable from NIST in seconds. The tradeoff flips:
-
-| Criterion | Cu-Ni | Al-Mg |
-|-----------|-------|-------|
-| Wagih paper coverage | Table 1 row + Fig 4/5 | Fig 2 headline + MAE benchmark |
-| Spectrum params | μ ≈ −2, σ ≈ 8 kJ/mol | μ ≈ −2, σ ≈ 4, α ≈ −0.4 kJ/mol |
-| ΔE range | ~60 kJ/mol | ~100 kJ/mol |
-| X_GB at 5% X_c | ~15% | ~30% |
-| Atoms in 20³ nm³ | ~680 k (a=3.61 Å) | ~481 k (a=4.05 Å, ~30% cheaper) |
-| NIST EAM options | Fischer 2018 | Mendelev 2014, Mishin, Liu-Adams-Wolfer |
-| Zenodo per-site ΔE | Ni(Cu) present | Al(Mg) present, directly matches Fig 2 |
-
-**Decisive factor — signal strength:** the headline figure is X_GB^HMC vs X_GB^FD as a
-function of X_c; the breakdown is a *deviation* of X_GB^HMC from the Fermi-Dirac prediction.
-At 5% X_c, Al(Mg) reaches ~30% X_GB vs ~15% for Ni(Cu), giving 2× the baseline and 2× the
-dynamic range for the deviation to be detected above HMC statistical noise. Al-Mg also
-maps onto Wagih Fig 2 at the level of fitted skew-normal parameters `(μ, σ, α)`, not just
-a scalar MAE — much more stringent comparison.
-
-### Revised scale plan
-
-| Stage | Box | Grains | Atoms (Al) | HMC / (T, X_c) (EAM, 16–32 core MPI) |
-|-------|-----|--------|------------|-------------------------------------|
-| Prototype | 10³ nm³ | 4–8 | ~60 k | ~10 min |
-| Production | 20³ nm³ | 16 | ~481 k | ~1–2 h |
-
-Prototype stage exists to debug Voronoi quality, the Wagih-style annealing protocol, and
-GB identification on a system small enough that iteration is fast. Production mirrors
-Wagih exactly for direct figure-by-figure comparison.
-
-### Housekeeping
-
-- `project/data/examples/cra_example/` removed (W CRA Frenkel-insertion template; its only
-  pedagogical value was the hand-written MC loop pattern, which `fix atom/swap` replaces).
-
-### Next steps (revised)
-
-1. Install / locate Atomsk on Euler (check module availability first).
-2. Download Al-Mg EAM potential from NIST (Mendelev 2014, the Wagih default).
-3. Write `scripts/generate_polycrystal.py` — Atomsk Voronoi → LAMMPS data file,
-   parameterized by box size, grain count, lattice parameter.
-4. Extend equilibration deck to Wagih-style anneal
-   (0.3–0.5 T_melt × 250 ps → 3 K/ps cool to 0 K → CG).
-5. Run the prototype end-to-end (10³ nm³): structure → anneal → a-CNA GB ID →
-   visualize in OVITO → confirm GB site count and GB fraction are sensible
-   (expected f_gb ≈ 10–20% for 10 nm grain size).
