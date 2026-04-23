@@ -2,6 +2,134 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-04-23 (evening) — A-pipeline end-to-end; Phase 3 sampling driver
+
+Stood up the full "polycrystal → Wagih-anneal → GB mask → per-site ΔE"
+chain on the 10³ nm³ / 8-grain Al prototype. First Phase 3 sample
+completed end-to-end (job `64589990`, **3.5 min wall on 16 cores**).
+Results at `/cluster/scratch/cainiu/prototype_AlMg_100A/delta_e_results.npz`
+(not committed — `*.npz` gitignored).
+
+**First ΔE_seg prototype spectrum (N_GB = 50, N_bulk_ref = 5, seed = 42)**:
+- Bulk reference `E_bulk^Mg = −200223.604 eV`, std 0.009 eV across
+  5 refs — baseline noise is ~1 meV, well below the segregation signal.
+- CG convergence: all 55 sites hit `energy tolerance` (clean).
+- **ΔE_seg range [−45.6, +19.6] kJ/mol**, mean −6.1, median −7.0.
+- Sign and negative-skew match expectation (Mg segregates to Al GBs).
+- Narrower than Wagih's Al(Mg) range [−60, +40] — expected for a
+  50-site undersample vs Wagih's 10⁴; scaling to N_GB ≥ 500 should
+  widen both tails. This is the first ΔE number on Al-Mg from our
+  own pipeline and establishes the order of magnitude.
+
+### Mendelev potential year correction (2014 → 2009)
+
+Previous entries labelled the Wagih-default Al-Mg EAM as "Mendelev 2014".
+The NIST entry actually cites Mendelev, Asta, Rahman & Hoyt, *Philos. Mag.*
+89, 3269–3285 (**2009**). The downloaded file
+`project/data/potentials/Al-Mg.eam.fs` (2.3 MB, `pair_style eam/fs`,
+elements `Al Mg`) is the correct one — the year in the prior CHANGELOG
+was a transcription error, not a different potential.
+
+### Wagih-style anneal (`anneal_AlMg.lammps` + `submit_anneal.sh`)
+
+Full protocol per `docs/paper_notes.md §1`:
+1. CG #0 (absorb close-pair strain from fresh Voronoi construction)
+2. NVT ramp 1 K → T_hold over 5 ps
+3. **NPT hold at T_hold for 250 ps @ 0 bar**
+4. NPT cool T_hold → 1 K at 3 K/ps
+5. Final CG under `fix box/relax iso 0.0`
+
+**T_hold = 373 K ≈ 0.4 × T_melt_Al (933 K)**. Wagih allows 0.3–0.5 ×
+T_melt; 0.4 is the middle. 0.3 risks insufficient GB mobility; 0.5 risks
+grain growth at the 100 Å prototype scale (finite-size). Deck documents
+both extremes so 280 K / 467 K reruns are a one-`-var` change.
+
+Tuning choices vs an earlier tighter draft:
+- CG tolerances `1e-6/1e-8` (initial) and `1e-8/1e-10` (final) — loosened
+  from `1e-10/1e-12` to stay inside the wall-time budget; Wagih is silent
+  on tolerance and `1e-8` is industry standard for 0 K static relax.
+- `neighbor 1.0 bin; neigh_modify every 10` — 5–10% faster at 300+ K MD
+  than LAMMPS metal defaults, no correctness loss.
+- `restart 50000 *.rst1 *.rst2` — double-buffered checkpoint every 50 ps
+  so a killed job is resumable.
+
+**Prototype result (job 64567957, 85 min wall on 16 cores)**:
+- N_atoms = 59 224, box 100.77 Å at 373 K → 100.35 Å at 0 K (thermal
+  contraction 0.4 %)
+- PE −3.144 → −3.358 eV/atom (approaches Mendelev Al bulk −3.36; residual
+  ~0.03 eV/atom is GB excess energy, expected)
+- `poly_Al_100A_8g_annealed.lmp` is now the reusable artifact for every
+  downstream phase.
+
+### GB identification (`scripts/gb_identify.py`)
+
+Pure numpy module, shells out to LAMMPS `compute cna/atom` once — no OVITO
+/ ASE dependency so teammates can `import gb_identify` straight from
+`myenv`. Returns `(mask, info)`; CLI writes `gb_mask.npy`, `gb_info.json`,
+and a position-carrying `gb_cna.dump` (OVITO can colour-by-CNA without
+reloading the data file).
+
+**Not adaptive CNA**: LAMMPS' `compute cna/atom` is the conventional
+fixed-cutoff variant (we use `0.854 a_fcc = 3.459 Å` for Al). For the
+bulk/GB binary we need, this is equivalent to OVITO's a-CNA; for future
+fine-grained GB-character analysis we'd switch to OVITO's
+`CommonNeighborAnalysisModifier` or LAMMPS `compute ptm/atom`.
+
+**Strict Wagih semantics**: bulk = parent structure only. In our FCC Al
+system, any HCP-labelled atom (stacking fault, **SF**) gets flagged as
+GB. On the annealed prototype this is 562 atoms (≈ 3% of n_gb), expected
+given Al's low SF energy, and quantitatively negligible for downstream
+ΔE_seg statistics. Docstring explicitly documents this semantic.
+
+**Prototype result on annealed polycrystal**: `f_gb = 28.7 %`
+(42 232 FCC / 16 430 Other / 562 HCP). Landed at the top of the expected
+20–30 % window; 10 nm prototype grains give higher f_gb than Wagih's
+20 nm / ~15 % due to finite-size effects, not a bug. Pre-anneal was
+38.9 %; the 10-point drop confirms the anneal protocol relaxed the
+Voronoi geometric distortion as intended.
+
+### Phase 3 ΔE_seg sampling (`scripts/sample_delta_e.py` + `submit_delta_e.sh`)
+
+Python driver + embedded LAMMPS deck template. For each sampled site:
+one LAMMPS process does `read_data annealed → set atom <id> type 2 → CG
+→ print pe`. One-process-per-site (startup overhead ~2 s × 55 sites
+≈ 2 min, negligible next to CG) to keep state cleanly isolated between
+substitutions — avoids snapshot/restore complexity of a single-session
+loop. CG tolerances `1e-8/1e-10`, tighter than the anneal — ΔE_seg can
+be < 1 kJ/mol so sub-meV numerics matter.
+
+**Bulk reference divergence from Wagih**: Wagih uses "solute in a 6 nm
+sphere of pure solvent". Our 100 Å prototype box cannot fit a 6 nm
+sphere, so we take the **mean of 5 bulk-ref sites** chosen to sit ≥ 8 Å
+(≈ 2 FCC NN shells) from any GB atom. σ/√5 of E_bulk gives ~0.4 kJ/mol
+baseline uncertainty — small against Al(Mg) ΔE range [−60, +40] kJ/mol.
+If/when we move to 20³ nm³ production, we can switch to the 6 nm-sphere
+reference exactly.
+
+**Checkpointing**: per-site results stream to `_results.csv` in work_dir
+as soon as each LAMMPS finishes; `_run_meta.json` records
+seed + sampled ids and verifies mismatches on resume. Prevents losing
+40/55 sites if a SLURM job hits its time cap. Designed to scale to the
+500+ sites we'll need for production skew-normal fit.
+
+**`--mpi-cmd mpirun` (not srun) inside sbatch**: the driver fires one
+LAMMPS per site, i.e. nested srun inside the outer SLURM allocation,
+which on recent SLURM can trigger "job step creation temporarily
+disabled". openmpi/4.1.6 `mpirun` integrates with SLURM via PMI and
+avoids nested-step issues. The Python driver auto-detects (srun inside
+SLURM, mpirun on login node) for interactive use.
+
+### Housekeeping
+
+- `project/data/potentials/` added with Mendelev 2009 `Al-Mg.eam.fs`
+  (kept in-repo — stable, referenced exactly, teammates don't need to
+  fetch from NIST).
+- Stray SLURM `.out` / `.err` files (from the early anneal submit with
+  relative `--output=%x-%j.out`) moved to scratch; both sbatch scripts
+  now use absolute scratch paths; `.gitignore` gains
+  `*-[0-9]*.{out,err}` + `slurm-*.{out,err}` as a safety net.
+- No changes to the generator, UMA archive, or earlier decks.
+
 ## 2026-04-23 — 3D polycrystal generator implemented (FCC / BCC / HCP)
 
 Added `scripts/generate_polycrystal.py` — parametric 3D Voronoi polycrystal

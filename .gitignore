@@ -21,6 +21,12 @@ log.lammps
 *.lammpstrj
 *.atom
 
+# SLURM job logs (stray if sbatch --output uses a relative path)
+slurm-*.out
+slurm-*.err
+*-[0-9]*.out
+*-[0-9]*.err
+
 # Output data (large files)
 output/
 *.h5
