@@ -2,6 +2,318 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-04-24 (late 3) — Phase 3.5 A+B: 20³ nm³ production anneal + GB mask
+
+Scaled the pipeline from the 10³ nm³ / 8-grain prototype to the Wagih-match
+20³ nm³ / 16-grain production box, aiming to rule in or rule out finite-size
+as the cause of our 20% offset from Wagih's Mg¹⁵ target (μ=9, σ=23, α=−2.3).
+Same potential (Mendelev 2009, Al-Mg.eam.fs), same anneal protocol, same
+VELOCITY_SEED — **only box size and grain count differ from prototype**.
+
+### Structure generation (`scripts/generate_polycrystal.py`)
+
+- `python generate_polycrystal.py --structure fcc --box 200 --grains 16
+  --lattice-a 4.05 --structure-seed 1`
+- **475,715 atoms** (perfect-lattice 481,709; 1.2% close-pair deficit —
+  tighter than prototype's 1.6%, as expected for larger grains).
+- Stored at `/cluster/scratch/cainiu/production_AlMg_200A/poly_Al_200A_16g.lmp`.
+
+### Timing calibration (job 64663404, 32 cores)
+
+Before committing to a multi-hour anneal we measured ns/day on a 1 ps NVT
+trial: **1.740 ns/day on 32 cores**, 49.7 s / 1000 steps, 91% pair / 4%
+comm / 3% neigh — communication overhead low, strong-scaling headroom
+clearly available. 32 cores / 8 h chosen for the real anneal.
+
+### Wagih-style anneal (job 64665121, `submit_anneal_200A.sh`)
+
+- 32 cores, walltime **4:52:22** (predicted 5.5 h; came in 12% under).
+- Performance during hold: 1.85 ns/day (consistent with calibration).
+- Thermo evolution (key samples):
+  - CG #0:        PE = −1,610,632 eV, Lx = 200.00 Å, T = 0 K
+  - 5 ps ramp end: PE = −1,585,022, Lx = 200.00, T ≈ 375 K
+  - 250 ps hold end: PE = −1,589,233, Lx = **201.36 Å** (thermal expansion 0.68%)
+  - 124 ps cool end: PE = −1,613,047, Lx = **199.78 Å** (cooled below initial)
+  - Final CG + box relax: **PE/atom = −3.391 eV/atom**, Lx = 199.78 Å
+- vs prototype PE/atom = −3.358 eV/atom → production is 0.033 eV/atom more
+  negative, consistent with lower GB fraction (less GB excess energy per
+  atom) at the larger box.
+- **Artifact**: `poly_Al_200A_16g_annealed.lmp` (62 MB) — input for
+  Phase 3.5 B/C. The 1.4 GB `*.dump` trajectory is gitignored and will be
+  deleted once OVITO inspection (if any) is done.
+
+### GB identification (job 64698536, `submit_gb_identify_200A.sh`)
+
+Ran `gb_identify.py` on the annealed structure (serial LAMMPS, 2:32 wall,
+8 GB mem). First submission 64698397 **failed** because the script's
+`--lmp` argument only accepts a single binary path (uses `shutil.which`),
+not `mpirun -n N lmp`. Fix: drop MPI, run LAMMPS serial. `compute cna/atom`
+on 475k atoms is ~2 min serial, so no reason to MPI this.
+
+**CNA classification** (fixed cutoff `0.854 × 4.05 = 3.459 Å`, parent FCC):
+
+| label  | atoms   | fraction | role              |
+|--------|---------|----------|-------------------|
+| FCC    | 386,673 | 81.28%   | bulk              |
+| HCP    | 2,095   | 0.44%    | stacking faults (→ GB per Wagih def) |
+| Other  | 86,947  | 18.28%   | GB core           |
+| BCC/ico/unknown | 0 | 0%     | —                 |
+
+**f_gb = 18.72%** (N_GB = 89,042).
+
+### Scaling validation: `f_gb ∝ 3t/d` holds
+
+| system           | box     | grains | f_gb   | HCP fraction |
+|------------------|---------|--------|--------|--------------|
+| prototype        | 10³ nm³ | 8      | 28.7%  | 0.95%        |
+| **production**   | **20³ nm³** | **16** | **18.7%** | **0.44%** |
+| Wagih            | 20³ nm³ | 16     | ~15%   | ~1%          |
+
+Box ×2 → mean grain size ×1.59 (√[8/2] via V/N_grain) → f_gb should drop
+by ×1.59. Measured 28.7/18.7 = 1.53 ✓. HCP dropping by half also expected
+— larger grains absorb initial Voronoi distortion more completely.
+
+**Residual 3.7 percentage points above Wagih's 15%** is not chased: plausible
+sources are (i) LAMMPS fixed-cutoff CNA vs OVITO adaptive CNA on high-
+distortion GB cores, (ii) `structure_seed` realization variance ±1–2%,
+(iii) minor anneal-protocol differences. The ΔE spectrum shape (μ, σ, α)
+is set per-site, not by N_GB, so a 3.7% offset in mask size only changes
+normalization, not the fit parameters we want to compare against Wagih Mg¹⁵.
+
+### Artifacts
+
+- `gb_mask_200A.npy` (475k bool)
+- `gb_info_200A.json` (summary above)
+- `gb_cna_200A.dump` (per-atom CNA label, OVITO-ready)
+
+### Next: Phase 3.5 C — N_GB=500 ΔE sampling on production box (in flight)
+
+Submitted job **`64699296`** (`submit_delta_e_200A.sh`) — 16 cores, 6 h
+wall budget (predicted ~3.5 h), same seed=42, same (N_GB=500, N_bulk=10)
+recipe as prototype. Output → `delta_e_results_n500_200A.npz` in scratch.
+On completion: re-run `fit_delta_e_spectrum.py` to get production (μ, σ,
+α) and compare against Wagih Mg¹⁵ (μ=9, σ=23, α=−2.3, R²=1.00).
+
+## 2026-04-24 (late 2) — Conceptual background: the Fermi-Dirac model
+
+Locked down terminology + the assumption stack behind Wagih's `X_GB(T, X_c)`
+predictor, since Phase 4's entire purpose is to test where this predictor
+breaks. Kept here so future sessions don't re-derive it.
+
+### Original Fermi-Dirac (quantum statistics)
+
+For a fermion state at energy ε, occupation at `(T, μ)` is
+`f(ε) = 1 / [1 + exp((ε − μ)/kT)]`. Derived from Pauli exclusion
+("at most one fermion per state") plus Boltzmann weighting. Properties:
+`ε ≪ μ → f → 1`; `ε ≫ μ → f → 0`; `ε = μ → f = 0.5`; higher T widens the
+transition region around ε = μ.
+
+### Mapping to GB segregation (Wagih eq. 2)
+
+| Fermion gas      | GB segregation                              |
+|------------------|---------------------------------------------|
+| state i          | GB site i                                   |
+| energy ε_i       | segregation energy ΔE_i = E_GB^Mg(i) − E_bulk^Mg |
+| chemical potential μ | set by bulk solute concentration X_c    |
+| occupation f_i ∈ {0,1} | site i occupied by Mg (else by Al)    |
+| Pauli exclusion  | geometric one-atom-per-site constraint      |
+
+Wagih's predictor:
+
+```
+P_i(T, X_c) = 1 / [1 + ((1 − X_c)/X_c) · exp(ΔE_i / kT)]
+X_GB(T, X_c) = (1/N_GB) · Σ_i P_i(T, X_c)
+```
+
+The `(1 − X_c)/X_c` replaces `exp(−μ/kT)` — it's the Mg/Al concentration
+ratio from a semi-grand-canonical bookkeeping ("put Mg in GB ⇔ take Al out
+to bulk"). Whole sum collapses to a formula evaluation: one (T, X_c)
+prediction is ~microseconds, vs. days of MC/HMC. This is the speed behind
+Wagih's 259-alloy scan.
+
+### The assumption stack (in order of fragility)
+
+1. **Independent sites (non-interacting solutes)** — ΔE_i is defined as
+   "substitute 1 Mg at site i while *all other GB sites are Al*". The
+   formula then treats ΔE_i as a fixed property, independent of what
+   other sites hold. In reality, a neighboring Mg changes site i's local
+   environment and shifts its true substitution energy. **This is the
+   assumption Phase 4 targets.** Our `ΔE` spectrum is computed under this
+   assumption by construction, so it cannot detect its own breakdown —
+   only HMC can.
+2. **Dilute limit** — `(1 − X_c)/X_c` treats bulk/solute concentrations
+   as static. At high X_c the GB starts to drain the bulk, so the ratio
+   drifts during uptake. The formula can be patched with a self-
+   consistent X_c(bulk), but Wagih uses the static form.
+3. **Fixed site set** — N_GB and the ΔE_i values are frozen at the
+   annealed 0 K structure. GB reconstruction at elevated T (atomic
+   rearrangement, new sites appearing / disappearing) is invisible to
+   the formula.
+
+### Role in the project pipeline
+
+- **Phase 3 / 3.5** outputs `{ΔE_i}` → feeds into Fermi-Dirac → yields
+  `X_GB^FD(T, X_c)` **prediction** curve.
+- **Phase 4** HMC samples the *actual* Boltzmann distribution with all
+  solute-solute interactions active → yields `X_GB^HMC(T, X_c)` **truth**
+  curve.
+- Headline figure = both curves overlaid; the X_c at which they diverge
+  beyond statistical noise is the **breakdown concentration** of the
+  independent-site assumption (question 1). Analyzing *why* (solute-
+  solute g(r) at GB, local-density vs P_i correlation) is question 2.
+
+Wagih's paper assumes (1) and (2) hold implicitly across all 259 alloys
+and never draws a validity boundary for them. Drawing that boundary is
+the contribution of this project.
+
+## 2026-04-24 (late) — Wagih SI reference values + notation
+
+### `Mg^15` superscript decoded
+
+The `X^N` superscript on element labels in Wagih's SI spectra figures
+(e.g. `Mg^15` in Supplementary Fig. 3, Al-based alloys) is the **SI
+Supplementary Reference number of the interatomic potential used to
+compute that spectrum** — not a concentration, sample count, or figure
+subpanel. SI refs list is on SI pp. 26–28.
+
+**Ref [15] = Mendelev, Asta, Rahman & Hoyt, *Philos. Mag.* 89,
+3269–3285 (2009)** — the same potential we already ship at
+`project/data/potentials/Al-Mg.eam.fs`. `Mg^15` therefore is the
+apples-to-apples benchmark for our pipeline: same potential, same
+alloy, same parameter space.
+
+### Target values (read from SI Fig. 3 `Mg^15` panel, kJ/mol)
+
+Wagih's figures label the three skew-normal parameters as **(μ, σ, α)**.
+We adopt the same labels (see "Notation convention" below).
+
+| parameter | value |
+|-----------|-------|
+| μ (location) | ≈ +9 |
+| σ (scale)    | ≈ 23 |
+| α (shape)    | −2.3 |
+| R²           | 1.00 |
+
+Supersedes the "Wagih Al(Mg) σ ≈ 4" (earlier paper_notes transcription
+error) and the subsequent "σ ≈ 15" self-correction — both were readings
+of Fig. 2 in the main text, not of the Mendelev-potential `Mg^15` panel
+in the SI. The SI panel is the correct comparison target because it
+uses the same potential as us; Fig. 2 aggregated across potentials.
+
+### Our n=500 fit (2026-04-24) vs Wagih Mg^15
+
+| parameter | ours (n=500) | Wagih Mg^15 |
+|-----------|--------------|-------------|
+| μ         | +11.5        | ≈ +9        |
+| σ         | 21.3         | ≈ 23        |
+| α         | −1.93        | −2.3        |
+
+Same signs, same order of magnitude, Wagih slightly more left-skewed.
+Likely finite-size (our 10³ nm³ prototype vs Wagih's 20³ nm³) — to be
+re-checked on the 20³ nm³ production box.
+
+### Notation convention (project-wide, going forward)
+
+All skew-normal parameters use **(μ, σ, α)** — matching the labels on
+Wagih's Fig. 2 and SI Fig. 3 panels, so values copy straight between
+our outputs and the paper with no symbol translation. Mapping to
+`scipy.stats.skewnorm`: `loc=μ, scale=σ, a=α`.
+
+**Caveat, always worth remembering**: here μ and σ are the skew-normal
+*location* and *scale*, **not** the distribution's mean and standard
+deviation. The true moments are
+`mean = μ + σ·δ·√(2/π)`, `std = σ·√(1 − 2δ²/π)` with `δ = α/√(1+α²)`.
+For genuine sample moments use the `sample_moments_kjmol` block in the
+JSON output, which reports `mean` and `std` directly.
+
+Mathematical literature would write these as (ξ, ω, α); we picked
+Wagih's labels over the math-literature convention because
+paper-comparison frequency outweighs textbook-comparison frequency for
+this project.
+
+### Script update — `fit_delta_e_spectrum.py`
+
+- `WAGIH_ALMG` constant holds the SI Fig. 3 `Mg^15` values
+  (μ=9, σ=23, α=−2.3, R²=1.00) with a `source` field citing the
+  Mendelev 2009 potential explicitly; dict keys renamed `xi→mu`,
+  `omega→sigma`. The fit-output dict uses the same keys.
+- Docstring updated to state the labelling choice and the μ/σ ≠
+  mean/std caveat up front.
+- Reference-curve label in the overlay plot reads "Wagih Mg¹⁵
+  (SI Fig. 3)"; stdout prints (μ, σ, α, R²) with Wagih symbols.
+- **Breaking change for downstream consumers of the JSON**: old
+  `delta_e_fit_n500.json` uses `xi`/`omega`; regenerated JSONs will
+  use `mu`/`sigma`. Re-render `output/delta_e_spectrum_n500.png` and
+  regenerate JSON from the scratch `.npz` before the next status
+  report.
+
+## 2026-04-24 — N_GB=500 Al(Mg) ΔE_seg spectrum + skew-normal fit
+
+Scaled Phase 3 sampling from the 50-site prototype to **N_GB=500, N_bulk=10,
+seed=42** on the same annealed 10³ nm³ / 8-grain Al prototype. Job
+`64638359`, wall **26.6 min on 16 cores** (510 sites × ~3.1 s/site, all 510
+CG relaxations stopped on `energy tolerance` — no bad minima). Results at
+`/cluster/scratch/cainiu/prototype_AlMg_100A/delta_e_results_n500.npz`.
+
+**N_GB=500 ΔE_seg spectrum** (vs N_GB=50 prototype / Wagih Fig 2):
+
+| quantity             | N_GB=50       | N_GB=500      | Wagih Al(Mg)  |
+|----------------------|---------------|---------------|---------------|
+| range (kJ/mol)       | [−45.6, +19.6]| [−49.7, +35.2]| [−60, +40]    |
+| mean (kJ/mol)        | −6.1          | −3.5          | —             |
+| median (kJ/mol)      | −7.0          | −1.4          | —             |
+| std (kJ/mol)         | 14.8          | 15.0          | ~15           |
+| sample skew          | −0.26         | **−0.41**     | ~−0.4         |
+| bulk ref σ/√n (meV)  | 4             | 1.5           | —             |
+
+Scaling 50 → 500 recovers the upper tail (+20 → +35 kJ/mol) and pins the
+sample skew at −0.41, essentially on top of Wagih's Al(Mg) ≈ −0.4. Lower
+tail reaches −50 kJ/mol, 10 kJ/mol short of Wagih's −60 — likely a
+finite-size effect (our 10³ nm³ prototype produces fewer "deep" GB sites
+than Wagih's 20³ nm³); will re-check on the 20 nm production box.
+
+### Skew-normal fit (`scripts/fit_delta_e_spectrum.py`)
+
+Small single-purpose script: loads the `.npz`, fits
+`scipy.stats.skewnorm` (Wagih's parameterization `F(ΔE; ξ, ω, α)`),
+writes histogram + fit overlay to `output/delta_e_spectrum_n500.png`
+and params to `output/delta_e_fit_n500.json`.
+
+**Fit parameters (N_GB=500)**: ξ = +11.5, ω = 21.3, α = −1.93 kJ/mol.
+Consistency check: skew-normal std = ω·√(1 − 2δ²/π) with δ = α/√(1+α²) gives
+15.0 kJ/mol, exactly the sample std — the fit is internally coherent and
+not an artifact of a bad optimizer start.
+
+### paper_notes.md correction — Wagih Al(Mg) σ "~4" → "~15"
+
+Earlier notes table (§9) had `μ~-2, σ~4, α~-0.4` for Wagih's Al(Mg)
+skew-normal. With α=-0.4, σ=4 kJ/mol forces std ≈ 3.8 kJ/mol, which is
+incompatible with the [-60, +40] range quoted on the same row — it was a
+transcription error from Fig 2. Corrected to σ~15 kJ/mol, matching our
+fit and the visible width of the published histogram. The fit plot's
+"Wagih ref" curve was generated from the old σ=4 value for visual
+contrast; keeping it in for now as a record of the discrepancy, will
+re-render with σ=15 once we have time to re-check Fig 2 digitization.
+
+### Housekeeping
+
+- `data/decks/submit_delta_e.sh` now targets N_GB=500 / N_bulk=10 and a
+  separate `delta_e_run_n500/` work dir + `delta_e_results_n500.npz`
+  output so the 50-site prototype results stay intact next to the new
+  ones.
+- `output/delta_e_spectrum_n500.png` + `output/delta_e_fit_n500.json`
+  written locally (directory is gitignored — regenerate via
+  `fit_delta_e_spectrum.py` from the `.npz` in scratch).
+
+### Next
+
+- Phase 4 — HMC `(T, X_c)` scan using the same 10³ nm³ annealed
+  polycrystal as the starting config. `fix atom/swap` semi-grand-
+  canonical Metropolis at `T ∈ {300, 500, 700} K` × `X_c ∈ {0.1, 1, 5,
+  10, 20} at%` as the first sweep; compare average GB enrichment
+  against Fermi-Dirac-from-ΔE prediction built from the N_GB=500 fit
+  above.
+
 ## 2026-04-23 (evening) — A-pipeline end-to-end; Phase 3 sampling driver
 
 Stood up the full "polycrystal → Wagih-anneal → GB mask → per-site ΔE"
