@@ -10,7 +10,7 @@
 #
 # To rescale, edit N_GB / N_BULK / RUN_DIR / SEED below.
 
-#SBATCH --job-name=delta_e_AlMg_proto
+#SBATCH --job-name=delta_e_AlMg_500
 #SBATCH --time=04:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=16
@@ -35,8 +35,8 @@ GB_MASK=$RUN_DIR/gb_mask.npy
 POTENTIAL=/cluster/home/cainiu/Computational_modeling/project/data/potentials/Al-Mg.eam.fs
 DRIVER=/cluster/home/cainiu/Computational_modeling/project/scripts/sample_delta_e.py
 
-N_GB=50
-N_BULK=5
+N_GB=500
+N_BULK=10
 SEED=42
 # CG tolerances: tighter than anneal (ΔE accuracy matters at sub-meV level)
 ETOL=1.0e-8
@@ -79,9 +79,9 @@ python "$DRIVER" \
     --n-gb "$N_GB" --n-bulk "$N_BULK" --seed "$SEED" \
     --etol "$ETOL" --ftol "$FTOL" \
     --lmp lmp --mpi-ranks "$SLURM_NTASKS" --mpi-cmd mpirun \
-    --work-dir "$RUN_DIR/delta_e_run" \
-    --out-npz  "$RUN_DIR/delta_e_results.npz" \
-    --out-json "$RUN_DIR/delta_e_meta.json"
+    --work-dir "$RUN_DIR/delta_e_run_n500" \
+    --out-npz  "$RUN_DIR/delta_e_results_n500.npz" \
+    --out-json "$RUN_DIR/delta_e_meta_n500.json"
 
 echo "=========================================================="
 echo "Finished       : $(date)"

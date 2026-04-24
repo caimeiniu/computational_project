@@ -104,13 +104,21 @@
 
 | Alloy | ΔE_seg range (kJ/mol) | μ | σ | α | GB solute at 5% total |
 |-------|----------------------|---|---|---|----------------------|
-| Al(Mg) | [-60, +40] | ~-2 | ~4 | ~-0.4 | ~30% |
+| Al(Mg), Mendelev 2009 pot. (SI Mg¹⁵) | [-60, +40] | ~+9 | ~23 | ~-2.3 | ~30% |
+| Al(Mg), Fig 2 aggregate | [-60, +40] | ~-2 | ~15 | ~-0.4 | — |
 | Ag(Ni) | [-75, +50] | - | - | - | ~55% |
 | Fe(Al) | [-30, +30] | - | - | - | ~5% |
 | Ni(Cu) | [-30, +30] | ~-2 | ~8 | ~0.0 | ~15% |
 | Pt(Au) | [-25, +25] | - | - | - | ~10% |
 
-(Values approximate from Figs. 2, 4, 5)
+**Notation**: we use Wagih's (μ, σ, α) labels even though mathematically μ
+and σ are the skew-normal *location* and *scale*, not the mean and std
+(see CHANGELOG 2026-04-24 late).
+
+**Our apples-to-apples target is the Mendelev 2009 row (SI Fig. 3 Mg¹⁵)**
+— that's the potential we ship at `data/potentials/Al-Mg.eam.fs`. The Fig 2
+aggregate row is kept for context but is **not** the right comparison since
+Fig 2 averages over multiple potentials.
 
 ---
 
