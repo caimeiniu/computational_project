@@ -68,16 +68,25 @@ central question.
 
 Drew 10,000 random sub-samples of size n=500 from Wagih's 82,646 values:
 
-| statistic | sub-sample distribution (500-draw from Wagih) | Ours (500) | z-score |
-|-----------|----------------------------------------------|------------|---------|
-| mean      | μ=−6.81, σ=0.70                              | **−2.00**  | **+6.85σ** |
-| std       | μ=15.84, σ=0.49                              | 15.76      | −0.17σ  |
+| statistic | sub-sample distribution (500-draw from Wagih) | Ours (500) | z-score / percentile |
+|-----------|----------------------------------------------|------------|----------------------|
+| mean      | μ=−6.82, σ=0.71                              | **−2.00**  | **+6.85σ, pct 100** |
+| std       | μ=15.84, σ=0.49                              | 15.76      | −0.17σ, pct 43     |
+| α (skew-normal fit) | μ=−1.39, σ=0.41, 5–95% [−2.00, −0.76] | −1.08 | **pct 81** (well within) |
 
-**Conclusion**: our distribution has the **same spread** as Wagih's but
-is **centered 4.8 kJ/mol higher** (less segregating on average). The
-7σ mean shift is essentially impossible (p≈3×10⁻¹²) to attribute to
-sampling a different 500 of the same population — it's a **real
-systematic effect**.
+**Conclusion**: our 500-sample (σ, α) are **both statistically
+consistent** with being a 500-draw from Wagih's full 82k. The only
+**real** difference is the **4.8 kJ/mol mean shift** (+6.85σ, p≈3×10⁻¹²).
+Our earlier "α mismatch" narrative is revised: α=−1.08 vs full-fit
+α=−1.40 is just 500-pt noise — the bootstrap α distribution
+[−2.00, −0.76] comfortably contains ours at 81st percentile.
+
+**Also settles the α=−2.3 question empirically**: even if SI Fig 3 Mg¹⁵
+label is correct, α=−2.3 is *outside* the 95% CI of 500-draw bootstrap
+fits from Wagih's own 82k points, which means it cannot be a
+realization drawn from the same underlying distribution. Either the SI
+panel's α label is from a different dataset / fit method, or the SI
+panel shows a different structure. Not on critical path.
 
 ### Structure comparison — small but not negligible
 
