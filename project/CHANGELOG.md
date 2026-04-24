@@ -2,6 +2,94 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-04-24 (late 6) — SI Mg¹⁵ α=−2.3 confirmed: it's the ML-predicted fit
+
+**Late-night discovery** (after delayed tar listing completed): Zenodo
+*does* contain the Mendelev 2009 accelerated-model output at
+`segregation_spectra_database_accelerated_model/Al/Mg_2009--Mendelev-M-I-Asta-M-Rahman-M-J-Hoyt-J-J--Al-Mg/Al_Mg_20nm_GB_segregation.dump`.
+The earlier claim ("only Liu-Adams 1998 in accelerated DB") was from a
+partial tar listing. Full listing shows 5 Al-Mg potentials in the
+accelerated DB (refs 13, 14, **15**, 16, 2012-Jelinek, Zhou04).
+
+### `Mg^15` SI panel source identified
+
+Skew-normal fit to the 82,635 ML-predicted ΔE values in the Mendelev
+2009 accelerated-model dump:
+
+```
+μ = +9.44 kJ/mol
+σ = 23.13 kJ/mol
+α = −2.256
+```
+
+→ **Matches user's SI Fig 3 panel read (μ=9, σ=23, α=−2.3, R²=1.00)
+within sub-0.1 precision**. User was right all along; the α=−2.3 label
+on SI Fig 3 Mg¹⁵ is what the data says. No figure error.
+
+### Two Zenodo datasets are distinct (both on Mendelev 2009)
+
+| Dataset | Path                                              | Size | Nature | μ | σ | α | mean |
+|---------|---------------------------------------------------|------|--------|---|---|---|------|
+| **A** direct LAMMPS | `machine_learning_notebook/seg_energies_Al_Mg.txt` | 82,646 | per-site CG (training data) | +6.72 | 20.84 | **−1.40** | −6.81 |
+| **B** ML predicted | `segregation_spectra_database_accelerated_model/Al/Mg_2009.../.dump` | 82,635 | SOAP+linreg predicted | +9.44 | 23.13 | **−2.26** | −7.46 |
+
+SI Fig 3 Mg¹⁵ shows **dataset B** (ML predicted output), not A. My earlier
+comparison used A and concluded "4.8 kJ/mol mean shift" — that framing
+compared us to the training-set ground truth, not to what the paper
+actually plots.
+
+### Repositioning our 500-site fit
+
+| source | μ | σ | α | sample mean |
+|--------|---|---|---|-------------|
+| **Ours (500, direct LAMMPS, our structure)** | **+9.40** | 19.43 | −1.08 | −2.00 |
+| Wagih A (direct LAMMPS, n=82k)    | +6.72 | 20.84 | −1.40 | −6.81 |
+| Wagih B (ML predicted, n=82k = SI Fig 3)  | **+9.44** | 23.13 | −2.26 | −7.46 |
+
+**Striking**: our μ = +9.40 **matches Wagih B to sub-0.05 kJ/mol**. Our
+σ and α are between the two Wagih datasets but closer to A. So:
+- The SI Fig 3 fit target's **location parameter μ** is already met by
+  our pipeline, on our own structure.
+- Our α=−1.08 is consistent with Wagih's *direct-LAMMPS* distribution
+  (81st percentile in bootstrap), not with Wagih's ML-predicted α=−2.3.
+  In other words: our raw ΔE values have roughly the same skewness as
+  Wagih's raw ΔE values. The strong α=−2.26 on the SI panel is an
+  **ML-smoothing artifact** (linear regression on 100 SOAP centroids
+  broadens and skews the predicted spectrum beyond what the underlying
+  CG data actually contains).
+- The "4.8 kJ/mol mean shift vs A" persists, but it coincides with
+  A-vs-B being different by 0.65 kJ/mol anyway — so ~3-5 kJ/mol of the
+  mean residual vs SI is still potentially structure-driven.
+
+### Does the overnight experiment still matter?
+
+Yes. Job `64707493` tests whether **our Phase 3 pipeline on Wagih's
+structure matches Wagih's direct-LAMMPS A values on identical atom IDs**.
+Expected outcome: if paired ΔE_ours(i) ≈ ΔE_A(i), our CG + substitution
+protocol is verified correct, and the entire residual between our 500
+(on our structure) and Wagih A (on his structure) is pure Voronoi/anneal
+realization variance — a clean green light to proceed to Phase 4.
+
+### Implications for the paper story
+
+1. Reproducing SI Fig 3 skew-normal parameters **precisely** requires
+   running Wagih's ML pipeline (SOAP + k-means + linear regression),
+   not just direct LAMMPS. Our direct-LAMMPS fit naturally differs
+   because ML smoothing broadens and skews.
+2. For the project's scientific question (when does Fermi-Dirac break),
+   **direct LAMMPS is the correct input** — Fermi-Dirac under the
+   independent-site assumption works with true site energies, not
+   ML-smoothed predictions.
+3. When writing up, frame comparison vs Wagih dataset **A (direct
+   LAMMPS)**, not the SI figure. SI figure is ML-smoothed predictions
+   designed for the 259-alloy throughput scan, not the ground truth.
+
+### Artifacts
+
+- `segregation_spectra_database_accelerated_model/Al/Mg_2009.../Al_Mg_20nm_GB_segregation.dump` extracted to scratch (23 MB).
+- Will extend `scripts/compare_vs_wagih.py` to optionally load dataset B
+  for a 3-way fit comparison plot when morning analysis resumes.
+
 ## 2026-04-24 (late 5) — Wagih Zenodo dataset + KS test + structure audit launched
 
 Chose path Q (fetch Wagih's raw Al(Mg) data before committing to Phase 4).
