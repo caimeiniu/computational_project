@@ -2,6 +2,286 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-04-24 (late 5) — Wagih Zenodo dataset + KS test + structure audit launched
+
+Chose path Q (fetch Wagih's raw Al(Mg) data before committing to Phase 4).
+Resolved an anomaly along the way: our N=500 mean is **7σ** off from
+Wagih's full dataset — *not* sampling noise. User flagged structure
+generation as the likely suspect; launched an overnight controlled
+experiment to isolate cause.
+
+### Zenodo archive (doi:10.5281/zenodo.4107058)
+
+Single 4.0 GB tarball `learning_segregation_energies.tar.bz2` (MD5
+verified: `dcad1225446df20c841b8a32359c03b1`). Full listing = 904 entries,
+downloaded to `/cluster/scratch/cainiu/wagih_zenodo/`. Archive structure:
+
+- `machine_learning_notebook/` — high-fidelity training example for Al(Mg)
+  (the `pair_coeff * * Al-Mg.eam.fs Al Mg` in `calculate_E_GB_solute.in`
+  **confirms same Mendelev 2009 potential we use**)
+  - `heated_minimized_Al_polycrystal.dump0` — annealed pure-Al structure
+  - `seg_energies_Al_Mg.txt` — **82,646 per-site** (site_id, E_GB^Mg) lines
+  - `bulk_solute_Al_Mg.dat` — E_bulk^Mg = −1,639,944.41 eV
+  - `GB_SOAP_Al_Mg.npy` (613 MB SOAP features)
+  - `Learn_Segregation_Spectra.ipynb` — their ML notebook
+- `segregation_spectra_database_accelerated_model/` — the 259-alloy scan
+  output; Al/Mg subfolder **only has Liu-Adams 1998 (SI Ref [14])**, NOT
+  Mendelev 2009. So the accelerated-model DB is NOT the right source for
+  our apples-to-apples comparison; the notebook data is.
+
+### Direct-LAMMPS ΔE spectrum fit (`scripts/compare_vs_wagih.py`)
+
+Loaded Wagih's 82,646 ΔE values (computed `E_GB^Mg(i) − E_bulk^Mg` per
+line, converted to kJ/mol). Fit skew-normal with identical
+`scipy.stats.skewnorm`:
+
+| metric | **Ours (n=500)** | **Wagih Zenodo (n=82,646)** | SI Mg¹⁵ (user read) |
+|--------|------------------|-----------------------------|---------------------|
+| μ      | +9.40            | **+6.72**                   | +9                   |
+| σ      | 19.43            | **20.84**                   | ~23                  |
+| α      | −1.08            | **−1.40**                   | −2.3 (re-checked OK) |
+| sample mean | −2.00       | **−6.81**                   | —                    |
+| sample std  | 15.76       | **15.85**                   | ~15                  |
+| sample skew | −0.11       | **−0.22**                   | (≈−0.53 if α=−2.3)  |
+| range (kJ/mol) | [−40.2, +58.2] | **[−67.4, +48.0]**   | [−60, +40]           |
+
+**KS two-sample test**: D = 0.139, p = 7.2×10⁻⁹ — reject same-
+distribution at 99.9%. But D < 0.2 is a small-to-moderate effect.
+
+### Unresolved: SI Mg¹⁵ α=−2.3 vs Zenodo α=−1.40
+
+User re-checked SI Fig 3 Mg¹⁵ panel — confirms α=−2.3 is what's drawn
+and it's unlikely a figure-generation error for batch-published panels.
+Yet the Zenodo 82,646-site direct-LAMMPS fit gives α=−1.40 on the
+same Mendelev 2009 potential. Possible explanations (none yet verified):
+- SI Fig 3 panel reports the **accelerated-model** (ML-predicted) fit,
+  not the high-fidelity direct fit. But the Al/Mg accelerated output on
+  Zenodo uses Liu-Adams 1998, not Mendelev 2009.
+- The `heated_minimized_Al_polycrystal.dump0` is a *different* Voronoi
+  realization from the one underlying SI Fig 3.
+- Fit method difference (e.g. weighted KDE vs moment-based fit).
+
+**Parked** — not on the critical path for answering the project's
+central question.
+
+### Bootstrap: our 4.8 kJ/mol mean shift is real, not sampling noise
+
+Drew 10,000 random sub-samples of size n=500 from Wagih's 82,646 values:
+
+| statistic | sub-sample distribution (500-draw from Wagih) | Ours (500) | z-score |
+|-----------|----------------------------------------------|------------|---------|
+| mean      | μ=−6.81, σ=0.70                              | **−2.00**  | **+6.85σ** |
+| std       | μ=15.84, σ=0.49                              | 15.76      | −0.17σ  |
+
+**Conclusion**: our distribution has the **same spread** as Wagih's but
+is **centered 4.8 kJ/mol higher** (less segregating on average). The
+7σ mean shift is essentially impossible (p≈3×10⁻¹²) to attribute to
+sampling a different 500 of the same population — it's a **real
+systematic effect**.
+
+### Structure comparison — small but not negligible
+
+|              | Wagih (Zenodo dump0) | Ours (production anneal) |
+|--------------|----------------------|--------------------------|
+| N_atoms      | 483,425              | 475,715 (−1.6%)          |
+| box Lx (Å)   | 200.79               | 199.78 (−0.5%)           |
+| N_GB         | 82,646               | 89,042 (+7.7%)           |
+| f_gb         | 17.10%               | 18.72% (+1.6 pp)         |
+| ΔE range     | [−67, +48]           | [−40, +58]               |
+
+Box and atom count differ by <2% — geometrically similar but not
+identical. Our f_gb is ~10% higher than Wagih's, suggesting different
+grain packing and GB character distribution.
+
+### User's diagnosis (verbatim): *"我们应该考虑一下我们的3D结构构建是不是合理, 毕竟万物起源"*
+
+The 4.8 kJ/mol mean shift points at our generate_polycrystal.py /
+anneal chain as the first thing to audit before trusting Phase 4. Two
+candidate mechanisms:
+1. Voronoi realization variance — same parameters, different
+   `structure_seed` give different spectra. Testable by regenerating
+   with multiple seeds.
+2. Pipeline difference — different CG convergence, `atom_style`, masses,
+   neighbor handling, etc. would bias ΔE values.
+
+### Overnight controlled experiment (in flight)
+
+Goal: isolate (1) vs (2) with one job. Take **Wagih's own annealed
+structure** (`heated_minimized_Al_polycrystal.dump0`) and run **our
+Phase 3 pipeline** (same `sample_delta_e.py`, same CG tolerances, same
+substitution protocol) against **Wagih's 82,646 GB site IDs** as the
+mask.
+
+- If ΔE(our)(i) ≈ ΔE(Wagih)(i) atom-for-atom on common sites → **our
+  pipeline is correct**; the 4.8 kJ/mol residual is entirely from
+  structure-realization variance (audit our Voronoi → anneal chain next).
+- If paired ΔE disagree → our LAMMPS workflow has a systematic
+  discrepancy; inspect step-by-step.
+
+**Scripts**:
+- `scripts/wagih_dump_to_data.py` — dump0 → LAMMPS data file (id-sorted)
+  + builds length-N mask from `seg_energies_Al_Mg.txt` site IDs. Output:
+  `wagih_Al_200A.lmp` + `wagih_gb_mask.npy` (82,646 True / 483,425
+  confirmed, f_gb = 17.10% ✓ matches Wagih).
+- `data/decks/submit_delta_e_wagih_structure.sh` — our driver on Wagih's
+  structure, N_GB=500 / N_bulk=10 / seed=42 (same as production).
+
+**Job `64707493`** submitted — 16 cores, 3 h budget. Run dir:
+`/cluster/scratch/cainiu/wagih_pipeline_test/`. On completion, extend
+`compare_vs_wagih.py` to do **paired** comparison
+(ΔE_ours(i) vs ΔE_wagih(i) on the 500 common sites).
+
+### Phase 4 parked until paired diagnostic lands
+
+If the audit shows our pipeline is clean → proceed to Phase 4 HMC with
+confidence.
+If not → fix, then proceed.
+
+## 2026-04-24 (late 4) — Phase 3.5 C result + sampling statistics + Phase 4 feasibility
+
+Job `64699296` (N_GB=500, N_bulk=10, seed=42, 16 cores) completed in
+**1:19 wall** (~9.3 s/site, only 3× slower than prototype's 3.1 s/site
+despite 8× more atoms — CG on a single substitution is local, doesn't
+scan all atoms). Bulk reference: E_bulk^Mg = −1,613,193.7 eV,
+σ/√10 = **0.87 kJ/mol** baseline noise.
+
+### Production skew-normal fit vs prototype vs Wagih Mg¹⁵
+
+| metric | Prototype (10³, n=500) | **Production (20³, n=500)** | Wagih Mg¹⁵ |
+|--------|------------------------|-----------------------------|-----------|
+| N_atoms / N_GB         | 59k / 16,430    | 476k / **89,042**  | ~481k / ~10⁵    |
+| μ (location, kJ/mol)   | +11.5           | **+9.4**           | +9 ✓             |
+| σ (scale, kJ/mol)      | 21.3            | **19.4**           | 23               |
+| α (shape)              | −1.93           | **−1.08** ⚠        | −2.3             |
+| sample mean (kJ/mol)   | −3.5            | **−2.0**           | —                |
+| sample std (kJ/mol)    | 15.0            | **15.8** ✓         | ~15              |
+| sample skew            | −0.41           | **−0.11** ⚠        | ~−0.53 (from α) |
+| ΔE range (kJ/mol)      | [−49.7, +35.2]  | **[−40.2, +58.2]** | [−60, +40]       |
+
+Moving 10³ → 20³ fixed μ (+11.5 → +9.4, matches Wagih) but made α *worse*
+(−1.93 → −1.08). Diagnosed below — it's a sampling artifact, not a
+physics issue.
+
+### Tail-outlier diagnostic (tried and rejected)
+
+All 500 sites stopped on `energy tolerance` (clean CG, no bad minima).
+The +58.2 kJ/mol top site (atom_id 428941) is **physically real**, not a
+numerical artifact. Dropping it manually would be cherry-picking.
+Iteratively dropping top-N outliers:
+
+| drop top N | μ | σ | α | sample skew |
+|------------|---|---|---|-------------|
+| 0          | +9.4  | 19.4 | −1.08 | −0.11 |
+| 1          | +11.9 | 20.9 | −1.52 | −0.21 |
+| 10         | +14.0 | 22.4 | **−2.46** | −0.34 |
+
+Getting α to match by dropping 10 out of 500 is artificial symmetry-
+matching. The real asymmetry is **the negative tail truncates at −40
+while Wagih goes to −60** — we simply did not sample the deep-
+segregation sites. Dropping positives compensates in the fit but does
+not reflect the true distribution.
+
+### Why n=500 estimates μ and σ but not α (sampling statistics)
+
+Different statistical quantities have wildly different convergence rates
+on sample size:
+
+| quantity | standard error | at n=500, σ=15.8 | relative |
+|----------|----------------|------------------|----------|
+| mean     | σ/√n           | 0.71 kJ/mol      | 4.5%     |
+| **std**  | **σ/√(2n)**    | **0.50 kJ/mol**  | **3.2%** |
+| skewness | √(6/n)         | 0.110            | ~20% of true |
+| α (skew-normal) | ~√(24/n) | 0.22             | ~10% of true |
+
+Intuition: std is a **central** statistic — dominated by the ±1σ region
+which holds 68% of points, densely sampled. Skewness and α are **tail**
+statistics — `(x−μ)³` weights the rare extremes that 500 points sample
+only 5-20 times. Wagih's ~10⁵ sites sample the tails 200× more densely
+and therefore get stable α.
+
+**Takeaway**: "std matches, α does not" is **not evidence of a physics
+mismatch** — it's the expected outcome of a 500-vs-10⁵ sample-size
+asymmetry. Claiming α disagreement as a real effect would require
+matching sample sizes first.
+
+### What Wagih actually did (from paper quote, 2026-04-24)
+
+Paper text: *"Using the high-fidelity approach, we train a model ... for
+Mg solute segregation in a thermally annealed 20 × 20 × 20 nm³ Al
+polycrystal that has 16 grains and ~10⁵ GB sites, using a randomized
+50/50 split for training/testing."*
+
+- **~10⁵ GB sites** total in the 20³ nm³ Al polycrystal (our 89,042
+  matches within close-pair/CNA-definition noise)
+- **50/50 split** for high-fidelity model → ~5×10⁴ direct LAMMPS ΔE
+  (training) + ~5×10⁴ ML-predicted (testing). Spectrum plotted from all
+  ~10⁵ values (ML MAE for Al(Mg) = 2.45 kJ/mol per SI Table 1).
+- Accelerated model (Fig 3) reduces training to 100 cluster centroids
+  for the 259-alloy scan.
+
+So Wagih's Mg¹⁵ spectrum is fit to **~10⁵ points** (dense sampling + ML
+smoothing), while ours is fit to **500 direct-LAMMPS points** (sparse
+but numerically exact). Different statistical regimes.
+
+### Phase 4 feasibility — HMC cost does NOT scale with N_GB
+
+Important clarification: Phase 3's 500 is a **subsample** because Phase 3
+does one LAMMPS CG *per site*. Phase 4 HMC is not per-site — it runs
+one MD simulation on the full 475k-atom box and every GB site feels the
+chemical potential simultaneously, every timestep.
+
+| | Wagih per-site + FD | Our HMC |
+|---|---------------------|---------|
+| Unit        | 1 CG per GB site | 1 MD timestep (whole box) |
+| Count       | N_GB CGs         | N_steps MD |
+| Cost/unit   | ~10 s            | ~0.05 s (1.74 ns/day on 32 cores) |
+| Total (1 alloy, 1 point) | N_GB · 10 s ≈ 247 h (ML → 17 min) | ~1.3 h per (T, X_c) |
+| Cover (T, X_c) | Free formula | Separate MD run per point |
+
+Wagih's win = ML-accelerated breadth (259 alloys × all (T, X_c) via
+formula). His formula is only valid under the independent-site
+assumption we're testing.
+
+Our win = one MD run *automatically* sees all 89k GB sites interacting.
+No subsampling needed at Phase 4.
+
+**Estimated Phase 4 cost** (our grid): 3T × 5X_c = 15 points × ~2 h each
+(inc. swap overhead) = **30 compute-hours total**, embarrassingly
+parallel. Fully feasible — the "10⁵ GB sites" is not a barrier because
+HMC doesn't iterate over sites.
+
+### Project scope positioned precisely
+
+- **Wagih** = independent-site assumption + ML acceleration → cheap
+  breadth (259 alloys, any T/X_c). Spectrum is pipeline *input*; never
+  verifies the assumption itself.
+- **Us** = HMC on the *same* alloy Wagih used as his headline example,
+  same potential, same box → expensive depth (1 alloy, 15 (T, X_c)
+  points). Our contribution is measuring the concentration at which
+  Wagih's Fermi-Dirac predictor starts diverging from HMC truth — i.e.
+  drawing the validity boundary of his central assumption.
+- HMC cost ~100× Wagih's per-alloy cost (30 h vs 17 min) buys this
+  measurement. Not catastrophic at one-alloy scope.
+
+### Decision pending
+
+Two paths before launching Phase 4:
+
+**P** — Go straight to Phase 4 HMC. Our 500 ΔE points + fit (μ=9.4,
+σ=19.4, α=−1.08) build the Fermi-Dirac prediction. `X_GB^FD(T, X_c)` is
+a central-moment integral, insensitive to α. The HMC truth curve is the
+actual headline output regardless of Phase 3 tail precision.
+
+**Q** — First fetch Wagih's Al(Mg) ΔE dataset from Zenodo
+(doi:10.5281/zenodo.4107058). Do KS test + overlay histograms vs our
+500 points → give Phase 3.5 a rigorous goodness-of-agreement number.
+Then Phase 4. Costs ~2 h extra compared to P.
+
+Q → P preferred: getting Wagih's 10⁵ points costs little and lets us
+build two Fermi-Dirac curves (ours from 500 pts; Wagih's from 10⁵ pts)
+to isolate sampling noise from real pipeline differences before
+interpreting Phase 4. User to confirm.
+
 ## 2026-04-24 (late 3) — Phase 3.5 A+B: 20³ nm³ production anneal + GB mask
 
 Scaled the pipeline from the 10³ nm³ / 8-grain prototype to the Wagih-match
