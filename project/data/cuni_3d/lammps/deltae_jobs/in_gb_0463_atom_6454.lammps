@@ -1,0 +1,25 @@
+log log_gb_0463_atom_6454.lammps
+units metal
+dimension 3
+boundary p p p
+atom_style atomic
+
+read_data "../../cuni_3d_polycrystal.lammps"
+mass 1 63.546
+mass 2 58.693
+
+pair_style eam/alloy
+pair_coeff * * "../../../examples/nc_swap_CuNi/Cu_Ni_Fischer_2018.eam.alloy" Cu Ni
+neighbor 0.3 bin
+neigh_modify every 1 delay 0 check yes
+
+set atom 6454 type 2
+
+thermo 50
+thermo_style custom step pe press
+min_style cg
+minimize 1.0e-12 1.0e-12 10000 100000
+
+variable final_pe equal pe
+print "FINAL_PE_EV gb_sample 6454 ${final_pe}"
+write_data relaxed_gb_0463_atom_6454.lammps

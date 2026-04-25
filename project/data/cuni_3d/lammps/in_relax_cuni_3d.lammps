@@ -1,0 +1,44 @@
+log log_relax_cuni_3d.lammps
+
+units metal
+dimension 3
+boundary p p p
+atom_style atomic
+
+read_data ../cuni_3d_polycrystal.lammps
+
+mass 1 63.546
+mass 2 58.693
+
+pair_style eam/alloy
+pair_coeff * * ../../examples/nc_swap_CuNi/Cu_Ni_Fischer_2018.eam.alloy Cu Ni
+
+neighbor 0.3 bin
+neigh_modify every 1 delay 0 check yes
+
+timestep 0.001
+thermo 1000
+thermo_style custom step time temp pe ke press vol
+
+min_style cg
+minimize 1.0e-10 1.0e-10 10000 100000
+write_data cuni_3d_initial_minimized.lammps
+
+# Wagih-style relaxation: anneal at roughly 0.5 T_melt(Cu), then cool at 3 K/ps.
+variable anneal_temp equal 650.0
+variable final_temp equal 1.0
+variable anneal_steps equal 250000
+variable cool_steps equal ceil((${anneal_temp}-${final_temp})/3.0/0.001)
+
+velocity all create ${anneal_temp} 20260425 mom yes rot yes dist gaussian
+
+fix anneal all npt temp ${anneal_temp} ${anneal_temp} 0.1 iso 0.0 0.0 1.0
+run ${anneal_steps}
+unfix anneal
+
+fix cool all npt temp ${anneal_temp} ${final_temp} 0.1 iso 0.0 0.0 1.0
+run ${cool_steps}
+unfix cool
+
+minimize 1.0e-12 1.0e-12 10000 100000
+write_data cuni_3d_relaxed.lammps
