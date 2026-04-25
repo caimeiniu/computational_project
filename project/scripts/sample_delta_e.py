@@ -76,6 +76,7 @@ _CSV_FIELDS = ("idx", "site_id", "is_gb", "pe", "stop_reason", "wall_s")
 _META_KEYS_TO_MATCH = (
     "annealed_file", "sample_seed", "n_gb_sites", "n_bulk_refs",
     "bulk_separation", "gb_sample_ids", "bulk_sample_ids",
+    "cg_etol", "cg_ftol", "cg_maxiter", "cg_maxeval",
 )
 
 
@@ -89,10 +90,10 @@ def compute_delta_e_spectrum(
     solute_type: int = 2,
     bulk_separation: float = 8.0,
     sample_seed: int = 0,
-    cg_etol: float = 1.0e-8,
-    cg_ftol: float = 1.0e-10,
-    cg_maxiter: int = 5000,
-    cg_maxeval: int = 50000,
+    cg_etol: float = 1.0e-25,
+    cg_ftol: float = 1.0e-25,
+    cg_maxiter: int = 50000,
+    cg_maxeval: int = 5000000,
     lmp_binary: str = "lmp",
     mpi_launcher: list[str] | None = None,
     work_dir: str | Path | None = None,
@@ -123,8 +124,10 @@ def compute_delta_e_spectrum(
         RNG seed for site selection. Independent from structure/solute/swap/
         velocity seeds elsewhere in the pipeline.
     cg_etol, cg_ftol, cg_maxiter, cg_maxeval
-        LAMMPS `minimize` tolerances. Tighter than the anneal deck (ΔE can
-        be < 1 kJ/mol = 0.01 eV so we want sub-meV numerics).
+        LAMMPS `minimize` tolerances. Defaults match Wagih's
+        `calculate_E_GB_solute.in` (1e-25 / 1e-25 / 50000 / 5000000) — run
+        CG to floating-point precision. Looser values leave per-site PE
+        a few kJ/mol above the true minimum and bias the spectrum mean.
     lmp_binary : str
         LAMMPS executable on PATH.
     mpi_launcher : list[str], optional
@@ -552,10 +555,10 @@ def _cli() -> None:
     p.add_argument("--solute-type", type=int, default=2, help="LAMMPS type for Mg")
     p.add_argument("--bulk-separation", type=float, default=8.0,
                    help="min Å from any GB atom for a bulk reference")
-    p.add_argument("--etol", type=float, default=1.0e-8)
-    p.add_argument("--ftol", type=float, default=1.0e-10)
-    p.add_argument("--maxiter", type=int, default=5000)
-    p.add_argument("--maxeval", type=int, default=50000)
+    p.add_argument("--etol", type=float, default=1.0e-25)
+    p.add_argument("--ftol", type=float, default=1.0e-25)
+    p.add_argument("--maxiter", type=int, default=50000)
+    p.add_argument("--maxeval", type=int, default=5000000)
     p.add_argument("--lmp", default="lmp", help="LAMMPS binary")
     p.add_argument("--mpi-ranks", type=int, default=1,
                    help="MPI ranks per LAMMPS invocation (0 = no launcher)")

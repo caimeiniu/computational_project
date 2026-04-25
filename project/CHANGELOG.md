@@ -2,6 +2,413 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-04-25 (late 3) — Phase 4 sequencing: build FD predictor before HMC scan
+
+With pipeline validation closed (2026-04-25 late 2) and production 200A
+tight-CG ΔE landing imminently (job `64743372` in flight, `64755232`
+dependency-chained as resume), the question is whether to go straight
+to HMC `(T, X_c)` scan or first construct the Fermi-Dirac (FD) predictor
+curve. Decision: **FD first, then HMC.**
+
+### Why FD first
+
+FD evaluation is a Python sum over the 500 ΔE values — microseconds:
+
+```
+X_GB^FD(T, X_c) = (1/N_GB) · Σ_i 1 / [1 + ((1−X_c)/X_c) · exp(ΔE_i / kT)]
+```
+
+Producing it before HMC gives us three things that the cost of HMC
+would otherwise force us to learn the hard way:
+
+1. **Visual sanity check vs. Wagih Fig 5.** Same potential, same alloy,
+   same N_GB scale → curve shape and saturation values should match
+   Wagih's published curves. Mismatch here would point at a bug we
+   haven't caught (sign error in the formula, kT unit mistake, etc.)
+   *before* spending 30 compute-hours discovering it via HMC.
+2. **Grid density planning for HMC.** FD has a sigmoid-like X_c sweep
+   with a "knee" region where saturation kicks in; segregation breakdown
+   is most likely *near or just before* that knee. Uniform 5-point X_c
+   sweeps risk wasting half the HMC budget far from the interesting
+   region. Looking at FD first lets us put HMC density where the
+   breakdown is testable.
+3. **Quantitative "significantly different" threshold.** Currently we
+   say "X_GB^HMC vs. X_GB^FD differ by ML noise ~4 kJ/mol" with no
+   anchored statistic. With FD curves we can compute per-(T, X_c)
+   sensitivity (∂X_GB^FD / ∂P_i, ΔE_i contribution) and define the
+   threshold rigorously instead of by eye.
+
+### Concrete sequence
+
+```
+1. Wait for 64743372  →  delta_e_results_n500_200A_tight.npz on our
+                          own structure (or use Wagih-validated NPZ
+                          as placeholder if 64743372 misbehaves)
+2. scripts/fermi_dirac_predict.py:
+     in:  ΔE NPZ + (T, X_c) grid spec
+     out: X_GB^FD on the grid, overlay plot vs. Wagih Fig 5
+     unit test against analytic limits
+       X_c → 0    →  X_GB → exp(−ΔE_i/kT)·X_c/(1−X_c)·N_negative
+       X_c → 1    →  X_GB → 1
+       T → ∞      →  X_GB → X_c (no preference)
+       T → 0      →  X_GB → fraction of negative ΔE_i sites
+3. Inspect FD curves at T ∈ {300, 500, 700, 900} K vs. X_c ∈ log grid
+     → choose HMC grid: dense near knee, sparse in saturation/dilute
+4. data/decks/submit_hmc_AlMg.sh:
+     fix atom/swap 100 10 <swap_seed> <T> ke yes types 1 2
+     equilibrate ~10 ps NVT  →  HMC ~100 ps  →  block-average X_GB
+     single-point dry-run first (e.g. T=500 K, X_c=5 at%) to verify:
+       - swap acceptance rate sane (5–30 %)
+       - energy plateaus before measurement window
+       - X_GB time series autocorrelation < window length
+5. Batch-submit the chosen (T, X_c) grid in parallel
+6. Compare X_GB^HMC vs. X_GB^FD curves → headline figure;
+   define breakdown X_c per T as first point where they diverge
+   beyond the FD-bootstrap CI from step 2.
+```
+
+### Risk acknowledged
+
+Going FD-first delays HMC start by ~½ day of code + figure work. If
+the FD curve looks fine on Wagih's structure but reveals something
+weird on our 200A (e.g. a ΔE outlier dragging the X_GB tail), we'd
+investigate that before HMC — adds another half-day. Total worst
+case: ~1 day of FD/grid work before HMC starts.
+
+The alternative (straight to HMC) would save that day **only** if our
+HMC grid happens to land at the right resolution near the breakdown.
+Given we have no a-priori signal for where that is on Al(Mg), the FD
+detour is "buy information for compute budget."
+
+### Tooling note
+
+`scripts/fermi_dirac_predict.py` is small (~80 lines) and shares no
+state with `compare_vs_wagih.py` / `paired_pipeline_residual.py` /
+`fit_delta_e_spectrum.py` — keep them as four single-purpose scripts
+rather than a CLI mega-tool. Each one reads NPZ + writes plot+JSON;
+composability via the file system is enough for our scale.
+
+## 2026-04-25 (late 2) — Tight-CG validation passed: pipeline indistinguishable from Wagih on his own structure
+
+Job `64742000` finished in **4h 06min** (8h budget; faster than predicted
+because long-tail CG was less common than the 36 s/site sanity-test
+average suggested — actual mean was 28.9 s/site over 510 sites). All
+510 site decks completed; 501/510 stopped on `linesearch alpha is zero`
+and 9 hit `energy tolerance` even at 1e-25 (CG converged exactly to
+machine ε). The full N=500 ΔE result is at
+`/cluster/scratch/cainiu/wagih_pipeline_test/delta_e_results_wagih_n500_tight.npz`.
+
+### Bulk reference: independently reproduces Wagih's value
+
+Our 10-atom bulk-ref protocol (random bulk-interior atoms ≥8 Å from any
+GB) yields **E_bulk^Mg = −1639944.4135 eV (σ=0.0018, n=10)**. Wagih
+reports `bulk_solute_Al_Mg.dat = −1639944.41395 eV` from his
+6-nm-sphere protocol. **Difference = 0.45 meV ≈ 0.04 kJ/mol** —
+i.e., our locally-sampled bulk Al(1Mg) is the same energy as his
+spherical bulk Al(1Mg). The two protocols converge to the same minimum
+under tight CG.
+
+### Paired residual on full N=500
+
+Re-ran `paired_pipeline_residual.py` with the full NPZ output. Results
+in `output/paired_pipeline_residual_n500_tight.{png,json}`:
+
+| metric        | loose (n=343) | **tight (n=500)** |
+|---------------|---------------|-------------------|
+| Pearson r     | 0.9808        | **0.999999999996** |
+| mean residual | +31.4 meV     | **−0.0346 meV** (= −0.0033 kJ/mol) |
+| std residual  | 33.1 meV      | **0.000478 meV** |
+| min residual  | +5.1 meV      | −0.0367 meV |
+| max residual  | +287.7 meV    | −0.0330 meV |
+
+The residual is essentially a **constant −34.6 μeV/site** offset with
+σ < 0.5 μeV. Magnitude is 4 orders below ΔE relevance. Likely cause:
+LAMMPS-version (we use 20240829, Wagih used the 2020 release) or
+MPI-rank count affecting the floating-point summation order across 34M
+pair contributions per box. Cannot tell which without re-running on
+Wagih's exact LAMMPS build; not on the critical path. Bug-class is
+"reduction-order ulp drift", not "physics".
+
+Driver fix: NPZ key for per-site PE is `gb_e_mg`, not `gb_pe`. The
+`paired_pipeline_residual.py` `load_ours_npz` was patched accordingly
+(it had been written from memory before the first NPZ landed).
+
+### Spectrum-level fits
+
+| metric | **Ours (tight, on Wagih, n=500)** | Wagih A (n=82,646) | gap |
+|--------|-----------------------------------|--------------------|-----|
+| sample mean (kJ/mol) | **−6.857** | −6.814 | +0.04 |
+| sample std           | **16.39**  | 15.85  | +0.54 |
+| sample skew          | **−0.169** | −0.224 | +0.06 |
+| skew-normal μ        | **+6.30**  | +6.72  | −0.42 |
+| skew-normal σ        | **+21.00** | +20.84 | +0.16 |
+| skew-normal α        | **−1.263** | −1.395 | +0.13 |
+| range (kJ/mol)       | [−53.1, +43.7] | [−67.4, +48.0] | tighter (n effect) |
+
+KS two-sample: **D = 0.0249, p = 0.9106** — completely cannot reject
+"same distribution" at any α. (Loose CG was D=0.139, p=7.2×10⁻⁹.)
+
+### Bootstrap CI (B=10⁴, n=500 with replacement, seed=20260425)
+
+Drew 10⁴ N=500 sub-samples from Wagih's 82,646 ΔE pool and computed six
+statistics each. CI = 2.5–97.5 percentile of the bootstrap distribution.
+
+| stat              | boot mean ± σ_boot | 95% CI                | ours    | z      | percentile | result |
+|-------------------|--------------------|-----------------------|---------|--------|------------|--------|
+| sample mean       | −6.82 ± 0.71       | [−8.23, −5.42]        | −6.857  | −0.05  | 47.6       | **inside** |
+| sample std        | +15.85 ± 0.49      | [+14.89, +16.81]      | +16.39  | +1.12  | 86.9       | inside |
+| sample skew       | −0.222 ± 0.092     | [−0.40, −0.04]        | −0.169  | +0.58  | 72.0       | inside |
+| skew-normal μ     | +6.25 ± 2.89       | [−0.26, +10.33]       | +6.30   | +0.02  | 43.2       | inside |
+| skew-normal σ_skew| +20.67 ± 1.58      | [+17.09, +23.44]      | +21.00  | +0.22  | 56.0       | inside |
+| skew-normal α     | −1.385 ± 0.399     | [−2.12, −0.56]        | −1.263  | +0.31  | 65.1       | inside |
+
+**All six inside; every |z| < 1.2**; sample mean at the 47th percentile —
+dead center. By every test we have, our pipeline run on Wagih's
+structure with tight CG is statistically indistinguishable from drawing
+500 random sites from his full 82,646 population. The 4.8 kJ/mol shift
+that started this thread decomposes cleanly:
+
+```
+4.8 kJ/mol shift (our 200A vs Wagih A)
+  = 3.0 kJ/mol  pipeline (loose CG)        ← isolated and fixed today
+  + 1.8 kJ/mol  Voronoi/anneal realization ← pending: 64743372 quantifies
+```
+
+### Ancillary code-quality observations
+
+- 9/510 sites stopping on `energy tolerance` even at 1e-25 means
+  `relative ΔE between two CG iterations` did go below 1e-25 for those
+  sites — possible only when the gradient was already at numerical
+  noise, so equivalent to `linesearch alpha = 0` outcome. Treat as
+  good convergence.
+- Bootstrap timing: 10⁴ skewnorm.fit calls took ~6 min single-thread.
+  If we expand the analysis to multiple structures / multiple n's a
+  vectorized fitter or `joblib.Parallel` would be worth the lift; one-
+  off use today doesn't justify it.
+
+### Next
+
+Production 200A re-run (job `64743372`) is in progress on our own
+structure with the same tight-CG defaults. At ~60 s/site current rate
+it may bump up against the 8 h walltime; per-site checkpointing will
+preserve work and a follow-up sbatch can finish off the bulk refs.
+Once it lands, the same paired/bootstrap analysis will quantify the
+~1.8 kJ/mol structure-realization residual against Wagih's pool.
+
+## 2026-04-25 (late) — Methodology lockdown: CG-tolerance semantics, bootstrap CI, the three σ's
+
+Concepts that came up while explaining today's loose-CG diagnosis to
+user. Locked here so future sessions don't re-derive them.
+
+### `minimize etol ftol maxiter maxeval` semantics (LAMMPS)
+
+`minimize` exits on whichever criterion fires **first**:
+
+| arg | meaning |
+|-----|---------|
+| **etol** (energy tolerance, **能量容差**) | exit when \|ΔE\|/max(\|E\|, EMACH) between two iters < etol |
+| **ftol** (force tolerance, **力容差**) | exit when max-component force \|f\|_∞ < ftol (eV/Å) |
+| **maxiter** (maximum iterations, **最大迭代数**) | exit after this many CG iterations |
+| **maxeval** (maximum force evaluations, **最大力评估数**) | exit after this many force calls (CG line search may invoke ≥1/iter) |
+
+Wagih's `1e-25 1e-25 50000 5000000` effectively **disables etol + ftol**:
+double-precision floating point caps at ~1e-15 relative precision, so
+etol=1e-25 can never trigger; ftol=1e-25 eV/Å is below quantum noise.
+CG instead runs until `linesearch alpha = 0` (atom can't move without
+raising energy) or until maxiter/maxeval cap. In our tight-CG sanity
+test (job `64741906`), site 196943 stopped at 200 iters / 396 force
+evals with f_max = 7.9e-5 eV/Å — far above ftol, at the numerical floor
+for that local geometry.
+
+Our previous `1e-08 1e-10 5000 50000` triggered etol after a few
+hundred force evals while leaving ~3 kJ/mol of elastic relaxation on
+the table — the bias diagnosed today.
+
+### Bootstrap (**自助法**) + confidence interval (**置信区间**, CI)
+
+**Bootstrap** (Efron 1979) answers *"how much does my fitted statistic
+wobble if I'd drawn a different N=500 from the same underlying
+population?"* without needing a parametric model for that wobble.
+Procedure (used 2026-04-24 (late 5); to be re-run on tight-CG output):
+
+1. Treat Wagih's full 82,646 ΔE values as the "population".
+2. Draw N=500 **with replacement** (这里就是 bootstrap 的关键), B=10⁴ times.
+3. For each draw compute (sample_mean, sample_std, sample_skew,
+   skew-normal μ, σ, α) — six statistics.
+4. The B values per statistic form an empirical sampling distribution.
+
+A **95% CI** is the 2.5th–97.5th percentile of that distribution.
+Interpretation: *if* ours and Wagih's come from the same population,
+P(our N=500 statistic ∈ CI) = 95%. Outside → reject "same population"
+at p < 0.05.
+
+Loose-CG verdict (already on file): sample_mean **rejected** at
+z=+6.85 σ_boot; σ and α **accepted** at z within ±1. Tight-CG re-run
+(job `64742000`) is expected to push the mean back into the CI, with
+any residual offset attributable to structure-realization difference,
+not pipeline bias.
+
+### Three different σ's — keep them straight
+
+| symbol | source | role | Al(Mg) magnitude (kJ/mol) |
+|--------|--------|------|---------------------------|
+| **σ_skew** | `scipy.stats.skewnorm.fit` returns `scale` | distribution **scale parameter** in the (μ, σ, α) triple — ≠ true std when α≠0 | ~21 (Wagih A: 20.84) |
+| **σ_sample** | `np.std(ΔE, ddof=1)` | empirical **sample standard deviation** of the per-site ΔE values | ~15.8 (Wagih A: 15.85) |
+| **σ_boot** | `np.std(boot_X, ddof=1)` over B bootstrap draws | **standard error of a statistic** X (X = mean / std / α / …) under repeated N=500 sampling | sample_mean: 0.71 / sample_std: 0.49 / α: 0.41 |
+
+**Relations** (all sanity-checked against Wagih A):
+
+- `σ_sample = σ_skew · √(1 − 2δ²/π)` with `δ = α/√(1+α²)` — the
+  geometric shrinkage from "scale" to true std once the distribution
+  is skewed. Wagih A: α=−1.40 → δ=−0.814 → σ_sample ≈ 20.84 · 0.760
+  = 15.84 ≈ measured 15.85 ✓.
+- `σ_boot(mean) ≈ σ_sample / √n` (Central Limit Theorem). For std and
+  α the analytic form depends on the statistic; we just measure the
+  bootstrap distribution directly. Sanity: 15.85/√500 = 0.709 ≈
+  measured 0.71 ✓.
+
+**The "+6.85σ" cited above uses σ_boot(sample_mean) = 0.71**, NOT
+σ_skew or σ_sample. Same symbol, three different objects — when
+writing future comparisons always tag which σ. To make this explicit,
+the `compare_vs_wagih.py` extension that lands with the tight-CG
+results will print z-scores and CIs labeled `σ_boot[mean]`,
+`σ_boot[std]`, `σ_boot[alpha]` to avoid the ambiguity.
+
+## 2026-04-25 — CG tightness diagnosed: loose `etol=1e-8` accounts for the +3 kJ/mol shift
+
+The overnight controlled experiment (job `64707493`, submitted 2026-04-24
+late 5) **timed out at 3 h with 343/510 GB sites done**. Per-site CSV
+checkpointing preserved the partial data; bulk references were never run
+(the driver finishes all GB sites first, then bulk refs). Rather than
+wait for a fresh run, we analyzed the partial data with a paired
+diagnostic — and it gave a clean answer.
+
+### Paired diagnostic on the 343 partial sites
+
+`scripts/paired_pipeline_residual.py` (new, ~140 lines) joins the
+streamed `_results.csv` with Wagih's `seg_energies_Al_Mg.txt` on
+`atom_id`. This bypasses the bulk-reference question entirely: both
+sides use the same annealed structure (Wagih's dump0) and the same
+substituted atom_id, so `pe_ours(i) − E_GB_wagih(i)` isolates pipeline
+differences with no E_bulk involvement.
+
+Result on n=343 paired sites (`output/paired_pipeline_residual_n343.{png,json}`):
+
+| metric              | value     |
+|---------------------|-----------|
+| Pearson r           | **0.9808** |
+| mean residual       | **+31.4 meV  = +3.03 kJ/mol** |
+| std residual        | 33.1 meV  =  3.20 kJ/mol |
+| min residual        | **+5.11 meV** (never reaches Wagih) |
+| max residual        | +287.7 meV (one stuck-CG outlier) |
+| residual histogram  | 0 / 9.9 / 37.9 / 21.3 / 16.3 / 9.9 / 4.7 % in [0,5)/[5,10)/[10,20)/[20,30)/[30,50)/[50,100)/[100,1000) meV |
+
+**Every single site is positive** — our PE is always higher (less
+relaxed) than Wagih's. The minimum residual is +5.1 meV, not zero.
+That signature is uniform under-relaxation, not numerical noise.
+
+The mean +3.03 kJ/mol across 343 paired sites accounts for ~2/3 of
+the +4.8 kJ/mol mean shift between our N=500 production fit (on our
+own structure) and Wagih's 82,646-site Zenodo dataset. Caveat: the
++3.03 was measured on Wagih's structure with our loose-CG protocol;
+it should transfer approximately but not exactly to our own structure.
+Residual = 4.8 − 3.0 ≈ 1.8 kJ/mol; on the 500-draw bootstrap
+SE_mean = 0.71 this is ~2.5σ — not noise, but plausibly the
+structure-realization difference (ours has f_gb = 18.7 % vs Wagih's
+17.1 %; different Voronoi seed). Tight-CG re-runs on both structures
+will let us compute the structure component cleanly.
+
+### Smoking gun: Wagih's `calculate_E_GB_solute.in`
+
+Read Wagih's actual LAMMPS deck from the Zenodo `lammps_example_input_files/`:
+
+```
+min_style cg
+minimize 1e-25 1e-25 50000 5000000
+```
+
+Ours (verified in the runtime per-site `site_<id>.lammps` deck):
+
+```
+min_style cg
+minimize 1e-08 1e-10 5000 50000
+```
+
+Wagih's etol/ftol are **17 / 15 orders of magnitude tighter** and his
+maxiter/maxeval are 10× / 100× larger. CG runs to floating-point
+precision; ours stops on the energy criterion after a few hundred
+iterations. The +3 kJ/mol systematic bias is the residual elastic
+relaxation we leave on the table by stopping early.
+
+### Sanity test: tight CG fully closes the gap (job `64741906`)
+
+Two sites re-run with Wagih's tolerances on Wagih's structure
+(`/cluster/scratch/cainiu/wagih_pipeline_test/tight_cg_test/`):
+
+| site_id | resid (loose) | pe_ours (tight) | pe_wagih       | resid (tight) | wall  |
+|---------|---------------|-----------------|----------------|---------------|-------|
+| 60470   | +18.79 meV    | −1639944.55868  | −1639944.55865 | **−0.035 meV** | 29 s |
+| 196943  | +287.72 meV   | −1639944.58033  | −1639944.58030 | **−0.027 meV** | 44 s |
+
+Even the worst stuck-CG outlier converges to Wagih's PE within
+machine precision once tolerances are loose enough to let CG actually
+run. **No alternate basin of attraction; just under-iteration.**
+
+Tight CG cost: ~36 s/site avg vs. ~7–9 s/site for loose CG (~5×
+slower). Affordable: 510 sites ≈ 5 h on 16 cores.
+
+### Code changes
+
+- `scripts/sample_delta_e.py`: defaults bumped to Wagih's
+  `etol=1e-25, ftol=1e-25, maxiter=50000, maxeval=5000000`. Function
+  signature, CLI argparse defaults, and docstring all updated.
+- `_META_KEYS_TO_MATCH` extended to include `cg_etol/ftol/maxiter/maxeval`,
+  so a loose-CG checkpoint can no longer be silently extended with
+  tight-CG sites on resume — the driver will refuse with a meta
+  mismatch error instead.
+- `data/decks/submit_delta_e{,_200A,_wagih_structure}.sh`: dropped the
+  explicit `--etol/--ftol` overrides so deck inherits the new tight
+  defaults; updated comments and walltimes (8 h for the wagih and 200A
+  runs; prototype 4 h still fits the smaller box).
+
+### Resubmission (job `64742000`, in flight)
+
+Same `submit_delta_e_wagih_structure.sh` recipe as last night but with
+tight CG and a fresh `delta_e_run_tight/` work_dir. Expected outcome:
+N=500 paired residuals collapse to <1 meV mean / <1 meV σ, our skew-
+normal fit on Wagih's structure matches Wagih's bootstrap CI for n=500,
+and the residual 1.8 kJ/mol vs. our own structure becomes the cleanly-
+isolated structure-realization variance we set out to measure.
+
+### Implications
+
+1. **The 200A production run (`delta_e_results_n500_200A.npz`) is
+   contaminated** by the same loose-CG bias. Its (μ=+9.4, σ=19.4,
+   α=−1.08) is therefore not a clean head-to-head with Wagih. Re-running
+   it under tight CG is the natural next step before Phase 4 (FD
+   prediction curve uses these ΔE values; we want them right).
+2. **The prototype run (`delta_e_results_n500.npz`, 10³ nm³)** is also
+   loose-CG; same fix applies if/when we want to use that data for
+   anything quantitative.
+3. **HMC truth curve (Phase 4) is unaffected**: HMC samples Boltzmann
+   directly and never calls our per-site CG, so the bias only enters
+   the FD prediction side of the headline figure.
+4. **For the writeup**: the SI Mg¹⁵ vs. our spectrum comparison from
+   2026-04-24 (late 4–6) needs an addendum once the tight-CG re-runs
+   land. The α=−1.08 vs. Wagih A α=−1.40 sub-sampling argument still
+   stands; the μ shift will close.
+
+### Artifacts
+
+- `scripts/paired_pipeline_residual.py` (new diagnostic, takes either
+  partial CSV or final NPZ; outputs scatter + residual histogram)
+- `output/paired_pipeline_residual_n343.{png,json}` (partial-data figure
+  shipped to evidence the 2026-04-24 protocol problem)
+- `/cluster/scratch/cainiu/wagih_pipeline_test/tight_cg_test/` (the
+  2-site validation; small, kept on scratch as evidence)
+- Job `64742000`: tight-CG full validation (8 h budget, results expected
+  late afternoon 2026-04-25)
+
 ## 2026-04-24 (late 6) — SI Mg¹⁵ α=−2.3 confirmed: it's the ML-predicted fit
 
 **Late-night discovery** (after delayed tar listing completed): Zenodo

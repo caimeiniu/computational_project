@@ -8,12 +8,11 @@
 # Usage:
 #   sbatch /cluster/home/cainiu/Computational_modeling/project/data/decks/submit_delta_e_200A.sh
 #
-# Timing basis: prototype (59k atoms) was 3.1 s/site × 16 cores × 510 sites =
-# 26.6 min. Production is ~8× atoms; CG cost scales ~linearly → estimate
-# ~25 s/site × 510 sites ≈ 3.5 h. Requesting 6 h to absorb any long-tail CG.
+# Timing basis (tight CG, 1e-25/1e-25): 2-site test on Wagih's 483k atoms
+# averaged 36 s/site → 510 sites ≈ 5.1 h on 16 cores. 8 h budget for variance.
 
-#SBATCH --job-name=delta_e_AlMg_200A_n500
-#SBATCH --time=06:00:00
+#SBATCH --job-name=delta_e_AlMg_200A_n500_tight
+#SBATCH --time=08:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=16
 #SBATCH --cpus-per-task=1
@@ -39,8 +38,9 @@ DRIVER=/cluster/home/cainiu/Computational_modeling/project/scripts/sample_delta_
 N_GB=500
 N_BULK=10
 SEED=42                # same as prototype for reproducibility across scans
-ETOL=1.0e-8
-FTOL=1.0e-10
+# CG tolerances inherit driver defaults (1e-25/1e-25/50000/5000000) — match
+# Wagih's calculate_E_GB_solute.in. Loose values shift the spectrum mean by
+# ~3 kJ/mol per site (verified on Wagih's structure 2026-04-25).
 
 # ----- bookkeeping -----
 cd "$RUN_DIR"
@@ -61,11 +61,10 @@ python "$DRIVER" \
     --gb-mask "$GB_MASK" \
     --potential "$POTENTIAL" \
     --n-gb "$N_GB" --n-bulk "$N_BULK" --seed "$SEED" \
-    --etol "$ETOL" --ftol "$FTOL" \
     --lmp lmp --mpi-ranks "$SLURM_NTASKS" --mpi-cmd mpirun \
-    --work-dir "$RUN_DIR/delta_e_run_n500_200A" \
-    --out-npz  "$RUN_DIR/delta_e_results_n500_200A.npz" \
-    --out-json "$RUN_DIR/delta_e_meta_n500_200A.json"
+    --work-dir "$RUN_DIR/delta_e_run_n500_200A_tight" \
+    --out-npz  "$RUN_DIR/delta_e_results_n500_200A_tight.npz" \
+    --out-json "$RUN_DIR/delta_e_meta_n500_200A_tight.json"
 
 echo "=========================================================="
 echo "Finished       : $(date)"
