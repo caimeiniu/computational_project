@@ -37,3 +37,5 @@ conda activate gb-seg
    built from the 0 K ΔE spectrum → locate the dilute-limit breakdown concentration
 6. Solute-solute `g(r)` at GB + local-density vs `P_i` correlation to diagnose the
    physical origin of the breakdown
+
+   
