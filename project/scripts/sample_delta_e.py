@@ -66,8 +66,11 @@ import numpy as np
 from scipy.spatial import cKDTree
 
 
-# Default masses (g/mol) for Al(1) / Mg(2) in an atom_style atomic data file.
-_MASSES = {1: 26.9815, 2: 24.3050}
+# Default elements / masses (g/mol) for type 1 / type 2.
+# Override via `elements=("Cu","Ni")` + `masses=(63.546, 58.6934)` etc.
+# Defaults are Al(1) / Mg(2) — the validated Al-Mg setup.
+_DEFAULT_ELEMENTS = ("Al", "Mg")
+_DEFAULT_MASSES = (26.9815, 24.3050)
 
 _SITE_ENERGY_RE = re.compile(r"SITE_ENERGY\s+site_id=(\d+)\s+pe=(-?\d+\.\d+(?:[eE][+-]?\d+)?)")
 _STOP_CRITERION_RE = re.compile(r"Stopping criterion\s*=\s*(.+)")
@@ -98,6 +101,8 @@ def compute_delta_e_spectrum(
     mpi_launcher: list[str] | None = None,
     work_dir: str | Path | None = None,
     keep_per_site_files: bool = False,
+    elements: tuple[str, str] = _DEFAULT_ELEMENTS,
+    masses: tuple[float, float] = _DEFAULT_MASSES,
 ) -> dict:
     """Sample GB + bulk sites, run per-site Al→Mg CG relaxation, return ΔE.
 
@@ -270,6 +275,8 @@ def compute_delta_e_spectrum(
             ftol=cg_ftol,
             maxiter=cg_maxiter,
             maxeval=cg_maxeval,
+            elements=elements,
+            masses=masses,
         )
         cmd = [*mpi_launcher, lmp_binary, "-in", str(deck)]
         proc = subprocess.run(cmd, capture_output=True, text=True, cwd=work_dir)
@@ -425,18 +432,27 @@ def _write_site_deck(
     ftol: float,
     maxiter: int,
     maxeval: int,
+    elements: tuple[str, str] = _DEFAULT_ELEMENTS,
+    masses: tuple[float, float] = _DEFAULT_MASSES,
 ) -> None:
-    """Write the LAMMPS deck that relaxes one Al→Mg substitution."""
+    """Write the LAMMPS deck that relaxes one solvent→solute substitution.
+
+    elements / masses default to Al / Mg; pass e.g. ("Cu","Ni"),
+    (63.546, 58.6934) for a Cu(Ni) run. Element symbols must match the
+    order in the EAM/fs file header.
+    """
+    el1, el2 = elements
+    m1, m2 = masses
     deck_path.write_text(
         f"log {log_path}\n"
         "units        metal\n"
         "atom_style   atomic\n"
         "boundary     p p p\n"
         f"read_data    {data_file}\n"
-        f"mass         1 {_MASSES[1]}\n"
-        f"mass         2 {_MASSES[2]}\n"
+        f"mass         1 {m1}\n"
+        f"mass         2 {m2}\n"
         "pair_style   eam/fs\n"
-        f"pair_coeff   * * {potential_file} Al Mg\n"
+        f"pair_coeff   * * {potential_file} {el1} {el2}\n"
         "neighbor     1.0 bin\n"
         "neigh_modify every 10 delay 0 check yes\n"
         f"set atom {site_id} type {solute_type}\n"
@@ -552,7 +568,13 @@ def _cli() -> None:
     p.add_argument("--n-gb", type=int, default=50, help="number of GB sites")
     p.add_argument("--n-bulk", type=int, default=5, help="number of bulk ref sites")
     p.add_argument("--seed", type=int, default=0, help="sample_seed for site selection")
-    p.add_argument("--solute-type", type=int, default=2, help="LAMMPS type for Mg")
+    p.add_argument("--solute-type", type=int, default=2, help="LAMMPS type for solute")
+    p.add_argument("--elements", default="Al Mg",
+                   help='Element symbols for type 1 / type 2 in the EAM file '
+                        '(e.g. "Cu Ni"). Order must match the EAM/fs file header.')
+    p.add_argument("--masses", default="26.9815 24.305",
+                   help='Atomic masses (g/mol) for type 1 / type 2 '
+                        '(e.g. "63.546 58.6934" for Cu / Ni).')
     p.add_argument("--bulk-separation", type=float, default=8.0,
                    help="min Å from any GB atom for a bulk reference")
     p.add_argument("--etol", type=float, default=1.0e-25)
@@ -586,6 +608,13 @@ def _cli() -> None:
         else:
             launcher = [cmd, "-np", str(args.mpi_ranks)]
 
+    el_tuple = tuple(args.elements.split())
+    if len(el_tuple) != 2:
+        raise SystemExit(f"--elements must be 2 symbols, got {el_tuple!r}")
+    mass_tuple = tuple(float(x) for x in args.masses.split())
+    if len(mass_tuple) != 2:
+        raise SystemExit(f"--masses must be 2 floats, got {mass_tuple!r}")
+
     result = compute_delta_e_spectrum(
         annealed_data_file=args.annealed,
         gb_mask=args.gb_mask,
@@ -603,6 +632,8 @@ def _cli() -> None:
         mpi_launcher=launcher,
         work_dir=args.work_dir,
         keep_per_site_files=args.keep_per_site_files,
+        elements=el_tuple,
+        masses=mass_tuple,
     )
 
     _save_results(result, Path(args.out_npz), Path(args.out_json) if args.out_json else None)

@@ -2,6 +2,287 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-04-25 (late 6) — Cu(Ni) merge prep: parameterize Al/Mg-specific bits, README quickstart, concept glossary
+
+### HMC dry-run launched (job 64777123)
+
+`data/decks/hmc_AlMg.lammps` (new, ~95 lines) + `submit_hmc_dryrun.sh`.
+Single (T, X_c) = (500 K, 5×10⁻³) point on the production 200 Å box,
+EQUIL 10 ps NVT → PROD 50 ps with `fix atom/swap`. Output goes to
+`/cluster/scratch/cainiu/hmc_AlMg/`. Will verify swap acceptance rate
+(target 5–30 %), PE plateau, and X_GB(t) post-pipeline before the deck
+gets merged.
+
+### FD value correction at T=500 K, X_c=5×10⁻³
+
+While discussing the dry-run target I quoted X_GB^FD ≈ 0.21. **Wrong** —
+exact interpolation from `output/fd_curves_200A_tight.json` is **0.189**
+(I misremembered X_c=10⁻² value of 0.236 as 0.21 at 5×10⁻³). User
+caught this from reading the figure (their 0.15 estimate was much closer
+than my 0.21). Comparison target for the dry-run X_GB^HMC is therefore
+**0.189**, not 0.21.
+
+For the record, exact FD predictions at X_c=5×10⁻³:
+| T (K) | X_GB^FD |
+|-------|---------|
+| 300   | 0.341   |
+| 500   | 0.189   |
+| 700   | 0.102   |
+| 900   | 0.056   |
+
+### Concept glossary additions (in `reference_gb_glossary.md`)
+
+While walking through the HMC plan, the following standard MD/MC terms
+were defined; recorded so future sessions don't re-derive:
+
+- **EQUIL / equilibration / burn-in** — "暖机"段，让体系松弛到目标系综平衡分布。
+- **PROD / production / sampling** — equilibration 之后的"正式跑"，所有测量取数。
+- **Plateau / stationary** — PE(t) 不再有系统性下降，只剩窗口内热涨落。
+- **Swap acceptance rate** — `fix atom/swap` Metropolis 接受率，5–30% 健康。
+- **thermo (LAMMPS)** — `thermo N` 每 N 步把 thermo_style 列出的标量打到 stdout/log；HMC 的时间序列主源。
+
+### Parameterization for Cu(Ni) merge
+
+`scripts/sample_delta_e.py`:
+- Added `elements: tuple[str,str]` and `masses: tuple[float,float]`
+  parameters to `compute_delta_e_spectrum` and `_write_site_deck`,
+  defaulting to `("Al","Mg")` / `(26.9815, 24.305)`. Backward-compatible
+  with all existing Al(Mg) calls.
+- New CLI flags `--elements "Cu Ni"` and `--masses "63.546 58.6934"`.
+- Self-tested: default rendering identical to pre-edit deck; Cu/Ni
+  override produces correct `mass`, `pair_coeff`.
+
+`data/decks/anneal_AlMg.lammps`:
+- Added `EL1`, `EL2`, `MASS1`, `MASS2` `variable index` slots, defaults
+  `Al / Mg / 26.9815 / 24.305`. `mass` and `pair_coeff` lines now
+  reference these. Existing `submit_anneal_200A.sh` (which doesn't pass
+  these vars) keeps the Al/Mg defaults — no behavior change.
+
+`scripts/generate_polycrystal.py`, `gb_identify.py`,
+`fit_delta_e_spectrum.py`, `fermi_dirac_predict.py`: already generic;
+no changes needed.
+
+### README rewrite
+
+Replaced the placeholder README with an alloy-merge-ready document:
+
+- Pipeline overview diagram.
+- **Validated scripts** table — 5 Python scripts + 1 deck cleared for
+  any FCC/BCC/HCP binary alloy via CLI/`-var` flags.
+- **Validation-only** table — `compare_vs_wagih.py`,
+  `bootstrap_vs_wagih.py`, `paired_pipeline_residual.py`,
+  `wagih_dump_to_data.py` are Al(Mg)-specific (need Wagih's per-site
+  reference data to run).
+- **Not-yet-validated** table — HMC deck + post-process; explicitly
+  excluded from the merge until dry-run signs off.
+- **Cu(Ni) quickstart** — copy-paste shell block: generate (Cu lattice
+  3.61 Å) → anneal (T_hold 540 K = 0.4·T_melt(Cu)) → GB ID → ΔE sample
+  → fit + FD predict. All commands include the correct `--elements
+  "Cu Ni" --masses "63.546 58.6934"` for Cu-Ni and the right `-var
+  EL1 Cu -var EL2 Ni -var MASS1 -var MASS2 -var T_HOLD 540` for the
+  anneal deck.
+
+### Merge plan for `main` (proposal — user to execute)
+
+`main` is 7 commits behind `cainiu`. Recommended:
+
+1. Pull `cainiu` to `main` excluding the Wagih validation files (to
+   keep `main` story-clean for Cu(Ni) team) — or include them clearly
+   labelled "validation" since they're harmless and document our
+   confidence level. **My suggestion: include**, since deleting them
+   loses provenance and the README already labels them validation-only.
+2. Exclude HMC deck (`hmc_AlMg.lammps`, `submit_hmc_dryrun.sh`) from
+   the merge until dry-run confirms acceptance/plateau/X_GB.
+3. Cherry-pick or fast-forward — prefer fast-forward of the relevant
+   commits since `main` is a strict ancestor.
+
+User to authorise and execute the actual merge — Claude will not push to
+shared `main` without explicit instruction.
+
+### Artifacts
+
+- `data/decks/hmc_AlMg.lammps`, `submit_hmc_dryrun.sh` (new, in flight)
+- `scripts/sample_delta_e.py` (parameterised; backward-compat)
+- `data/decks/anneal_AlMg.lammps` (parameterised; backward-compat)
+- `README.md` (rewritten)
+- `reference_gb_glossary.md` (EQUIL / PROD / plateau / acceptance / thermo entries)
+
+## 2026-04-25 (late 5) — Figure cleanup, archive, glossary update
+
+### Figure-label cleanup (no underscore literals)
+
+All kept figures regenerated with matplotlib mathtext so axis labels and
+legends render symbols as math italic + sub/superscripts instead of raw
+underscores. Scripts updated:
+
+- `scripts/fermi_dirac_predict.py`:
+  `X_c` → `$X_c$`,  `X_GB^FD` → `$X_\mathrm{GB}^\mathrm{FD}$`,
+  `X_GB = X_c` → `$X_\mathrm{GB} = X_c$`, "Fermi-Dirac" → "Fermi–Dirac",
+  ASCII "200A" → "200 Å".
+- `scripts/compare_vs_wagih.py`:
+  `ΔE_seg` → `$\Delta E_\mathrm{seg}$` (xlabel + title).
+- `scripts/paired_pipeline_residual.py`:
+  `E_GB^Mg` → `$E_\mathrm{GB}^\mathrm{Mg}$` (both axes), residual label
+  → `$E^\mathrm{ours}_\mathrm{GB} - E^\mathrm{Wagih}_\mathrm{GB}$`.
+
+Convention recorded in `reference_gb_glossary.md` ("Figure-axis symbols"):
+all Phase-4 plot scripts must use `r"$...$"` mathtext for any compound
+symbol — no raw `X_c` / `X_GB` / `ΔE_seg` in user-visible strings.
+
+### Archive sweep — `output/archive/`
+
+Moved 4 superseded PNGs out of the active `output/` to keep the report
+shortlist scannable. JSONs kept in place (small, reproducibility data).
+
+| archived file | reason |
+|---------------|--------|
+| `compare_vs_wagih.png` | 100A loose-CG (the 4.8 kJ/mol-shift discovery plot, now superseded by 200A tight) |
+| `delta_e_spectrum_n500.png` | 100A skew-normal fit, replaced by 200A |
+| `delta_e_spectrum_n500_200A.png` | 200A loose-CG: bug-affected ΔE values, ~−11 kJ/mol mean |
+| `paired_pipeline_residual_n343.png` | loose-CG diagnostic snapshot — the smoking-gun image; n=500 tight is the publication-quality version |
+
+### Active `output/` (post-cleanup)
+
+| file | role |
+|------|------|
+| `compare_vs_wagih_200A_tight.{png,json}` | report main: spectrum histogram + skew-normal + KS |
+| `fd_curves_200A_tight.{png,json}` | report main: Fermi–Dirac dilute-limit curves, 4 T overlay vs Wagih |
+| `paired_pipeline_residual_n500_tight.{png,json}` | validation: per-site PE residual ≈ 0 on Wagih's structure |
+| `bootstrap_vs_wagih_200A_tight.json` | validation: 6 statistics inside 95 % CI |
+| `method_overview.png` | slides: 4-panel methodology overview |
+
+### Reference memory additions
+
+- `reference_ks_test.md` (new) — KS two-sample p-value reading conventions
+  + project benchmarks (wagih-on-wagih p=0.91, our 200A tight p=0.892,
+  our 200A loose-CG p=7e-9).
+- `reference_gb_glossary.md` — added "Figure-axis symbols" subsection
+  (mathtext convention) and HMC sweep grid plan (Phase 4 knee table).
+
+### Verification
+
+Re-rendered PNGs inspected: `$X_c$`, `$X_\mathrm{GB}^\mathrm{FD}$`,
+`$\Delta E_\mathrm{seg}$`, `$E_\mathrm{GB}^\mathrm{Mg}$` all display
+correctly as math-italic with subscripts/superscripts; no literal `_`
+remaining in any axis label, legend, or title.
+
+## 2026-04-25 (late 4) — 200A tight-CG production lands; structure-realization residual not detectable; FD predictor ready
+
+### Production NPZ landed (job 64755232)
+
+The dependency-chained tight-CG resume of job `64743372` finished
+in 46 min wall (504/510 sites resumed from prior checkpoint, only
+the 9 unfinished + bulk refs needed re-running). Result on our own
+200A structure: `delta_e_results_n500_200A_tight.npz`,
+ΔE_seg [kJ/mol] min=−48.46 max=+35.79 **mean=−6.91**.
+CG stop reasons: 496 `linesearch alpha is zero`, 14 `energy tolerance`
+at 1e-25 — all converged at machine precision. Bulk-ref:
+E_bulk^Mg = −1613193.8018 ± 0.0081 eV (n=10).
+
+### Compare vs Wagih Zenodo pool — KS p=0.892
+
+Re-ran `scripts/compare_vs_wagih.py` on our 200A tight NPZ vs Wagih's
+82,646-site Zenodo pool (`output/compare_vs_wagih_200A_tight.{png,json}`):
+
+| metric          | **Ours 200A tight** | Wagih (n=82,646) | Δ |
+|-----------------|---------------------|-------------------|------|
+| sample mean (kJ/mol) | **−6.906** | −6.814 | +0.09 |
+| sample std           | **15.07**  | 15.85  | −0.78 |
+| sample skew          | **−0.213** | −0.224 | +0.01 |
+| skew-normal μ        | **+6.34**  | +6.72  | −0.38 |
+| skew-normal σ        | **+20.06** | +20.84 | −0.78 |
+| skew-normal α        | **−1.465** | −1.395 | −0.07 |
+| KS two-sample        | **D=0.0256, p=0.892** | — | indistinguishable |
+
+### Bootstrap CI (B=10⁴, n=500, seed=20260425) — `scripts/bootstrap_vs_wagih.py`
+
+Drew 10⁴ N=500 sub-samples from Wagih's 82,646 pool:
+
+| stat              | boot_mean ± σ_boot | 95% CI                | ours    | z      | percentile | result |
+|-------------------|--------------------|-----------------------|---------|--------|------------|--------|
+| sample mean       | −6.82 ± 0.71       | [−8.23, −5.42]        | −6.906  | −0.12  | 44.9       | **inside** |
+| sample std        | +15.85 ± 0.49      | [+14.89, +16.81]      | +15.073 | −1.59  | 5.6        | inside (tail) |
+| sample skew       | −0.222 ± 0.092     | [−0.40, −0.04]        | −0.213  | +0.10  | 54.9       | inside |
+| skew-normal μ     | +6.25 ± 2.89       | [−0.26, +10.33]       | +6.343  | +0.03  | 43.9       | inside |
+| skew-normal σ     | +20.67 ± 1.58      | [+17.09, +23.44]      | +20.057 | −0.39  | 32.4       | inside |
+| skew-normal α     | −1.385 ± 0.399     | [−2.12, −0.56]        | −1.465  | −0.20  | 42.5       | inside |
+
+### Resolution: the 4.8 kJ/mol shift fully decomposed
+
+```
+4.8 kJ/mol shift (loose-CG 200A vs Wagih A)
+  = 3.0 kJ/mol  loose CG          ← fixed (etol 1e-8 → 1e-25)
+  + 1.8 kJ/mol  predicted "structure realization"
+                ↑ NOT observed at tight CG: actual residual is 0.09 kJ/mol,
+                  inside CI, std-ratio is the only mildly tail-leaning stat.
+```
+
+**Conclusion:** the residual after CG fix is sampling noise, not a
+structural bias. Our Voronoi/anneal/CNA pipeline produces a Wagih-
+equivalent ΔE distribution on independent structures. Pipeline is
+locked in; no further structure-side debugging warranted.
+
+### Fermi-Dirac predictor — `scripts/fermi_dirac_predict.py`
+
+New, ~170 lines. Loads ΔE NPZ (eV), evaluates
+
+    P_i(T, X_c) = 1 / (1 + ((1 − X_c)/X_c) · exp(ΔE_i / kT))
+    X_GB^FD(T, X_c) = (1/N_GB) · Σ_i P_i
+
+on a (T, X_c) grid; overlays Wagih's 82,646-site pool. Ships with
+`--self-test` covering analytic limits:
+
+- X_c → 0 (linear scaling, halving X_c halves X_GB)  ✓
+- X_c → 1  (X_GB → 1)  ✓
+- T → ∞   (X_GB → X_c, no preference)  ✓
+- T → 0   (X_GB → fraction of ΔE_i < 0)  ✓
+
+Curves on T ∈ {300, 500, 700, 900} K, X_c ∈ [10⁻⁵, 0.5] log-spaced
+(`output/fd_curves_200A_tight.{png,json}`):
+
+| T (K) | X_c=1e-4 | X_c=1e-3 | X_c=1e-2 | X_c=0.1 | X_c=0.5 |
+|-------|----------|----------|----------|---------|---------|
+| 300   | 0.159 / 0.166 | 0.259 / 0.256 | 0.378 / 0.373 | 0.510 / 0.514 | 0.645 / 0.647 |
+| 500   | 0.037 / 0.044 | 0.105 / 0.112 | 0.236 / 0.237 | 0.433 / 0.432 | 0.641 / 0.640 |
+| 700   | 0.006 / 0.009 | 0.039 / 0.045 | 0.144 / 0.149 | 0.366 / 0.366 | 0.635 / 0.631 |
+| 900   | 0.002 / 0.002 | 0.016 / 0.019 | 0.090 / 0.095 | 0.312 / 0.313 | 0.627 / 0.623 |
+
+(format: ours / wagih). Max curve-level deviation ≤ 0.008 anywhere
+on the grid — consistent with the spectrum-level KS result. Saturation
+plateau at X_GB ≈ 0.65 = frac(ΔE<0).
+
+### "Knee" location → HMC grid plan
+
+The breakdown of dilute-limit assumptions is most likely to show up
+*in or just before* the rising-knee region. Reading off the FD curves:
+
+| T (K) | knee X_c (X_GB rising 10→50%) |
+|-------|-------------------------------|
+| 300   | ~3×10⁻⁵ to 3×10⁻⁴ |
+| 500   | ~3×10⁻⁴ to 5×10⁻³ |
+| 700   | ~5×10⁻³ to 5×10⁻² |
+| 900   | ~3×10⁻² to 0.2 |
+
+HMC sweep proposal: 4 temperatures × ~6 X_c per T, dense at the knee,
+two anchor points in saturation (X_c=0.3 each T) and dilute (X_c far
+below knee, where X_GB^FD ≈ 0). ~24-point grid.
+
+### Next
+
+Phase 4: write `data/decks/submit_hmc_AlMg.sh` (LAMMPS `fix atom/swap`),
+single-point dry-run at T=500 K, X_c=5×10⁻³ to verify swap acceptance
+rate (target 5–30 %), energy plateau, X_GB autocorrelation < window.
+Then batch the 24-point grid, headline figure: X_GB^HMC vs X_GB^FD
+overlay; breakdown X_c per T = first divergence beyond FD-bootstrap CI.
+
+### Artifacts
+
+- `output/compare_vs_wagih_200A_tight.{png,json}`
+- `output/bootstrap_vs_wagih_200A_tight.json`
+- `output/fd_curves_200A_tight.{png,json}`
+- `scripts/bootstrap_vs_wagih.py` (new)
+- `scripts/fermi_dirac_predict.py` (new)
+
 ## 2026-04-25 (late 3) — Phase 4 sequencing: build FD predictor before HMC scan
 
 With pipeline validation closed (2026-04-25 late 2) and production 200A
