@@ -2,6 +2,91 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-04-25 (EOD) — End-of-day state, push complete, HMC dry-run successful, tomorrow's plan
+
+### Pushed to origin (both branches)
+
+After resolving a rebase conflict against `origin/main` (Jiayi Fu had a
+no-op `test` commit `3eacd53` that touched the README's tail), our 8
+commits replayed cleanly on top:
+
+```
+origin/main:    f70af31  Cu(Ni)-merge prep: parameterize alloy, ...   ← top of stack, 8 commits ahead of e4e1391
+                3eacd53  test                                          (Jiayi Fu)
+                e4e1391  ...                                           (previous main)
+origin/cainiu:  same f70af31
+origin/jy:      Jiayi Fu's branch (left untouched by us)
+```
+
+Colleagues clone the repo and follow `project/README.md`. Tarball
+`/cluster/home/cainiu/gb-seg-toolkit.tar.gz` (28 KB) kept as alternative
+delivery for non-git users.
+
+### HMC dry-run completed (job 64777123, T=500 K, X_c=5e-3)
+
+Job ran to completion; full 10 ps EQUIL + 50 ps PROD on the production
+200 Å box (476k atoms, 32 MPI ranks). Outputs in
+`/cluster/scratch/cainiu/hmc_AlMg/`:
+
+| diagnostic | value | health |
+|------------|-------|--------|
+| T (PROD)   | 499–500 K | NVT thermostat working ✓ |
+| PE (PROD end) | −1.577e6 eV ± ~50 eV | stationary, no drift ✓ |
+| swap attempts | 5000  | (50000 steps / 100 step interval × 10 swaps/call) |
+| swap accepts  | 383   | — |
+| **acceptance rate** | **7.66 %** | **inside 5–30 % target band ✓** |
+| dump file | `hmc_dry_T500_Xc0.005.dump` (208 MB, 50 frames) | ready for X_GB(t) post-processing |
+
+Acceptance is on the lower side of the healthy range — fine for a
+dry-run; if production wall time matters we can raise it by either
+increasing `SWAPS_PER_CALL` (currently 10) or by restricting swaps to a
+GB region (`region` keyword on `fix atom/swap`).
+
+### Deck bug discovered (cosmetic, fix tomorrow)
+
+```
+ERROR: Could not find thermo fix ID hmc (src/src/thermo.cpp:314)
+Last command: write_data   ${outstub}_final.lmp
+```
+
+`thermo_style` was set to reference `f_hmc[1]/f_hmc[2]`, but `unfix hmc`
+was issued before the final `write_data`, which still triggers a thermo
+print. The simulation itself was not affected (50 ps PROD finished, all
+data written via dump + restart). Fix: either reorder so `write_data`
+runs before `unfix hmc`, or reset `thermo_style` to a column set without
+`f_hmc` after the unfix.
+
+### Tomorrow's plan
+
+1. **Fix the `hmc_AlMg.lammps` `write_data` ordering bug** (one-line edit:
+   move `write_data ${outstub}_final.lmp` above `unfix hmc`, or add a
+   neutral `thermo_style custom step time temp pe ke press` after `unfix hmc`).
+2. **Write `scripts/hmc_xgb_timeseries.py`** (~150 lines):
+   - Parse `*.log` thermo block → arrays of (t, T, PE, KE, P, n_attempts, n_accepts).
+   - Parse `*.dump` (50 frames, id+type) → load `gb_mask_200A.npy` →
+     compute X_GB(t) = (types[gb_mask] == 2).sum() / gb_mask.sum() per frame.
+   - Diagnostic plot (4 panels: T, PE, instantaneous swap acceptance,
+     X_GB(t)) + JSON summary {accept_mean, x_gb_mean ± block-bootstrap CI,
+     fd_predicted: 0.189, gap}.
+   - Burn-in detection: drop first ≥ 2τ_int of the X_GB(t) series.
+3. **Compare X_GB^HMC vs X_GB^FD = 0.189** at this single point. If they
+   agree within the FD-bootstrap CI, dilute-limit holds at X_c=5e-3, T=500 K.
+   If X_GB^HMC > 0.189 (HMC sees more segregation), independent-site
+   assumption is breaking down → first signal of breakdown.
+4. **Decide HMC sweep grid** based on (a) FD knee table from late 4 entry
+   and (b) what the dry-run point tells us about cost/precision tradeoffs.
+5. **Once dry-run sign-off**: commit `hmc_AlMg.lammps` +
+   `submit_hmc_dryrun.sh` (currently untracked) + new
+   `hmc_xgb_timeseries.py`. They've been deliberately held out of `main`
+   pending validation.
+
+### Open task tracker (carried forward)
+
+- HMC deck bug fix
+- HMC X_GB(t) post-process script
+- HMC sweep grid execution
+- Eventually: solute-solute g(r) at GB to diagnose breakdown mechanism
+
 ## 2026-04-25 (late 6) — Cu(Ni) merge prep: parameterize Al/Mg-specific bits, README quickstart, concept glossary
 
 ### HMC dry-run launched (job 64777123)
