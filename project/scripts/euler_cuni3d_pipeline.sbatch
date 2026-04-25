@@ -7,6 +7,7 @@
 set -euo pipefail
 
 module load stack/2024-06
+module load python/3.11.6
 module load openmpi/4.1.6
 module load lammps/20230802
 
@@ -17,6 +18,15 @@ LMP_CMD="mpirun -np ${SLURM_NTASKS} lmp"
 echo "Project: ${PROJECT_DIR}"
 echo "Scratch run directory: ${RUN_DIR}"
 echo "LAMMPS command: ${LMP_CMD}"
+echo "Python: $(which python3)"
+python3 - <<'PY'
+import numpy
+import scipy
+import matplotlib
+print(f"NumPy: {numpy.__version__}")
+print(f"SciPy: {scipy.__version__}")
+print(f"Matplotlib: {matplotlib.__version__}")
+PY
 
 mkdir -p "${RUN_DIR}"
 
