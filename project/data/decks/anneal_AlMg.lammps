@@ -33,6 +33,13 @@ variable T_HOLD_PS      index 250         # ps
 variable COOL_RATE      index 3.0         # K/ps
 variable VELOCITY_SEED  index 20240101
 variable POTFILE        index /cluster/home/cainiu/Computational_modeling/project/data/potentials/Al-Mg.eam.fs
+# Element symbols / masses for type 1 (solvent) and type 2 (solute).
+# Defaults: Al / Mg. Cu-Ni example: -var EL1 Cu -var EL2 Ni -var MASS1 63.546 -var MASS2 58.6934
+# EL1/EL2 must match the order in the EAM/fs file header.
+variable EL1            index Al
+variable EL2            index Mg
+variable MASS1          index 26.9815
+variable MASS2          index 24.3050
 
 # Derived step counts (dt = 1 fs -> 1000 steps/ps).
 variable N_HOLD         equal round(${T_HOLD_PS}*1000)
@@ -48,11 +55,11 @@ boundary     p p p
 
 read_data    ${datafile}
 
-mass         1 26.9815   # Al
-mass         2 24.3050   # Mg (declared but unused at this stage)
+mass         1 ${MASS1}  # solvent (default Al)
+mass         2 ${MASS2}  # solute  (default Mg, declared but unused at this stage)
 
 pair_style   eam/fs
-pair_coeff   * * ${POTFILE} Al Mg
+pair_coeff   * * ${POTFILE} ${EL1} ${EL2}
 
 # 1.0 Å skin + check every 10 steps: fewer rebuilds at 300+ K MD, ~5-10%
 # faster than LAMMPS metal defaults without losing correctness.

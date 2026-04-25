@@ -120,8 +120,8 @@ def main():
     ax.scatter(pe_w, pe_o, s=8, alpha=0.5, color="C0")
     lo, hi = min(pe_w.min(), pe_o.min()), max(pe_w.max(), pe_o.max())
     ax.plot([lo, hi], [lo, hi], "k--", lw=0.8, label="y = x")
-    ax.set_xlabel("Wagih E_GB^Mg (eV)")
-    ax.set_ylabel("Ours pe (eV)")
+    ax.set_xlabel(r"Wagih $E_\mathrm{GB}^\mathrm{Mg}$ (eV)")
+    ax.set_ylabel(r"Ours $E_\mathrm{GB}^\mathrm{Mg}$ (eV)")
     ax.set_title(f"Paired per-site PE  (n = {sid_o.size})\n"
                  f"r = {summary['pearson_r']:.6f}")
     ax.legend(loc="upper left", fontsize=9)
@@ -131,7 +131,7 @@ def main():
     ax.hist(resid_meV, bins=40, color="C1", alpha=0.85)
     ax.axvline(resid_meV.mean(), color="k", lw=1.0,
                label=f"mean = {resid_meV.mean():+.2f} meV")
-    ax.set_xlabel("Residual pe_ours − E_GB_wagih (meV)")
+    ax.set_xlabel(r"Residual $E^\mathrm{ours}_\mathrm{GB} - E^\mathrm{Wagih}_\mathrm{GB}$ (meV)")
     ax.set_ylabel("count")
     ax.set_title(f"Residual distribution  "
                  f"(σ = {resid_meV.std(ddof=1):.2f} meV)")

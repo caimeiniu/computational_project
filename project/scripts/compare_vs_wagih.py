@@ -95,10 +95,10 @@ def main():
             label=(f"Ours fit  μ={f_ours['mu']:+.1f} σ={f_ours['sigma']:.1f} "
                    f"α={f_ours['alpha']:+.2f}"))
     ax.axvline(0.0, color="k", lw=0.6, alpha=0.4)
-    ax.set_xlabel("ΔE_seg  (kJ/mol)")
+    ax.set_xlabel(r"$\Delta E_\mathrm{seg}$  (kJ/mol)")
     ax.set_ylabel("probability density")
-    ax.set_title(f"Al(Mg) ΔE_seg — ours vs Wagih Zenodo "
-                 f"(KS D={ks.statistic:.3f}, p={ks.pvalue:.2g})")
+    ax.set_title(r"Al(Mg) $\Delta E_\mathrm{seg}$ — ours vs Wagih Zenodo "
+                 + f"(KS D={ks.statistic:.3f}, p={ks.pvalue:.2g})")
     ax.legend(loc="upper left", fontsize=8, framealpha=0.95)
     fig.tight_layout()
     Path(args.out_png).parent.mkdir(parents=True, exist_ok=True)
