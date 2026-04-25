@@ -12,14 +12,18 @@
 # Wagih's 82k distribution on these same sites, our pipeline is fine and
 # the residual is pure structure-realization variance.
 
-#SBATCH --job-name=delta_e_wagih_struct_n500
-#SBATCH --time=03:00:00
+#SBATCH --job-name=delta_e_wagih_struct_n500_tight
+#SBATCH --time=08:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=16
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=2G
 #SBATCH --output=/cluster/scratch/cainiu/wagih_pipeline_test/%x-%j.out
 #SBATCH --error=/cluster/scratch/cainiu/wagih_pipeline_test/%x-%j.err
+
+# Walltime sized for Wagih-default tight CG (1e-25 / 1e-25). 2-site sanity
+# test 2026-04-25 took ~36 s/site avg → 510 sites × 36 s ≈ 5 h on 16 cores.
+# 8 h budget covers long-tail CG variance.
 
 set -euo pipefail
 module purge
@@ -36,24 +40,21 @@ DRIVER=/cluster/home/cainiu/Computational_modeling/project/scripts/sample_delta_
 N_GB=500
 N_BULK=10
 SEED=42     # same as production run on our own structure
-ETOL=1.0e-8
-FTOL=1.0e-10
 
 cd "$RUN_DIR"
 echo "Job ID $SLURM_JOB_ID started $(date)"
 echo "Structure : $ANNEALED (Wagih Zenodo, 483,425 atoms)"
 echo "Mask      : $GB_MASK (82,646 GB atoms from seg_energies_Al_Mg.txt)"
-echo "Sampling  : N_GB=$N_GB N_BULK=$N_BULK seed=$SEED"
+echo "Sampling  : N_GB=$N_GB N_BULK=$N_BULK seed=$SEED  (tight CG defaults)"
 
 python "$DRIVER" \
     --annealed "$ANNEALED" \
     --gb-mask "$GB_MASK" \
     --potential "$POTENTIAL" \
     --n-gb "$N_GB" --n-bulk "$N_BULK" --seed "$SEED" \
-    --etol "$ETOL" --ftol "$FTOL" \
     --lmp lmp --mpi-ranks "$SLURM_NTASKS" --mpi-cmd mpirun \
-    --work-dir "$RUN_DIR/delta_e_run" \
-    --out-npz  "$RUN_DIR/delta_e_results_wagih_n500.npz" \
-    --out-json "$RUN_DIR/delta_e_meta_wagih_n500.json"
+    --work-dir "$RUN_DIR/delta_e_run_tight" \
+    --out-npz  "$RUN_DIR/delta_e_results_wagih_n500_tight.npz" \
+    --out-json "$RUN_DIR/delta_e_meta_wagih_n500_tight.json"
 
 echo "Finished $(date)"

@@ -38,9 +38,9 @@ DRIVER=/cluster/home/cainiu/Computational_modeling/project/scripts/sample_delta_
 N_GB=500
 N_BULK=10
 SEED=42
-# CG tolerances: tighter than anneal (ΔE accuracy matters at sub-meV level)
-ETOL=1.0e-8
-FTOL=1.0e-10
+# CG tolerances inherit driver defaults (1e-25/1e-25/50000/5000000) — match
+# Wagih's calculate_E_GB_solute.in. Loose values shift the spectrum mean by
+# ~3 kJ/mol per site (verified on Wagih's structure 2026-04-25).
 
 # ----- bookkeeping -----
 cd "$RUN_DIR"
@@ -77,7 +77,6 @@ python "$DRIVER" \
     --gb-mask "$GB_MASK" \
     --potential "$POTENTIAL" \
     --n-gb "$N_GB" --n-bulk "$N_BULK" --seed "$SEED" \
-    --etol "$ETOL" --ftol "$FTOL" \
     --lmp lmp --mpi-ranks "$SLURM_NTASKS" --mpi-cmd mpirun \
     --work-dir "$RUN_DIR/delta_e_run_n500" \
     --out-npz  "$RUN_DIR/delta_e_results_n500.npz" \
