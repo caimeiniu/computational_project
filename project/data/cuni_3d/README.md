@@ -65,11 +65,19 @@ Collect and compare:
 python3 scripts/analyze_cuni_deltae.py
 ```
 
+Create an OVITO-friendly structure with sampled sites marked by atom type:
+
+```bash
+python3 scripts/mark_cuni_sites_for_ovito.py
+```
+
 Outputs:
 
 - `cuni_3d_polycrystal.lammps`: pure Cu 3D Voronoi structure.
 - `lammps/cuni_3d_relaxed.lammps`: annealed/minimized pure Cu 3D structure.
 - `cuni_3d_deltae_sites.csv`: one bulk reference plus 500 sampled GB sites.
+- `cuni_3d_sites_for_ovito.lammps`: relaxed structure with atom type 2 for sampled GB
+  sites and atom type 3 for the bulk reference.
 - `lammps/deltae_jobs/`: one minimization input per sampled site.
 - `cuni_3d_deltae_results.csv`: relaxed ΔE values in kJ/mol.
 - `cuni_3d_deltae_vs_wagih.png`: histogram compared with the approximate Wagih Ni(Cu)

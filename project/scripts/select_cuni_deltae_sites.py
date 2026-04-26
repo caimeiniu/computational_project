@@ -10,16 +10,23 @@ import numpy as np
 from scipy.spatial import cKDTree
 
 
-def read_lammps_atoms(path: Path) -> tuple[np.ndarray, np.ndarray, float]:
+def read_lammps_atoms(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     lines = path.read_text(encoding="utf-8").splitlines()
-    box = None
+    lo = np.zeros(3, dtype=float)
+    hi = np.zeros(3, dtype=float)
     for line in lines:
         if "xlo xhi" in line:
             parts = line.split()
-            box = float(parts[1]) - float(parts[0])
-            break
-    if box is None:
-        raise ValueError(f"Could not read x box length from {path}")
+            lo[0], hi[0] = float(parts[0]), float(parts[1])
+        elif "ylo yhi" in line:
+            parts = line.split()
+            lo[1], hi[1] = float(parts[0]), float(parts[1])
+        elif "zlo zhi" in line:
+            parts = line.split()
+            lo[2], hi[2] = float(parts[0]), float(parts[1])
+    box = hi - lo
+    if np.any(box <= 0.0):
+        raise ValueError(f"Could not read orthorhombic box bounds from {path}")
 
     start = None
     for idx, line in enumerate(lines):
@@ -38,13 +45,19 @@ def read_lammps_atoms(path: Path) -> tuple[np.ndarray, np.ndarray, float]:
         parts = stripped.split()
         if len(parts) < 5:
             continue
-        ids.append(int(parts[0]))
-        positions.append([float(parts[2]), float(parts[3]), float(parts[4])])
-    return np.array(ids, dtype=int), np.array(positions, dtype=float), box
+        try:
+            atom_id = int(parts[0])
+            xyz = [float(parts[2]), float(parts[3]), float(parts[4])]
+        except ValueError:
+            break
+        ids.append(atom_id)
+        positions.append(xyz)
+    wrapped = (np.array(positions, dtype=float) - lo) % box
+    return np.array(ids, dtype=int), wrapped, box
 
 
 def classify_by_neighbor_count(
-    positions: np.ndarray, box: float, nearest_neighbor: float, cutoff_factor: float
+    positions: np.ndarray, box: np.ndarray, nearest_neighbor: float, cutoff_factor: float
 ) -> tuple[np.ndarray, np.ndarray]:
     tree = cKDTree(positions, boxsize=box)
     neighbor_lists = tree.query_ball_point(positions, r=cutoff_factor * nearest_neighbor)
