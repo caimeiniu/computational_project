@@ -16,11 +16,11 @@ boundary p p p
 atom_style atomic
 
 read_data "{data_file}"
-mass 1 63.546
-mass 2 58.693
+mass 1 {solvent_mass}
+mass 2 {solute_mass}
 
 pair_style eam/alloy
-pair_coeff * * "{potential_file}" Cu Ni
+pair_coeff * * "{potential_file}" {solvent} {solute}
 neighbor 0.3 bin
 neigh_modify every 1 delay 0 check yes
 
@@ -36,6 +36,11 @@ print "FINAL_PE_EV {role} {atom_id} ${{final_pe}}"
 write_data {relaxed_name}
 """
 
+ELEMENT_MASS = {
+    "Cu": 63.546,
+    "Ni": 58.693,
+}
+
 
 def read_sites(path: Path) -> list[dict[str, str]]:
     with path.open(encoding="utf-8", newline="") as handle:
@@ -49,12 +54,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--potential", type=Path, default=Path("data/examples/nc_swap_CuNi/Cu_Ni_Fischer_2018.eam.alloy"))
     parser.add_argument("--jobs-dir", type=Path, default=Path("data/cuni_3d/lammps/deltae_jobs"))
     parser.add_argument("--lammps-command", default="lmp")
+    parser.add_argument("--solvent", choices=sorted(ELEMENT_MASS), default="Cu", help="Matrix/solvent element, atom type 1.")
+    parser.add_argument("--solute", choices=sorted(ELEMENT_MASS), default="Ni", help="Substitutional solute element, atom type 2.")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     rows = read_sites(args.sites)
+    if args.solvent == args.solute:
+        raise ValueError("--solvent and --solute must be different")
     args.jobs_dir.mkdir(parents=True, exist_ok=True)
     data_file = os.path.relpath(args.data.resolve(), args.jobs_dir.resolve())
     potential_file = os.path.relpath(args.potential.resolve(), args.jobs_dir.resolve())
@@ -72,6 +81,10 @@ def main() -> None:
                 log_name=log_name,
                 data_file=data_file,
                 potential_file=potential_file,
+                solvent=args.solvent,
+                solute=args.solute,
+                solvent_mass=ELEMENT_MASS[args.solvent],
+                solute_mass=ELEMENT_MASS[args.solute],
                 atom_id=atom_id,
                 role=role,
                 relaxed_name=relaxed_name,

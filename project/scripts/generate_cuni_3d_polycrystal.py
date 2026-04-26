@@ -27,6 +27,16 @@ FCC_BASIS = np.array(
     dtype=float,
 )
 
+ELEMENT_MASS = {
+    "Cu": 63.546,
+    "Ni": 58.693,
+}
+
+ELEMENT_LATTICE_A = {
+    "Cu": 3.615,
+    "Ni": 3.520,
+}
+
 
 @dataclass(frozen=True)
 class Grain:
@@ -120,17 +130,17 @@ def generate_polycrystal(
     return positions[order], grain_ids[order], centers
 
 
-def write_lammps_data(path: Path, positions: np.ndarray, box: float) -> None:
+def write_lammps_data(path: Path, positions: np.ndarray, box: float, solvent: str, solute: str) -> None:
     with path.open("w", encoding="utf-8") as handle:
-        handle.write("3D Voronoi FCC Cu polycrystal\n\n")
+        handle.write(f"3D Voronoi FCC {solvent} polycrystal for {solvent}({solute})\n\n")
         handle.write(f"{len(positions)} atoms\n\n")
         handle.write("2 atom types\n\n")
         handle.write(f"0.0 {box:.10f} xlo xhi\n")
         handle.write(f"0.0 {box:.10f} ylo yhi\n")
         handle.write(f"0.0 {box:.10f} zlo zhi\n\n")
         handle.write("Masses\n\n")
-        handle.write("1 63.546\n")
-        handle.write("2 58.693\n\n")
+        handle.write(f"1 {ELEMENT_MASS[solvent]}\n")
+        handle.write(f"2 {ELEMENT_MASS[solute]}\n\n")
         handle.write("Atoms # atomic\n\n")
         for atom_id, (x, y, z) in enumerate(positions, start=1):
             handle.write(f"{atom_id} 1 {x:.10f} {y:.10f} {z:.10f}\n")
@@ -156,7 +166,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--box-nm", type=float, default=10.0, help="Cubic box length in nm.")
     parser.add_argument("--grains", type=int, default=8, help="Number of Voronoi grains.")
-    parser.add_argument("--lattice", type=float, default=3.615, help="Cu FCC lattice parameter in Angstrom.")
+    parser.add_argument("--solvent", choices=sorted(ELEMENT_MASS), default="Cu", help="Matrix/solvent element, atom type 1.")
+    parser.add_argument("--solute", choices=sorted(ELEMENT_MASS), default="Ni", help="Substitutional solute element, atom type 2.")
+    parser.add_argument("--lattice", type=float, default=None, help="FCC lattice parameter in Angstrom. Defaults to the solvent value.")
     parser.add_argument("--seed", type=int, default=20260425)
     parser.add_argument("--min-distance-factor", type=float, default=0.72, help="Close-pair cutoff relative to FCC nearest-neighbor distance.")
     parser.add_argument("--output", type=Path, default=Path("data/cuni_3d/cuni_3d_polycrystal.lammps"))
@@ -166,6 +178,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if args.solvent == args.solute:
+        raise ValueError("--solvent and --solute must be different")
+    if args.lattice is None:
+        args.lattice = ELEMENT_LATTICE_A[args.solvent]
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.metadata.parent.mkdir(parents=True, exist_ok=True)
     positions, grain_ids, centers = generate_polycrystal(
@@ -176,7 +192,7 @@ def main() -> None:
         min_distance_factor=args.min_distance_factor,
     )
     box = args.box_nm * 10.0
-    write_lammps_data(args.output, positions, box)
+    write_lammps_data(args.output, positions, box, args.solvent, args.solute)
     write_metadata(args.metadata, positions, grain_ids, centers)
     print(f"Wrote {len(positions)} atoms to {args.output}")
     print(f"Wrote site metadata to {args.metadata}")
