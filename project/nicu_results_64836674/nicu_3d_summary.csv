@@ -1,0 +1,14 @@
+metric,value
+n,500
+mean_kj_mol,-6.797894477030774
+std_kj_mol,9.934962925822049
+min_kj_mol,-44.17484282388408
+max_kj_mol,21.459013067193695
+median_kj_mol,-5.805243981690056
+q05_kj_mol,-24.247015973806345
+q95_kj_mol,8.774884702563606
+wagih_mu_kj_mol,-2.0
+wagih_sigma_kj_mol,8.0
+wagih_range_min_kj_mol,-30.0
+wagih_range_max_kj_mol,30.0
+fraction_outside_wagih_range,0.02
