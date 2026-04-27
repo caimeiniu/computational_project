@@ -70,6 +70,7 @@ def classify_by_neighbor_count(
 def select_sites(
     ids: np.ndarray,
     positions: np.ndarray,
+    box: np.ndarray,
     is_gb: np.ndarray,
     neighbor_counts: np.ndarray,
     samples: int,
@@ -85,16 +86,17 @@ def select_sites(
         raise ValueError("No bulk-like sites found. Try a smaller neighbor cutoff.")
 
     chosen_gb = rng.choice(gb_indices, size=min(samples, len(gb_indices)), replace=False)
-    center = positions.mean(axis=0)
-    bulk_dist2 = np.sum((positions[bulk_indices] - center) ** 2, axis=1)
-    sorted_bulk = bulk_indices[np.argsort(bulk_dist2)]
+    gb_tree = cKDTree(positions[gb_indices], boxsize=box)
+    distance_to_gb, _ = gb_tree.query(positions[bulk_indices], k=1)
+    sorted_bulk = bulk_indices[np.argsort(distance_to_gb)[::-1]]
     chosen_bulk = sorted_bulk[: min(bulk_references, len(sorted_bulk))]
 
     rows = []
     for idx in chosen_bulk:
-        rows.append(["bulk_reference", ids[idx], *positions[idx], 0, neighbor_counts[idx]])
+        bulk_rank = len(rows) + 1
+        rows.append(["bulk_reference", ids[idx], *positions[idx], 0, neighbor_counts[idx], distance_to_gb[np.where(bulk_indices == idx)[0][0]], bulk_rank])
     for idx in chosen_gb:
-        rows.append(["gb_sample", ids[idx], *positions[idx], 1, neighbor_counts[idx]])
+        rows.append(["gb_sample", ids[idx], *positions[idx], 1, neighbor_counts[idx], 0.0, ""])
     return np.array(rows, dtype=object)
 
 
@@ -115,13 +117,13 @@ def main() -> None:
     ids, positions, box = read_lammps_atoms(args.data)
     nearest_neighbor = args.lattice / np.sqrt(2.0)
     is_gb, neighbor_counts = classify_by_neighbor_count(positions, box, nearest_neighbor, args.cutoff_factor)
-    rows = select_sites(ids, positions, is_gb, neighbor_counts, args.samples, args.bulk_references, args.seed)
+    rows = select_sites(ids, positions, box, is_gb, neighbor_counts, args.samples, args.bulk_references, args.seed)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     np.savetxt(
         args.output,
         rows,
         delimiter=",",
-        header="role,atom_id,x_A,y_A,z_A,is_gb,first_neighbor_count",
+        header="role,atom_id,x_A,y_A,z_A,is_gb,first_neighbor_count,distance_to_nearest_gb_A,bulk_distance_rank",
         comments="",
         fmt="%s",
     )

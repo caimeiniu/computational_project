@@ -45,22 +45,13 @@ def numeric_column(rows: list[dict[str, str]], key: str) -> np.ndarray:
     return np.array([float(row[key]) for row in rows], dtype=float)
 
 
-def summary_rows(deltae: np.ndarray) -> list[tuple[str, float | int | str]]:
+def summary_rows(deltae: np.ndarray, wagih_raw: np.ndarray | None = None) -> list[tuple[str, float | int | str]]:
     ours_alpha, ours_mu, ours_sigma = skewnorm.fit(deltae)
-    ks = kstest(
-        deltae,
-        lambda x: skewnorm.cdf(
-            x,
-            WAGIH_NI_CU["alpha"],
-            loc=WAGIH_NI_CU["mu_kj_mol"],
-            scale=WAGIH_NI_CU["sigma_kj_mol"],
-        ),
-    )
     outside = np.mean(
         (deltae < WAGIH_NI_CU["range_min_kj_mol"])
         | (deltae > WAGIH_NI_CU["range_max_kj_mol"])
     )
-    return [
+    rows: list[tuple[str, float | int | str]] = [
         ("n", len(deltae)),
         ("mean_kj_mol", float(np.mean(deltae))),
         ("std_kj_mol", float(np.std(deltae, ddof=1))),
@@ -72,14 +63,48 @@ def summary_rows(deltae: np.ndarray) -> list[tuple[str, float | int | str]]:
         ("ours_fit_mu_kj_mol", float(ours_mu)),
         ("ours_fit_sigma_kj_mol", float(ours_sigma)),
         ("ours_fit_alpha", float(ours_alpha)),
-        ("ks_d_vs_wagih_approx", float(ks.statistic)),
-        ("ks_p_vs_wagih_approx", float(ks.pvalue)),
         ("wagih_mu_kj_mol", WAGIH_NI_CU["mu_kj_mol"]),
         ("wagih_sigma_kj_mol", WAGIH_NI_CU["sigma_kj_mol"]),
         ("wagih_range_min_kj_mol", WAGIH_NI_CU["range_min_kj_mol"]),
         ("wagih_range_max_kj_mol", WAGIH_NI_CU["range_max_kj_mol"]),
         ("fraction_outside_wagih_range", float(outside)),
     ]
+    if wagih_raw is not None:
+        wagih_alpha, wagih_mu, wagih_sigma = skewnorm.fit(wagih_raw)
+        ks = ks_2samp(deltae, wagih_raw)
+        rows.extend(
+            [
+                ("comparison_type", "raw_wagih_two_sample"),
+                ("wagih_raw_n", len(wagih_raw)),
+                ("wagih_raw_mean_kj_mol", float(np.mean(wagih_raw))),
+                ("wagih_raw_std_kj_mol", float(np.std(wagih_raw, ddof=1))),
+                ("wagih_raw_min_kj_mol", float(np.min(wagih_raw))),
+                ("wagih_raw_max_kj_mol", float(np.max(wagih_raw))),
+                ("wagih_raw_fit_mu_kj_mol", float(wagih_mu)),
+                ("wagih_raw_fit_sigma_kj_mol", float(wagih_sigma)),
+                ("wagih_raw_fit_alpha", float(wagih_alpha)),
+                ("ks_d_vs_wagih_raw", float(ks.statistic)),
+                ("ks_p_vs_wagih_raw", float(ks.pvalue)),
+            ]
+        )
+    else:
+        ks = kstest(
+            deltae,
+            lambda x: skewnorm.cdf(
+                x,
+                WAGIH_NI_CU["alpha"],
+                loc=WAGIH_NI_CU["mu_kj_mol"],
+                scale=WAGIH_NI_CU["sigma_kj_mol"],
+            ),
+        )
+        rows.extend(
+            [
+                ("comparison_type", "approx_wagih_fit"),
+                ("ks_d_vs_wagih_approx", float(ks.statistic)),
+                ("ks_p_vs_wagih_approx", float(ks.pvalue)),
+            ]
+        )
+    return rows
 
 
 def write_summary_csv(path: Path, rows: list[tuple[str, float | int | str]]) -> None:
@@ -250,6 +275,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--wagih-results", type=Path, help="Optional raw Wagih Delta E CSV or Excel workbook.")
     parser.add_argument("--outdir", type=Path, default=Path("nicu_export"))
     parser.add_argument("--prefix", default="nicu_3d")
+    parser.add_argument("--alloy-label", default="Ni(Cu)", help="Label for plot titles, e.g. 'Au(Pt)' or 'Ni(Cu)'.")
     return parser.parse_args()
 
 
@@ -264,7 +290,7 @@ def main() -> None:
     if args.wagih_results:
         wagih_rows = read_results(args.wagih_results)
         wagih_raw = numeric_column(wagih_rows, "delta_e_kj_mol")
-    summary = summary_rows(deltae)
+    summary = summary_rows(deltae, wagih_raw=wagih_raw)
 
     summary_csv = args.outdir / f"{args.prefix}_summary.csv"
     hist_png = args.outdir / f"{args.prefix}_deltae_histogram_vs_wagih.png"
@@ -272,8 +298,8 @@ def main() -> None:
     xlsx = args.outdir / f"{args.prefix}_deltae_analysis.xlsx"
 
     write_summary_csv(summary_csv, summary)
-    plot_histogram(hist_png, deltae, "Ni(Cu) Delta E Spectrum vs Wagih", wagih_raw=wagih_raw)
-    plot_ranked(ranked_png, deltae, "Ni(Cu) Ranked Segregation Energies")
+    plot_histogram(hist_png, deltae, f"{args.alloy_label} Delta E Spectrum vs Wagih", wagih_raw=wagih_raw)
+    plot_ranked(ranked_png, deltae, f"{args.alloy_label} Ranked Segregation Energies")
     wrote_xlsx = write_xlsx(xlsx, rows, summary)
 
     print(f"Wrote {summary_csv}")
