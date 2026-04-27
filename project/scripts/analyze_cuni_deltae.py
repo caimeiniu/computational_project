@@ -49,9 +49,11 @@ def parse_logs(jobs_dir: Path) -> list[dict[str, object]]:
 
 def compute_deltae(rows: list[dict[str, object]], sites: dict[int, dict[str, str]]) -> list[dict[str, object]]:
     bulk = [row for row in rows if row["role"] == "bulk_reference"]
-    if len(bulk) != 1:
-        raise ValueError(f"Expected exactly one bulk_reference log, found {len(bulk)}")
-    bulk_pe = float(bulk[0]["pe_eV"])
+    if len(bulk) < 1:
+        raise ValueError("Expected at least one bulk_reference log, found 0")
+    bulk_energies = np.array([float(row["pe_eV"]) for row in bulk], dtype=float)
+    bulk_pe = float(np.mean(bulk_energies))
+    bulk_std = float(np.std(bulk_energies, ddof=1)) if len(bulk_energies) > 1 else 0.0
     output = []
     for row in rows:
         if row["role"] != "gb_sample":
@@ -64,7 +66,9 @@ def compute_deltae(rows: list[dict[str, object]], sites: dict[int, dict[str, str
                 "atom_id": atom_id,
                 "delta_e_kj_mol": delta_e,
                 "pe_eV": row["pe_eV"],
-                "bulk_reference_pe_eV": bulk_pe,
+                "bulk_reference_mean_pe_eV": bulk_pe,
+                "bulk_reference_std_pe_eV": bulk_std,
+                "bulk_reference_count": len(bulk_energies),
                 "x_A": site.get("x_A", ""),
                 "y_A": site.get("y_A", ""),
                 "z_A": site.get("z_A", ""),
@@ -80,7 +84,9 @@ def write_csv(path: Path, rows: list[dict[str, object]]) -> None:
         "atom_id",
         "delta_e_kj_mol",
         "pe_eV",
-        "bulk_reference_pe_eV",
+        "bulk_reference_mean_pe_eV",
+        "bulk_reference_std_pe_eV",
+        "bulk_reference_count",
         "x_A",
         "y_A",
         "z_A",
@@ -119,12 +125,16 @@ def plot_comparison(path: Path, deltae: np.ndarray) -> None:
     fig.savefig(path, dpi=220)
 
 
-def summarize(deltae: np.ndarray) -> str:
+def summarize(deltae: np.ndarray, results: list[dict[str, object]]) -> str:
     loc, scale = float(np.mean(deltae)), float(np.std(deltae, ddof=1)) if len(deltae) > 1 else 0.0
     outside = np.mean((deltae < WAGIH_NI_CU["range_kj_mol"][0]) | (deltae > WAGIH_NI_CU["range_kj_mol"][1]))
+    bulk_count = int(results[0].get("bulk_reference_count", 1)) if results else 0
+    bulk_std_ev = float(results[0].get("bulk_reference_std_pe_eV", 0.0)) if results else 0.0
     return "\n".join(
         [
             f"n = {len(deltae)}",
+            f"bulk references = {bulk_count}",
+            f"bulk reference std = {bulk_std_ev * EV_TO_KJ_MOL:.3f} kJ/mol",
             f"mean = {loc:.3f} kJ/mol",
             f"std = {scale:.3f} kJ/mol",
             f"min/max = {deltae.min():.3f} / {deltae.max():.3f} kJ/mol",
@@ -154,7 +164,7 @@ def main() -> None:
     write_csv(args.output, results)
     deltae = np.array([float(row["delta_e_kj_mol"]) for row in results])
     plot_comparison(args.figure, deltae)
-    summary = summarize(deltae)
+    summary = summarize(deltae, results)
     args.summary.write_text(summary + "\n", encoding="utf-8")
     print(summary)
     print(f"Wrote {args.output}")

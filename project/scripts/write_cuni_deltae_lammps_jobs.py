@@ -37,8 +37,10 @@ write_data {relaxed_name}
 """
 
 ELEMENT_MASS = {
+    "Au": 196.96657,
     "Cu": 63.546,
     "Ni": 58.693,
+    "Pt": 195.084,
 }
 
 
@@ -72,7 +74,12 @@ def main() -> None:
     for idx, row in enumerate(rows):
         role = row["role"]
         atom_id = int(row["atom_id"])
-        prefix = "bulk_reference" if role == "bulk_reference" else f"gb_{idx:04d}_atom_{atom_id}"
+        if role == "bulk_reference":
+            bulk_number = sum(1 for prior in rows[:idx] if prior["role"] == "bulk_reference") + 1
+            prefix = f"bulk_{bulk_number:03d}_atom_{atom_id}"
+        else:
+            gb_number = sum(1 for prior in rows[:idx] if prior["role"] == "gb_sample") + 1
+            prefix = f"gb_{gb_number:04d}_atom_{atom_id}"
         input_path = args.jobs_dir / f"in_{prefix}.lammps"
         log_name = f"log_{prefix}.lammps"
         relaxed_name = f"relaxed_{prefix}.lammps"

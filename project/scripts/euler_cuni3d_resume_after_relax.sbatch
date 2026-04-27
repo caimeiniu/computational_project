@@ -19,6 +19,12 @@ module load lammps/20230802
 PROJECT_DIR="$(pwd)"
 RUN_DIR="$1"
 LMP_CMD="mpirun -np ${SLURM_NTASKS} lmp"
+SAMPLES="${SAMPLES:-500}"
+BULK_REFERENCES="${BULK_REFERENCES:-20}"
+LATTICE="${LATTICE:-3.520}"
+SOLVENT="${SOLVENT:-Ni}"
+SOLUTE="${SOLUTE:-Cu}"
+POTENTIAL="${POTENTIAL:-data/examples/nc_swap_CuNi/Cu_Ni_Fischer_2018.eam.alloy}"
 
 echo "Project: ${PROJECT_DIR}"
 echo "Resuming scratch run directory: ${RUN_DIR}"
@@ -34,12 +40,17 @@ cd "${RUN_DIR}"
 echo "Step 3/5: select 500 GB sites from relaxed structure"
 python3 scripts/select_cuni_deltae_sites.py \
   --data data/cuni_3d/lammps/cuni_3d_relaxed.lammps \
-  --samples 500
+  --samples "${SAMPLES}" \
+  --bulk-references "${BULK_REFERENCES}" \
+  --lattice "${LATTICE}"
 
 echo "Step 4/5: write and run Cu->Ni Delta E minimization jobs"
 python3 scripts/write_cuni_deltae_lammps_jobs.py \
   --data data/cuni_3d/lammps/cuni_3d_relaxed.lammps \
-  --lammps-command "${LMP_CMD}"
+  --potential "${POTENTIAL}" \
+  --lammps-command "${LMP_CMD}" \
+  --solvent "${SOLVENT}" \
+  --solute "${SOLUTE}"
 
 cd data/cuni_3d/lammps/deltae_jobs
 ./run_all_deltae.sh

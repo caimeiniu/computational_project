@@ -28,13 +28,17 @@ FCC_BASIS = np.array(
 )
 
 ELEMENT_MASS = {
+    "Au": 196.96657,
     "Cu": 63.546,
     "Ni": 58.693,
+    "Pt": 195.084,
 }
 
 ELEMENT_LATTICE_A = {
+    "Au": 4.0782,
     "Cu": 3.615,
     "Ni": 3.520,
+    "Pt": 3.9231,
 }
 
 

@@ -16,7 +16,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import kstest, skewnorm
+from scipy.stats import ks_2samp, kstest, skewnorm
 
 
 WAGIH_NI_CU = {
@@ -89,24 +89,41 @@ def write_summary_csv(path: Path, rows: list[tuple[str, float | int | str]]) -> 
         writer.writerows(rows)
 
 
-def plot_histogram(path: Path, deltae: np.ndarray, title: str) -> None:
-    x_min = min(deltae.min(), WAGIH_NI_CU["range_min_kj_mol"]) - 5.0
-    x_max = max(deltae.max(), WAGIH_NI_CU["range_max_kj_mol"]) + 5.0
+def plot_histogram(path: Path, deltae: np.ndarray, title: str, wagih_raw: np.ndarray | None = None) -> None:
+    if wagih_raw is not None:
+        x_min = min(deltae.min(), wagih_raw.min()) - 5.0
+        x_max = max(deltae.max(), wagih_raw.max()) + 5.0
+    else:
+        x_min = min(deltae.min(), WAGIH_NI_CU["range_min_kj_mol"]) - 5.0
+        x_max = max(deltae.max(), WAGIH_NI_CU["range_max_kj_mol"]) + 5.0
     x = np.linspace(x_min, x_max, 500)
     ours_alpha, ours_mu, ours_sigma = skewnorm.fit(deltae)
-    ks = kstest(
-        deltae,
-        lambda values: skewnorm.cdf(
-            values,
-            WAGIH_NI_CU["alpha"],
-            loc=WAGIH_NI_CU["mu_kj_mol"],
-            scale=WAGIH_NI_CU["sigma_kj_mol"],
-        ),
-    )
+    if wagih_raw is not None:
+        wagih_alpha, wagih_mu, wagih_sigma = skewnorm.fit(wagih_raw)
+        ks = ks_2samp(deltae, wagih_raw)
+    else:
+        wagih_alpha = WAGIH_NI_CU["alpha"]
+        wagih_mu = WAGIH_NI_CU["mu_kj_mol"]
+        wagih_sigma = WAGIH_NI_CU["sigma_kj_mol"]
+        ks = kstest(
+            deltae,
+            lambda values: skewnorm.cdf(values, wagih_alpha, loc=wagih_mu, scale=wagih_sigma),
+        )
     mean = np.mean(deltae)
     std = np.std(deltae, ddof=1)
 
     fig, ax = plt.subplots(figsize=(9.2, 5.8), constrained_layout=True)
+    if wagih_raw is not None:
+        ax.hist(
+            wagih_raw,
+            bins=50,
+            density=True,
+            alpha=0.48,
+            color="#73C995",
+            edgecolor="white",
+            linewidth=0.35,
+            label=f"Wagih (n={len(wagih_raw)})",
+        )
     ax.hist(
         deltae,
         bins=35,
@@ -121,18 +138,13 @@ def plot_histogram(path: Path, deltae: np.ndarray, title: str) -> None:
         x,
         skewnorm.pdf(
             x,
-            WAGIH_NI_CU["alpha"],
-            loc=WAGIH_NI_CU["mu_kj_mol"],
-            scale=WAGIH_NI_CU["sigma_kj_mol"],
+            wagih_alpha,
+            loc=wagih_mu,
+            scale=wagih_sigma,
         ),
         color="#157A35",
         linewidth=2.2,
-        label=(
-            "Wagih fit  "
-            f"μ={WAGIH_NI_CU['mu_kj_mol']:+.1f} "
-            f"σ={WAGIH_NI_CU['sigma_kj_mol']:.1f} "
-            f"α={WAGIH_NI_CU['alpha']:+.2f}"
-        ),
+        label=f"Wagih fit  μ={wagih_mu:+.1f} σ={wagih_sigma:.1f} α={wagih_alpha:+.2f}",
     )
     ax.plot(
         x,
@@ -142,20 +154,22 @@ def plot_histogram(path: Path, deltae: np.ndarray, title: str) -> None:
         linestyle="--",
         label=f"Ours fit  μ={ours_mu:+.1f}  σ={ours_sigma:.1f}  α={ours_alpha:+.2f}",
     )
-    ax.axvspan(
-        WAGIH_NI_CU["range_min_kj_mol"],
-        WAGIH_NI_CU["range_max_kj_mol"],
-        color="#111111",
-        alpha=0.07,
-        label="Wagih (n=N/A)",
-    )
+    if wagih_raw is None:
+        ax.axvspan(
+            WAGIH_NI_CU["range_min_kj_mol"],
+            WAGIH_NI_CU["range_max_kj_mol"],
+            color="#111111",
+            alpha=0.07,
+            label="Wagih (n=N/A)",
+        )
     ax.axvline(mean, color="#A51D2D", linewidth=1.3, alpha=0.65, linestyle=":")
     ax.set_title(f"{title} (KS D={ks.statistic:.3f}, p={ks.pvalue:.3g})", fontsize=15)
     ax.set_xlabel(r"$\Delta E_{\rm seg}$ (kJ/mol)")
     ax.set_ylabel("Probability density")
     handles, labels = ax.get_legend_handles_labels()
+    wagih_label = next(label for label in labels if label.startswith("Wagih (n="))
     order = [
-        labels.index("Wagih (n=N/A)"),
+        labels.index(wagih_label),
         labels.index(f"Ours production (n={len(deltae)})"),
         next(i for i, label in enumerate(labels) if label.startswith("Wagih fit")),
         next(i for i, label in enumerate(labels) if label.startswith("Ours fit")),
@@ -233,6 +247,7 @@ def write_xlsx(path: Path, rows: list[dict[str, str]], summary: list[tuple[str, 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results", type=Path, required=True, help="cuni/nicu Delta E result CSV or Excel workbook.")
+    parser.add_argument("--wagih-results", type=Path, help="Optional raw Wagih Delta E CSV or Excel workbook.")
     parser.add_argument("--outdir", type=Path, default=Path("nicu_export"))
     parser.add_argument("--prefix", default="nicu_3d")
     return parser.parse_args()
@@ -245,6 +260,10 @@ def main() -> None:
     if not rows:
         raise ValueError(f"No rows found in {args.results}")
     deltae = numeric_column(rows, "delta_e_kj_mol")
+    wagih_raw = None
+    if args.wagih_results:
+        wagih_rows = read_results(args.wagih_results)
+        wagih_raw = numeric_column(wagih_rows, "delta_e_kj_mol")
     summary = summary_rows(deltae)
 
     summary_csv = args.outdir / f"{args.prefix}_summary.csv"
@@ -253,7 +272,7 @@ def main() -> None:
     xlsx = args.outdir / f"{args.prefix}_deltae_analysis.xlsx"
 
     write_summary_csv(summary_csv, summary)
-    plot_histogram(hist_png, deltae, "Ni(Cu) Delta E Spectrum vs Wagih")
+    plot_histogram(hist_png, deltae, "Ni(Cu) Delta E Spectrum vs Wagih", wagih_raw=wagih_raw)
     plot_ranked(ranked_png, deltae, "Ni(Cu) Ranked Segregation Energies")
     wrote_xlsx = write_xlsx(xlsx, rows, summary)
 

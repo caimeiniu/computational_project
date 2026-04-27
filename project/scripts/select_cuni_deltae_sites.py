@@ -73,6 +73,7 @@ def select_sites(
     is_gb: np.ndarray,
     neighbor_counts: np.ndarray,
     samples: int,
+    bulk_references: int,
     seed: int,
 ) -> np.ndarray:
     rng = np.random.default_rng(seed)
@@ -86,10 +87,12 @@ def select_sites(
     chosen_gb = rng.choice(gb_indices, size=min(samples, len(gb_indices)), replace=False)
     center = positions.mean(axis=0)
     bulk_dist2 = np.sum((positions[bulk_indices] - center) ** 2, axis=1)
-    bulk_ref = bulk_indices[np.argmin(bulk_dist2)]
+    sorted_bulk = bulk_indices[np.argsort(bulk_dist2)]
+    chosen_bulk = sorted_bulk[: min(bulk_references, len(sorted_bulk))]
 
     rows = []
-    rows.append(["bulk_reference", ids[bulk_ref], *positions[bulk_ref], 0, neighbor_counts[bulk_ref]])
+    for idx in chosen_bulk:
+        rows.append(["bulk_reference", ids[idx], *positions[idx], 0, neighbor_counts[idx]])
     for idx in chosen_gb:
         rows.append(["gb_sample", ids[idx], *positions[idx], 1, neighbor_counts[idx]])
     return np.array(rows, dtype=object)
@@ -99,6 +102,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, default=Path("data/cuni_3d/cuni_3d_polycrystal.lammps"))
     parser.add_argument("--samples", type=int, default=500)
+    parser.add_argument("--bulk-references", type=int, default=20)
     parser.add_argument("--lattice", type=float, default=3.615)
     parser.add_argument("--cutoff-factor", type=float, default=1.25, help="First-neighbor cutoff relative to a/sqrt(2).")
     parser.add_argument("--seed", type=int, default=500)
@@ -111,7 +115,7 @@ def main() -> None:
     ids, positions, box = read_lammps_atoms(args.data)
     nearest_neighbor = args.lattice / np.sqrt(2.0)
     is_gb, neighbor_counts = classify_by_neighbor_count(positions, box, nearest_neighbor, args.cutoff_factor)
-    rows = select_sites(ids, positions, is_gb, neighbor_counts, args.samples, args.seed)
+    rows = select_sites(ids, positions, is_gb, neighbor_counts, args.samples, args.bulk_references, args.seed)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     np.savetxt(
         args.output,
@@ -124,7 +128,7 @@ def main() -> None:
     print(f"Atoms: {len(ids)}")
     print(f"GB-like sites: {int(is_gb.sum())} ({is_gb.mean():.2%})")
     print(f"Bulk-like sites: {int((~is_gb).sum())}")
-    print(f"Wrote {len(rows) - 1} GB samples plus 1 bulk reference to {args.output}")
+    print(f"Wrote {args.samples} GB samples plus {min(args.bulk_references, int((~is_gb).sum()))} bulk references to {args.output}")
 
 
 if __name__ == "__main__":
