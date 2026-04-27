@@ -1,0 +1,124 @@
+# Hybrid Monte Carlo (HMC) measurement of GB occupancy X_GB^HMC for
+# Al(Mg) at fixed (T, X_c). Reads the annealed pure-Al polycrystal,
+# randomly substitutes Mg to total fraction X_c, equilibrates NVT, then
+# runs LAMMPS `fix atom/swap` (Metropolis 1<->2 type swaps interleaved
+# with NVT MD) for the production window.
+#
+# Outputs feeding post-processing:
+#   - thermo printout (incl. swap n_attempts/n_accepts) every 100 steps
+#   - per-frame `id type` dump every DUMP_EVERY steps
+#     (post-process: cross with gb_mask_200A.npy → X_GB(t) time series)
+#   - final restart-quality data file
+#
+# Run from the scratch directory with the annealed structure available:
+#   srun -n N lmp -in hmc_AlMg.lammps \
+#     -var annealed poly_Al_200A_16g_annealed.lmp \
+#     -var outstub  hmc_dry_T500_Xc5e-3 \
+#     -var T        500.0 \
+#     -var XC       0.005 \
+#     -var EQUIL_PS 10 \
+#     -var PROD_PS  50
+#
+# Seeds: solute_seed = where Mg is initially placed; swap_seed = swap
+# Metropolis RNG; velocity_seed = NVT thermalisation. All three are
+# independent, settable via -var; defaults are reproducible.
+
+# ---------------------------------------------------------------- variables
+variable annealed       index poly_Al_200A_16g_annealed.lmp
+variable outstub        index hmc_dry_T500_Xc5e-3
+variable T              index 500.0
+variable XC             index 0.005
+variable SOLUTE_SEED    index 20260425
+variable VELOCITY_SEED  index 20260426
+variable SWAP_SEED      index 20260427
+variable SWAP_PER_STEPS index 100         # invoke fix atom/swap every N steps
+variable SWAPS_PER_CALL index 10          # X attempts per invocation
+variable EQUIL_PS       index 10          # NVT equilibration before swaps
+variable PROD_PS        index 50          # production window with HMC swaps
+variable DUMP_EVERY     index 1000        # 1 ps cadence for X_GB(t) post-proc
+variable POTFILE        index /cluster/home/cainiu/Computational_modeling/project/data/potentials/Al-Mg.eam.fs
+variable SKIP_PLACE     index 0           # 1 = read pre-segregated data file, skip random Mg placement
+
+variable N_EQUIL        equal round(v_EQUIL_PS*1000)
+variable N_PROD         equal round(v_PROD_PS*1000)
+
+log ${outstub}.log
+
+# ------------------------------------------------------------------ setup
+units        metal
+atom_style   atomic
+boundary     p p p
+
+read_data    ${annealed}
+
+mass         1 26.9815   # Al
+mass         2 24.3050   # Mg
+
+pair_style   eam/fs
+pair_coeff   * * ${POTFILE} Al Mg
+
+neighbor     1.0 bin
+neigh_modify every 10 delay 0 check yes
+
+# ----------------------------------------------- (0) place Mg + CG minimize
+# When SKIP_PLACE=0 (default): `set type/fraction` randomly substitutes a
+# fraction X_C of type-1 atoms with type-2 (Mg) — independent of position.
+# When SKIP_PLACE=1: the input data file already contains type-2 Mg (e.g.
+# pre-segregated configuration produced by scripts/pre_segregate.py); skip
+# the random placement step.
+# After substitution local strain around each Mg is non-trivial; CG before
+# MD avoids integrator blow-up either way.
+if "${SKIP_PLACE} == 0" then "set type 1 type/fraction 2 ${XC} ${SOLUTE_SEED}"
+
+write_data   ${outstub}_initial.lmp
+
+min_style    cg
+minimize     1.0e-8 1.0e-10 5000 50000
+write_data   ${outstub}_postcg.lmp
+
+# ---------------------------------------------------------------- (1) NVT MD
+timestep     0.001        # 1 fs
+
+velocity     all create ${T} ${VELOCITY_SEED} mom yes rot yes dist gaussian
+
+# Equilibrate NVT at target T BEFORE any swaps so kinetic state is
+# stationary when we start measuring acceptance rate.
+fix          nvt all nvt temp ${T} ${T} 0.1
+
+thermo       100
+thermo_style custom step time temp pe ke press
+
+run          ${N_EQUIL}
+
+# ------------------------------------------------------- (2) HMC production
+# `fix atom/swap N X seed T ke yes types 1 2`:
+#   every N steps, attempt X swaps between type-1 and type-2 atoms;
+#   each swap accepted with Metropolis P=min(1, exp(-ΔU/kT));
+#   `ke yes` preserves kinetic energy across the swap.
+# Acceptance rate exposed as f_hmc[1]=n_attempts, f_hmc[2]=n_accepts —
+# add to thermo so we can read it in real time and post-hoc.
+fix          hmc all atom/swap ${SWAP_PER_STEPS} ${SWAPS_PER_CALL} ${SWAP_SEED} ${T} ke yes types 1 2
+
+thermo_style custom step time temp pe ke press f_hmc[1] f_hmc[2]
+
+# Per-frame id+type dump for offline X_GB(t) computation: cross atom_id
+# against gb_mask_200A.npy (same lattice, same indexing) → fraction of GB
+# atoms of type 2 at each frame.
+dump         d1 all custom ${DUMP_EVERY} ${outstub}.dump id type
+dump_modify  d1 sort id
+
+# Restart double-buffered so a long production can resume after preempt.
+restart      ${N_PROD} ${outstub}.rst1 ${outstub}.rst2
+
+run          ${N_PROD}
+
+# Write final structure BEFORE unfixing — write_data triggers a thermo
+# print, and thermo_style still references f_hmc[1]/f_hmc[2]; unfixing
+# `hmc` first would error with "Could not find thermo fix ID hmc".
+write_data   ${outstub}_final.lmp
+
+unfix        hmc
+unfix        nvt
+undump       d1
+
+print        "HMC_OK outstub=${outstub} T=${T} Xc=${XC} N_EQUIL=${N_EQUIL} N_PROD=${N_PROD}"

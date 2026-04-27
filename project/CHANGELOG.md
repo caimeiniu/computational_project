@@ -2,6 +2,664 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-04-27 (morning) — sweep dead-end: random IC fails kinetically at every X_c; preseg restart submitted
+
+### What ran overnight
+
+Last night's sweep series (random IC, T=500 K, X_c ∈ {0.10, 0.15, 0.20, 0.30},
+PROD target = 200 ps, --time=08:00:00, 32 ranks) reported:
+
+| job ID    | X_c   | wall    | PROD reached | accepts | accept% | _final.lmp |
+|-----------|-------|---------|--------------|---------|---------|-----------|
+| 64811160  | 0.10  | 7h45m   | ~104 ps      | 8 944   |  8.66 % | NO (TIMEOUT) |
+| 64811162  | 0.15  | 7h36m   | ~100 ps      | 9 406   |  9.77 % | NO (TIMEOUT) |
+| 64811163  | 0.20  | 7h54m   |  ~90 ps      | 9 375   | 10.50 % | NO (TIMEOUT) |
+| 64811164  | 0.30  | RUNNING | ~52 ps so far | 6 601  | 12.73 % | (still active) |
+
+Empirical wall-time scaling: 32 ranks × 8 h ⇒ ~100 ps PROD (about 5 min/ps,
+not 1 min/ps as the SWAPS=10 dry-run ran). The 200 ps target was never
+realistic for an 8 h budget at these X_c. Affects `_final.lmp` availability
+for panel (f) of the report figure (see master figure plan memory).
+
+### Sweep diagnosis: random IC stuck at X_GB ≈ X_c at EVERY X_c
+
+`scripts/hmc_xgb_timeseries.py` re-run on the three completed dumps and the
+partial X_c=0.30 dump:
+
+| X_c   | X_GB^HMC ± CI95         | canon-FD | gap     | PE drift (eV) | half2−half1 X_GB |
+|-------|--------------------------|----------|---------|----------------|------------------|
+| 0.10  | 0.1051 [0.1042, 0.1060] | 0.3519   | −0.247  | −1 350        | +0.0045 (climbing) |
+| 0.15  | 0.1538 [0.1532, 0.1544] | 0.4204   | −0.267  | −1 619        | +0.0032 (climbing) |
+| 0.20  | 0.2017 [0.2011, 0.2022] | 0.4671   | −0.265  | −1 879        | +0.0024 (climbing) |
+| 0.30* | 0.2999 [0.2998, 0.3001] | 0.5337   | −0.234  | −1 464        | −0.0005 (flat)     |
+
+`*` X_c=0.30 partial: 55 frames so far, run still active.
+
+X_GB^HMC sits *exactly* at X_c at every point — Mg is essentially uniformly
+distributed. Tight CI95 (~0.001) is consistent with a stationary uniform
+distribution, not with equilibrated segregation. PE is still drifting
+downward at every point ⇒ system has not reached a thermodynamic minimum.
+
+The night CHANGELOG predicted X_c ≥ 0.10 should converge from random IC
+because (a) Mg pool ~3× larger and (b) canon-FD target closer to random-IC
+starting X_GB. Empirically, both effects are insufficient to overcome the
+random-IC kinetic barrier — the same dead-end seen at X_c=5e-2 yesterday
+extends ALL THE WAY to X_c=0.30. Likely cause: at high X_c the
+"productive direction" fraction of accepted swaps is *worse* not better,
+because random IC at X_GB≈X_c sits near the high-T (uniform) equilibrium,
+so MC sampling has no thermodynamic bias to drive segregation.
+
+### Proposal-level analysis: why random IC fails (and why `region` is not the simplest fix)
+
+`fix atom/swap N X seed T ke yes types 1 2` selects **one type-1 (Al) and
+one type-2 (Mg)** atom per attempt — by construction, never an Al-Al or
+Mg-Mg pair. Because in random IC every Mg is uniformly distributed at
+X_GB ≈ X_c, the probability that the selected Mg sits at a GB site is
+`P(Mg at GB) = N_Mg_GB / N_Mg = X_c · N_GB / (X_c · N_total) = GB_frac =
+0.187`, **independent of X_c**. Same for Al. The proposal distribution
+in random IC is therefore:
+
+| Mg at | Al at | X_GB net change           | probability                |
+|-------|-------|---------------------------|---------------------------|
+| GB    | GB    | 0                         | 0.187 × 0.187 = 0.035      |
+| GB    | bulk  | −1/N_GB (reverse, GB→bulk) | 0.187 × 0.813 = 0.152      |
+| bulk  | GB    | +1/N_GB (forward, bulk→GB) | 0.813 × 0.187 = 0.152      |
+| bulk  | bulk  | 0                         | 0.813 × 0.813 = 0.661      |
+
+Two failure modes nest:
+
+1. **Geometric**: ~70 % of proposals are bulk-bulk or GB-GB → X_GB
+   doesn't change regardless of acceptance.
+2. **Energetic**: among the ~30 % productive proposals, forward and
+   reverse have *equal* geometric weight. Net direction only emerges
+   from the ΔE bias (energy benefit of putting Mg on a deep ΔE_seg
+   site). At random IC the GB sites being "tested" are not
+   preferentially the deep ones, so the bias is weak → net flux ≈ 0.
+
+Empirically: net flux *per accepted swap* (= net moves toward equilibrium
+per accepted move) was 9.1 % at random IC X_c=0.10 (810 net of 8 944
+accepts) versus 80 % at preseg X_c=0.05 (3 776 net of 4 707 accepts).
+At equal acceptance rate (~7-10 %), preseg is **~9× faster per attempt**
+toward equilibrium, *and* it points the right direction from the start.
+
+#### `fix atom/swap region <id>` keyword
+
+LAMMPS exposes a `region` keyword that restricts swap candidates to a
+geometric region. It would attack failure mode (1) directly by
+eliminating bulk-bulk and GB-GB proposals. But:
+
+- Built-in regions are simple analytic shapes (`block`, `cylinder`,
+  `sphere`, `prism`, `union`, …); our 3D Voronoi GB is an irregular
+  curved network (89 042 atoms, ~100 distinct faces). Wrapping it
+  needs either a bounding-mesh approximation or a `union` of many
+  spheres — the former misses GB-adjacent bulk that has to receive
+  desorbed Mg, the latter scales poorly at LAMMPS region-stack limits.
+- `region` does NOT fix failure mode (2). At random IC + region the
+  productive proposals would still be ~50/50 forward/reverse — the
+  geometric trap simplifies but the energetic trap remains.
+
+#### Why preseg IC is strictly stronger
+
+Preseg IC fixes both failure modes at once:
+
+- mode (1): with all Mg at GB initially, `P(Mg at GB)·P(Al at bulk) =
+  1.0 × 0.903 = 0.903` ⇒ 90 % productive proposals (vs 30 %).
+- mode (2): GB is over-saturated relative to canon-FD ⇒ many GB Mg
+  occupy ΔE > 0 (unfavourable) sites ⇒ release is *downhill* ⇒
+  acceptance bias 80 % toward GB → bulk (verify-preseg yesterday). A
+  pure region trick cannot reproduce this without IC engineering.
+
+For Phase 4's full (T, X_c) grid `region GB ± shell` could be a
+worthwhile extra speedup on top of preseg, but it is not needed for
+today's restart.
+
+#### Correction to the in-conversation discussion
+
+An in-conversation explanation earlier today described the random-IC
+failure as "the picked Mg lands on a GB Mg neighbour, ΔU≈0". That is
+incorrect — `types 1 2` already prevents Mg-Mg or Al-Al swap proposals,
+so this failure mode does not exist. The correct decomposition is the
+(Mg-position × Al-position) table above. Recording the correction here
+so future readers don't pick up the wrong intuition.
+
+### Decision: switch all production sweep points to preseg IC
+
+Project rule from yesterday's CHANGELOG (then phrased as "X_c ≲ 0.05") is
+now extended: **all closed-box HMC verification at T=500 K should default
+to preseg IC**. Random IC is a kinetic dead-end at every X_c we've tested.
+
+`scripts/pre_segregate.py` extended to support X_c > GB_frac (=0.187):
+
+- For N_Mg ≤ N_GB: fill `n_mg` random GB sites; X_GB(0) = N_Mg/N_GB,
+  X_bulk(0) = 0 (unchanged from before).
+- For N_Mg > N_GB ("mixed mode"): fill ALL GB sites with Mg, place
+  remaining `N_Mg − N_GB` Mg in random bulk sites. X_GB(0) = 1.0,
+  X_bulk(0) = (N_Mg − N_GB) / N_bulk. Still above canon-FD ⇒ descent
+  direction GB → bulk preserved.
+
+Generated four preseg lmps (`production_AlMg_200A/poly_AlMg_200A_preseg_Xc{0.10,0.15,0.20,0.30}.lmp`,
+seed 20260427):
+
+| X_c   | N_Mg    | N_Mg(GB) | N_Mg(bulk) | X_GB(0) | X_bulk(0) | canon-FD target | required descent |
+|-------|---------|----------|------------|---------|-----------|-----------------|------------------|
+| 0.10  |  47 572 | 47 572   |      0     | 0.5343  | 0.0000    | 0.352           | −0.182           |
+| 0.15  |  71 357 | 71 357   |      0     | 0.8014  | 0.0000    | 0.420           | −0.381           |
+| 0.20  |  95 143 | 89 042   |   6 101    | 1.0000  | 0.0158    | 0.467           | −0.533           |
+| 0.30  | 142 714 | 89 042   |  53 672    | 1.0000  | 0.1388    | 0.534           | −0.466           |
+
+### Submit scripts (12 h walltime, 32 ranks each)
+
+New deck files: `data/decks/submit_hmc_T500_Xc{0.10,0.15,0.20,0.30}_preseg.sh`.
+Each uses `-var SKIP_PLACE 1` (deck skips the random `set type/fraction`
+because the data file already has type-2 atoms), PROD=200 ps, SWAPS=100.
+
+12 h ≈ 1.5× the failed 8 h wall to give buffer for `_final.lmp` write.
+Empirical scaling suggests ~150 ps PROD reached if convergence is not hit
+earlier; if X_c=0.10 converges around 120-150 ps (16k Mg net flux needed,
+~70-80 % productive direction at preseg vs ~30 % at random IC) the
+`_final.lmp` is written. Higher X_c likely TIMEOUT before equilibrium.
+
+### Jobs submitted (2026-04-27 ~08:25)
+
+| job ID    | X_c   | state          |
+|-----------|-------|----------------|
+| 64864478  | 0.10  | RUNNING        |
+| 64864522  | 0.15  | PENDING (Priority) |
+| 64864524  | 0.20  | PENDING (Priority) |
+| 64864525  | 0.30  | PENDING (Priority) |
+
+(Plus the original 64811164 sweep-Xc=0.30 random IC run still active —
+will be processed for completeness when it finishes.)
+
+### Headline figure (interim) — 1 equilibrated point, 4 kinetic-floor points
+
+`scripts/canonical_fd_compare_5pt.py` — NEW. Plots canon-FD, GC-FD,
+ceiling, and HMC errorbars on linear-x scale (panel-d candidate for the
+master figure). Distinguishes equilibrated vs kinetic-floor HMC points by
+marker style.
+
+| | X_c | X_HMC | canon-FD | gap |
+|--|--|--|--|--|
+| **equilibrated** (filled red ●) | 0.05 | 0.238 ± 0.005 | 0.228 | +0.009 |
+| **kinetic floor** (open red ■) | 0.10 | 0.105 ± 0.001 | 0.352 | −0.247 |
+| | 0.15 | 0.154 ± 0.001 | 0.420 | −0.267 |
+| | 0.20 | 0.202 ± 0.001 | 0.467 | −0.265 |
+| | 0.30 | 0.300 ± 0.001 | 0.534 | −0.234 |
+
+Outputs: `output/hmc_vs_fd_T500_5pt.{png,json}`.
+
+**Breakdown signal cannot be read from this state.** The only point where
+HMC equilibrium is verified (X_c=5e-2 verify-preseg) shows agreement with
+canon-FD within 1 % — no breakdown there. The four kinetic-floor points
+are not equilibrium values; they reflect a sampler limitation, not a
+physics signal. Wait for tonight's preseg restarts before reading any
+breakdown statement.
+
+### Files this entry
+
+- `scripts/canonical_fd_compare_5pt.py` — NEW (panel-d builder, 5 HMC pts)
+- `scripts/pre_segregate.py` — extended (mixed-mode for X_c > GB_frac)
+- `scripts/hmc_xgb_timeseries.py` — unchanged; re-used to process 4 dumps
+- `data/decks/submit_hmc_T500_Xc{0.10,0.15,0.20,0.30}_preseg.sh` — NEW
+- `output/hmc_T500_Xc{0.10,0.15,0.20,0.30}_xgb.{json,png}` — NEW
+  (X_c=0.30 written as `_partial.json` since source run is still active)
+- `output/hmc_vs_fd_T500_5pt.{png,json}` — NEW (interim panel-d candidate)
+- `production_AlMg_200A/poly_AlMg_200A_preseg_Xc{0.10,0.15,0.20,0.30}.lmp` — NEW (in scratch)
+
+### Tomorrow morning (2026-04-28)
+
+1. Process preseg-restart dumps as they finish (X_c=0.10 first; expect
+   first results by ~08:30 + 12 h = ~20:30 tonight).
+2. Per-run convergence check: PE plateau + half-half X_GB drift +
+   gap-vs-canon-FD. X_c=0.10 most likely to converge in 12 h budget;
+   higher X_c may need a 2nd preseg run continuation.
+3. Update `canonical_fd_compare_5pt.py` to swap the 4 kinetic-floor points
+   for the new equilibrated preseg points; rebuild `hmc_vs_fd_T500_5pt.png`.
+4. Read breakdown signal: at which X_c does the equilibrated HMC start to
+   systematically depart from canon-FD?
+5. If X_c=0.20-0.30 don't converge in 12 h: extend (resubmit from
+   `_final.lmp` or `_postcg.lmp` with continuation deck) before claiming
+   any breakdown statement at high X_c.
+6. Persist the eventual `_final.lmp` of the most-segregated successful
+   run to `project/data/snapshots/` for panel (f) (master figure plan).
+
+## 2026-04-26 (night) — verify-Xc=5e-2 outcome (preseg single-sided sufficient); rename A/B → verify/sweep
+
+### Rename: drop opaque A/B labels (supersedes the (late) entry's labels)
+
+The (late) afternoon entry used "A1/A2" for the X_c=5e-2 equilibration twin
+and "B" for the X_c sweep batch. Those labels carry no physical meaning and
+were flagged as a barrier to reading the CHANGELOG cold. From this entry
+forward, all references and filenames use:
+
+| old (afternoon entry) | new (this entry forward) | meaning |
+|---|---|---|
+| A         | verify           | the X_c=5e-2 equilibration verification batch |
+| A1        | verify-rand      | random-IC replica (climbs from below) |
+| A2        | verify-preseg    | pre-segregated-IC replica (descends from above) |
+| B         | sweep            | production X_c sweep at T=500 K |
+| B-1 … B-4 | sweep-Xc=0.10 …  | one tag per X_c |
+
+Output filename prefix changed accordingly:
+`hmc_T500_Xc5e-2_verify-{rand,preseg}_xgb.{json,png}`. The afternoon entry's
+A/B labels are NOT edited (append-only rule); supersession is recorded here.
+
+### Submit-script bugs in the verify batch
+
+- All verify submit scripts have `--time=06:00:00`, NOT `--time=08:00:00`
+  as the afternoon entry's table reported. Both runs hit the wall before
+  reaching the 200 ps PROD target.
+- `submit_hmc_T500_Xc5e-2_dense_preseg.sh` has `--ntasks=16` while the
+  random twin has `--ntasks=32`. verify-preseg ran on half the cores →
+  made roughly half the wall-time progress (73 ps vs 163 ps PROD reached).
+
+### `scripts/hmc_xgb_timeseries.py` patch — TIMEOUT-truncated thermo line
+
+When SLURM kills LAMMPS mid-thermo, the last log line can be partial (e.g.
+`162600   162.6          500` instead of 8 columns). The parser was
+appending the row before checking column count, producing an inhomogeneous
+numpy array. Fix: check `len(row) != len(cols)` BEFORE the float
+conversion / append. Both verify dumps now process cleanly.
+
+### Outcome — verify-preseg landed on canon-FD; verify-rand did not
+
+| run            | PROD ps   | swaps att / acc      | X_GB^HMC ± CI95              | half-half drift   | gap vs canon-FD=0.228 |
+|----------------|-----------|----------------------|------------------------------|-------------------|-----------------------|
+| verify-rand    | 11–163 ps | 152 300 / 10 880 (7.14 %) | 0.0618 [0.0604, 0.0630] | +0.0061 (climbing) | −0.166 |
+| verify-preseg  | 11–73 ps  |  61 300 /  4 707 (7.68 %) | 0.2375 [0.2325, 0.2424] | −0.0154 (slowing)  | +0.0095 |
+
+verify-preseg PROD-second-half mean = 0.2303; trace endpoint at 73 ps =
+0.2241. Late frames have crossed canon-FD to slightly below — consistent
+with thermal fluctuation around the equilibrium target (canon-FD itself
+carries ~0.005 sampling uncertainty from n=500 spectrum). **canon-FD is
+the correct equilibrium target at X_c=5e-2; preseg landed on it within 1 %.**
+
+verify-rand is far below canon-FD and not slowing. Plot:
+`output/verify_T500_Xc5e-2_two_sided.png`.
+
+### Why the bracket didn't close — kinetic, not statistical
+
+`fix atom/swap` proposes a swap between one Mg and one Al each attempt.
+The "productive" subset (= one atom at GB, the other at bulk) and the
+energy-favoured *direction* of those productive moves both depend on the
+current X_GB, X_bulk distribution — they are NOT determined by the
+swap-acceptance rate alone.
+
+| run            | net Mg flux needed to canon-FD | actual net Mg flux in PROD | net-direction fraction of accepted swaps |
+|----------------|-------------------------------:|---------------------------:|-----------------------------------------:|
+| verify-preseg  | −3 500 (GB→bulk)               | −3 776 (essentially done)  | ≈ 80 % |
+| verify-rand    | +15 800 (bulk→GB)              | +1 531 (≈ 10 % of need)    | ≈ 14 % |
+
+preseg starts with ~all 23 786 Mg crammed into GB (most picked Mg attempts
+land on GB, most picked Al attempts land on bulk → productive direction
+hugely favoured) AND many high-ΔE GB sites are over-occupied so Mg release
+is energetically downhill (acceptance bias toward GB→bulk). Both effects
+multiply.
+
+rand starts with Mg uniform → only ~30 % of attempts are productive at all
+(picked Mg and picked Al fall in opposite regions), and the bulk→GB
+direction has only weak energy bias because Mg can land on average GB
+sites (not preferentially on the deepest ΔE_seg ones). Result: an
+order-of-magnitude lower effective convergence rate than preseg.
+
+**This is intrinsic to `fix atom/swap` at low X_c, not a wall-time problem.**
+A 10× wall-time extension on verify-rand (60 h) would only catch up to
+where preseg already sits today. Mitigation if it ever matters: `fix
+atom/swap region GB` to concentrate attempts on the productive subspace.
+
+### Decision
+
+1. Do NOT re-run verify-rand. Single-sided preseg evidence suffices.
+2. **Headline X_GB^HMC at X_c=5e-2, T=500 K = 0.230 ± 0.005** (preseg
+   PROD-second-half mean + block-bootstrap CI95). This is the verified
+   canonical-equilibrium value used in tomorrow's (T=500 K) row figure.
+3. Sweep series at X_c ∈ {0.10, 0.15, 0.20, 0.30} should converge from
+   random IC despite verify-rand's failure: the productive fraction at
+   X_c=0.10 is ~3× larger (Mg pool scales with X_c) AND the canon-FD
+   target is closer to the random-IC starting X_GB (smaller required net
+   flux). Confirm post-hoc by checking PE plateau and X_GB(t) drift in
+   each sweep result.
+4. **Project rule**: future low-X_c HMC verification should default to
+   preseg IC. random IC at X_c ≲ 0.05 is a kinetic dead-end.
+5. `_final.lmp` was NOT written by either verify run because both
+   TIMEOUT'd before `write_data`. For the OVITO panel of the final
+   report, source from a sweep `_final.lmp` instead (most segregated,
+   most visually striking — see `project_report_figure_plan` memory).
+
+### Sweep series — running (status as of 21:30)
+
+| job ID    | X_c   | wall  | started | state               | ETA    |
+|-----------|-------|-------|---------|---------------------|--------|
+| 64811160  | 0.10  | 8 h   | 19:43   | RUNNING (1h54m)     | ~03:43 |
+| 64811162  | 0.15  | 8 h   | 19:43   | RUNNING (1h54m)     | ~03:43 |
+| 64811163  | 0.20  | 8 h   | 19:52   | RUNNING (1h45m)     | ~03:52 |
+| 64811164  | 0.30  | 8 h   | (queued)| PENDING (QOSMaxCpu) | TBD    |
+
+These are RESUBMITS of the original IDs 64810706/7/8/710 from the
+afternoon entry, which were cancelled before they ever started — that
+table refers to job IDs that never ran.
+
+### Tomorrow morning (after sweep completes)
+
+1. Process 4 sweep dumps with `hmc_xgb_timeseries.py` →
+   `output/hmc_T500_Xc{0.10,0.15,0.20,0.30}_xgb.{json,png}`.
+2. Per-run convergence check: PE plateau + X_GB(t) half-half drift.
+   Random-IC kinetics at X_c ≥ 0.10 should be much friendlier than at
+   X_c=5e-2; if any run fails, fall back to preseg restart.
+3. Extend `canonical_fd_compare.py` to accept arbitrary point list and
+   build the (T=500 K) row figure: HMC (5 points: X_c=5e-2 from
+   verify-preseg + 4 sweep) vs canon-FD vs GC-FD vs ceiling.
+4. Read breakdown signal: at which X_c does HMC start to systematically
+   depart from canon-FD?
+
+### Files this entry
+
+- `output/hmc_T500_Xc5e-2_verify-rand_xgb.{json,png}` — NEW
+- `output/hmc_T500_Xc5e-2_verify-preseg_xgb.{json,png}` — NEW
+- `output/verify_T500_Xc5e-2_two_sided.png` — NEW
+- `scripts/verify_two_sided_compare.py` — NEW
+- `scripts/hmc_xgb_timeseries.py` — patched (truncated-row tolerance)
+- `data/decks/submit_hmc_T500_Xc5e-2_dense_{random,preseg}.sh` — used today;
+  `dense_preseg.sh --ntasks=16` flagged as a bug (random twin uses 32)
+
+## 2026-04-26 (late) — Strategic pivot: grand-canonical vs canonical FD; the comparison was the bug, not the sampler
+
+### What earlier today's "under-sampling" analysis missed
+
+The morning entry concluded HMC was 40× under-sampled and proposed
+raising SWAPS_PER_CALL 10×. That diagnosis had the right *symptoms*
+(monotone X_GB(t), PE drift) but the wrong *cause*. Stepping back: the
+Wagih FD formula `P_i = 1/(1+(1-X_c)/X_c · exp(ΔE_i/kT))` treats X_c as
+a **bulk** mole fraction held fixed by an infinite reservoir
+(grand-canonical). Our HMC is closed-box (canonical, total Mg = X_c ·
+N_total fixed). At small X_c, segregation depletes the bulk, so the GC
+prediction can demand more GB-Mg than the closed box even contains:
+
+| X_c   | total Mg in box | ceiling X_GB = X_c·N_tot/N_GB | GC-FD prediction |
+|-------|-----------------|-------------------------------|------------------|
+| 5e-4  | 238             | 0.0027                        | 0.0794 (29× over) |
+| 5e-3  | 2 379           | 0.0267                        | 0.1889 (7× over)  |
+| 5e-2  | 23 786          | 0.2671                        | 0.3675 (1.4× over)|
+
+In every one of today's three runs, the GC-FD target was physically
+unreachable regardless of MC convergence. The morning's "raise
+SWAPS_PER_CALL × 10" plan was charting a route to an impossible
+destination.
+
+### Canonical (mass-conserving) FD predictor
+
+Added to `scripts/fermi_dirac_predict.py`:
+- `solve_x_bulk_canonical(dE, T, X_c_total, N_GB, N_total)` — 1-D
+  brentq root of `F(X_bulk) = X_bulk·N_bulk + <P_i(T,X_bulk)>·N_GB −
+  X_c_total·N_total`. F is strictly monotone increasing in X_bulk, so
+  the root is unique. xtol=1e-14, rtol=1e-12.
+- `x_gb_canonical(...)` returns `(X_GB, X_bulk)` at canonical
+  equilibrium.
+- `x_gb_canonical_curve(...)` vectorises across an X_c grid.
+- `--self-test` extended: total-Mg conservation within 1e-6 across
+  X_c_total ∈ {1e-4, 1e-3, 1e-2, 1e-1, 0.4}; T→∞ canonical limit
+  recovers X_GB → X_c_total. All pass.
+
+### `scripts/canonical_fd_compare.py` (new)
+
+Loads the n=500 ΔE_seg sample (`delta_e_results_n500_200A_tight.npz`,
+mean −6.9 kJ/mol, fraction<0 = 0.646), the 200 Å GB mask
+(N_total=475 715, N_GB=89 042, GB-frac=0.187), and the three HMC JSONs.
+Emits canonical FD curve at T=500 K plus a two-panel plot
+(`output/hmc_vs_fd_T500_canonical.png`) showing GC-FD, canonical FD,
+the closed-box ceiling, and the three HMC error-bar points; CSV
+companion at `output/hmc_vs_canonical_fd.csv`.
+
+### Headline numbers — canonical FD changes the picture
+
+| X_c    | X_GB^HMC | GC-FD  | canon-FD | ceiling | gap = HMC − canon |
+|--------|----------|--------|----------|---------|-------------------|
+| 5e-4   | 0.0012   | 0.0794 | 0.0027   | 0.0027  | −0.0015           |
+| 5e-3   | 0.0054   | 0.1889 | 0.0265   | 0.0267  | −0.0211           |
+| 5e-2   | 0.0504   | 0.3675 | 0.2282   | 0.2671  | −0.1778           |
+
+Three observations:
+1. At X_c ∈ {5e-4, 5e-3} canonical FD is essentially pinned to the
+   closed-box ceiling — i.e. the spectrum is so Mg-attractive that
+   *all available Mg ends up at GB*, leaving the bulk nearly empty
+   (X_bulk → 0). These two points test "does the box drain"; they don't
+   resolve dilute-limit physics.
+2. At X_c=5e-2 canonical FD is meaningfully below the ceiling (0.228 vs
+   0.267, ≈85 % of Mg at GB, with a real bulk reservoir at X_bulk ≈
+   1×10⁻²). This is the only one of today's points where canonical FD
+   is structurally informative.
+3. HMC remains far below canonical FD at every point, so the sampler
+   *is* under-sampled — but by ≤30× at the X_c=5e-2 point, not by 200×
+   as the GC-FD comparison made it look. The morning's SWAPS_PER_CALL
+   bump is now within striking distance of canonical FD at this point.
+
+### Decision: don't fight unreachable targets; pivot the X_c sweep upward
+
+Refined plan for the next batch:
+
+1. **Drop X_c={5e-4, 5e-3}** as primary verification points. They are
+   trivially canonical-FD-saturated and thus only test box-drain
+   kinetics, not segregation thermodynamics.
+2. **Designate X_c=5e-2 as the equilibration verification point.** Run
+   it again with `SWAPS_PER_CALL=100` (10× attempts at no wall-time
+   cost) and PROD 50 ps → 200 ps. Two-sided IC check: a second run
+   starting from a *pre-segregated* config (Mg pre-placed at GB sites
+   so X_GB(0)≈0.5). If both IC's converge to canonical FD's 0.228
+   within block-bootstrap CI, equilibrium is established.
+3. **Add X_c={0.10, 0.15, 0.20, 0.30}** as the production sweep — this
+   is where canonical FD differs significantly from GC-FD and from the
+   ceiling, *and* where solute-solute interactions are physically
+   expected to matter (the actual scientific question). Mg supply is
+   plentiful (47k–143k atoms), so swap acceptance and attempt budget
+   are not bottlenecks at these X_c.
+4. Once the (T=500 K) row is in, scan T ∈ {300, 700, 900} at the same
+   X_c to fill the (T, X_c) grid.
+
+The reframed scientific question is unchanged but cleaner: **Does
+HMC X_GB^HMC match canonical FD across the (T, X_c) grid?** Disagreement
+at any point is the breakdown signal we wanted; agreement validates
+Wagih's per-site framework as a finite-size theory.
+
+### Files this entry
+
+- `scripts/fermi_dirac_predict.py` — extended with canonical FD + tests
+- `scripts/canonical_fd_compare.py` — NEW
+- `output/canonical_fd_T500.json` — NEW
+- `output/hmc_vs_canonical_fd.csv` — NEW
+- `output/hmc_vs_fd_T500_canonical.png` — NEW
+- (note: `output/` is gitignored; CHANGELOG records the numbers above)
+
+### Jobs submitted (queued at 13:42, T=500 K throughout)
+
+A — equilibration verification at the only structurally informative
+    point in the original sweep (X_c=5e-2):
+
+| job ID    | submit script                              | IC          | SWAPS | PROD | target X_GB^canon |
+|-----------|--------------------------------------------|-------------|-------|------|-------------------|
+| 64810700  | submit_hmc_T500_Xc5e-2_dense_random.sh     | random      | 100   | 200 ps | 0.228 (from below) |
+| 64810704  | submit_hmc_T500_Xc5e-2_dense_preseg.sh     | pre-seg @ ceiling | 100 | 200 ps | 0.228 (from above) |
+
+A1 and A2 should converge to the same X_GB^∞ within block-bootstrap CI;
+that is the equilibrium proof.
+
+B — production X_c sweep where canon-FD ≠ ceiling and ≠ GC-FD, i.e.
+    the regime that actually probes solute-solute breakdown:
+
+| job ID    | submit script                          | X_c   | total Mg | ceiling |
+|-----------|----------------------------------------|-------|----------|---------|
+| 64810706  | submit_hmc_T500_Xc1e-1.sh              | 0.10  | 47 572   | 0.534   |
+| 64810707  | submit_hmc_T500_Xc1.5e-1.sh            | 0.15  | 71 357   | 0.802   |
+| 64810708  | submit_hmc_T500_Xc2e-1.sh              | 0.20  | 95 143   | 1.000 (capped) |
+| 64810710  | submit_hmc_T500_Xc3e-1.sh              | 0.30  | 142 715  | 1.000 (capped) |
+
+All B's: random IC, SWAPS_PER_CALL=100, PROD=200 ps, --time=08:00:00.
+Outputs land in `/cluster/scratch/cainiu/hmc_AlMg/hmc_T500_Xc<xc>{,_dense_*}.{log,dump,_final.lmp}`.
+
+### Deck change
+
+`data/decks/hmc_AlMg.lammps` now supports `-var SKIP_PLACE 1` to bypass
+the random `set type/fraction` step when the input data file already
+contains type-2 Mg (used by A2 with the pre-segregated lmp from
+`scripts/pre_segregate.py`). Default behaviour unchanged.
+
+### Concept glossary — first-time terms used in today's discussion
+
+These bridge "FD curves at different T" (where the project was) and
+"why HMC ≠ GC-FD even with infinite sampling" (today's pivot). Listed
+in the order they appear in the strategy thread.
+
+- **Grand-canonical Fermi-Dirac (GC-FD)** — the textbook Wagih eq. 2,
+  `P_i = 1/(1+(1-X_c)/X_c · exp(ΔE_i/kT))`. X_c is treated as the *bulk*
+  solute mole fraction held fixed by an *implicit infinite reservoir*:
+  whatever Mg the GB sucks in is replenished from outside. This is the
+  thermodynamic-limit prediction; it has no notion of total Mg in any
+  particular box. All FD curves drawn before today (the multi-T plots)
+  are GC-FD.
+
+- **Canonical Fermi-Dirac (canon-FD)** — closed-box version of the same
+  per-site formula. Total Mg = X_c · N_total is *conserved*; bulk
+  fraction X_bulk depletes as GB segregates. We solve a 1-D self-
+  consistency equation
+  `X_bulk · N_bulk + <P_i(T,X_bulk)> · N_GB = X_c · N_total`
+  (brentq, monotone in X_bulk) for the equilibrium X_bulk, then evaluate
+  X_GB^canon = `<P_i(T, X_bulk)>`. This is the apples-to-apples partner
+  for our HMC, which is closed-box by construction.
+  Implemented in `scripts/fermi_dirac_predict.py::x_gb_canonical`.
+
+- **Closed-box ceiling** — the largest X_GB physically realisable in a
+  finite box at total fraction X_c: every Mg atom in the box piled into
+  GB, none in bulk. `ceiling = X_c · N_total / N_GB = X_c / f_gb`. For
+  our 200 Å box `f_gb = 0.187` ⇒ `ceiling = X_c / 0.187`. If GC-FD's
+  prediction exceeds the ceiling, GC-FD is *unreachable in the box* —
+  not a sampler problem, a finite-size problem.
+
+- **Bulk depletion** — segregation pulling the post-equilibrium
+  `X_bulk` significantly below the input `X_c` because there isn't enough
+  Mg to supply both bulk and GB at GC-FD levels. Always present in
+  closed boxes; *negligible* iff GC-FD prediction `<<` ceiling. Today's
+  three points all violate this: GC-FD/ceiling = 29.4, 7.1, 1.4 at
+  X_c = 5e-4, 5e-3, 5e-2. The intended sweep regime (X_c ≥ 0.1) brings
+  GC-FD/ceiling toward unity, where canon-FD and GC-FD diverge
+  *physically* rather than mathematically.
+
+- **Two-sided IC convergence test** — to certify that an HMC run reached
+  equilibrium without an external reference, run two replicas from
+  initial conditions that bracket the expected equilibrium: one that
+  must climb (random IC, X_GB(0) ≈ X_c) and one that must descend
+  (pre-segregated IC, X_GB(0) at ceiling). If their stationary X_GB^∞
+  agree within block-bootstrap CI, equilibrium is established. A1+A2
+  in today's submission implement this at X_c = 5e-2, target ≈ 0.228.
+
+- **Why GC-FD was right for Wagih and wrong for our box** — Wagih's
+  curves are framework predictions in the thermodynamic limit (Wagih
+  himself does not test them at fixed total Mg in a finite box). At
+  *low* X_c on a box with *large* GB fraction (our 0.187), the GB
+  effectively swallows the entire reservoir, and GC-FD is an
+  unattainable target. Wagih's MD validation samples were either at
+  high enough X_c that depletion was small or used much larger boxes.
+  Going forward our X_c sweep targets the regime where canon-FD < ceiling
+  (X_c ≥ 0.05) so that the *physical* assumption being tested is the
+  independent-site one, not finite-size mass balance.
+
+## 2026-04-26 — HMC under-sampling diagnosed: 50 ps PROD ≈ 50× too short to reach FD equilibrium
+
+### What ran overnight
+
+After yesterday's Xc=5e-3 dry-run completed, two more production HMC runs
+finished overnight on the 200³ Å box (476k atoms, 32 MPI ranks):
+
+| job      | T (K) | X_c   | wall (h) | swap att. | accepts | accept% |
+|----------|-------|-------|----------|-----------|---------|---------|
+| 64779781 | 500   | 5e-4  | ~0.9     | 5000      | 315     | 6.3 %   |
+| 64777123 | 500   | 5e-3  | ~0.9     | 5000      | 383     | 7.7 %   |
+| 64779784 | 500   | 5e-2  | ~1.0     | 5000      | 443     | 8.9 %   |
+
+All three completed cleanly (NVT thermostat held at 499–500 K, PE drifted
+−40 to −60 eV over 50 ps PROD — small relaxation, no instability).
+
+### New analysis script: `scripts/hmc_xgb_timeseries.py`
+
+~190 lines. Parses `<stub>.log` thermo blocks (Step / Temp / PotEng /
+f_hmc[1]=n_attempts / f_hmc[2]=n_accepts) plus `<stub>.dump` per-frame
+`id type` (bulk-loaded via `np.loadtxt(..., max_rows=N)` — 50× faster
+than per-line Python parsing on 200 MB dumps). Crosses each frame's
+type vector with `gb_mask_200A.npy` (89 042 GB sites of 475 715 atoms,
+GB fraction 0.187) to compute X_GB(t). Drops a 20 % burn-in then
+estimates the stationary mean with a stationary-block bootstrap
+(block = 5 frames, 2000 resamples, 95 % CI).
+
+Outputs per run:
+- `<stub>_xgb.json` — thermo summary + swap stats + X_GB(t) series + CI
+- `<stub>_xgb.png` — 4-panel diagnostic (T, PE, instantaneous swap accept, X_GB)
+
+### Headline result: HMC X_GB ≈ X_c — no segregation reached
+
+| X_c   | X_GB^HMC | CI95            | X_GB^FD | enrich (HMC) | enrich (FD) |
+|-------|----------|-----------------|---------|--------------|-------------|
+| 5e-4  | 0.0012   | [0.0010, 0.0013]| 0.0793  | 2.4×         | 158.6×      |
+| 5e-3  | 0.0054   | [0.0053, 0.0055]| 0.1869  | 1.1×         | 37.4×       |
+| 5e-2  | 0.0504   | [0.0504, 0.0505]| 0.3702  | 1.0×         | 7.4×        |
+
+X_GB^HMC sits essentially at the bulk fraction X_c at every point. The
+X_GB(t) trace is monotonically rising but glacially — at Xc=5e-3 the
+slope is ~1.7e-5 per 1 ps frame, would take ~10 000 frames (10 ns) to
+plateau. PE drifts down at every point, confirming the system is still
+relaxing toward the Mg-at-GB minimum.
+
+### Why: the run was attempt-limited, not time-limited
+
+Reaching FD equilibrium at Xc=5e-3 requires moving (0.187 − 0.005)·89042
+≈ **16 200 Mg atoms** from bulk to GB sites. Each accepted swap moves
+exactly one. With 5000 attempts × ~7 % acceptance = **383 accepts**, we
+have ~40× too few. Same arithmetic at Xc=5e-4 (~7 100 needed,
+315 obtained, ~22× short) and Xc=5e-2 (~28 500 needed, 443 obtained,
+~64× short). The deck's `SWAPS_PER_CALL=10` × 100-step interval over
+50 ps PROD ⇒ only 5000 attempts total — that ceiling is the bottleneck,
+not wall time per swap.
+
+### Comparison artifact
+
+`scripts/hmc_sweep_compare.py` → `output/hmc_vs_fd_T500_sweep.png` +
+`output/hmc_sweep_T500.csv`. Two-panel: log-log (X_GB vs X_c with FD
+curve and X_GB=X_c reference) and enrichment ratio. Shows HMC points
+sitting on the diagonal, FD curve well above.
+
+### Decision: don't expand the (T, X_c) grid yet — fix the sampler first
+
+The result so far does NOT mean the dilute-limit assumption breaks down.
+It means our HMC is so under-sampled that we can't measure equilibrium
+at all. Before sweeping more (T, X_c) points it has to be demonstrated
+that *one* point reaches a stationary X_GB^HMC consistent with FD.
+
+Plan for the next batch (one prototype point, then sweep):
+1. **Raise SWAPS_PER_CALL 10 → 100** in `hmc_AlMg.lammps` (free — same
+   wall time per call, 10× more attempts). At 7 % acceptance × 50 000
+   attempts = ~3 500 accepts ⇒ within 5× of the 16 200 needed at Xc=5e-3.
+2. **Extend PROD 50 ps → 200 ps** at the verification point (4× wall
+   time but covers another 4× attempt budget) ⇒ ~14 000 accepts ⇒
+   within range of FD-equilibrium.
+3. **Two-sided equilibrium check**: also run the same point starting
+   from a *pre-segregated* IC (Mg pre-placed at GB sites, X_GB(0)=0.5
+   say). If both ICs converge to the same X_GB^∞ within CI, that's the
+   equilibrium proof.
+4. Only after step 3 succeeds: sweep T ∈ {300, 500, 700, 900} × X_c ∈
+   {1e-4, 1e-3, 1e-2, 1e-1} on the `(T, X_c)` grid.
+
+Optional acceleration if (1)+(2) still under-sample: use `region GB`
+on `fix atom/swap` to confine swap-pair selection to the GB neighbourhood.
+This raises the productive-move acceptance ~5× (only attempts that
+actually involve a GB site).
+
+### Files touched today
+
+- `scripts/hmc_xgb_timeseries.py` — NEW
+- `scripts/hmc_sweep_compare.py` — NEW
+- `output/hmc_T500_Xc5e-{4,3,2}_xgb.{json,png}` — NEW
+- `output/hmc_sweep_T500.{csv,png}`, `output/hmc_vs_fd_T500_sweep.png` — NEW
+- `data/decks/hmc_AlMg.lammps` — already had the `write_data` ordering
+  fix from yesterday's bug note; no further edit
+- `data/decks/submit_hmc_*.sh` — still untracked (commit pending)
+
 ## 2026-04-25 (EOD) — End-of-day state, push complete, HMC dry-run successful, tomorrow's plan
 
 ### Pushed to origin (both branches)
