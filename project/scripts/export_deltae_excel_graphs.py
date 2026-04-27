@@ -16,7 +16,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import skewnorm
+from scipy.stats import kstest, skewnorm
 
 
 WAGIH_NI_CU = {
@@ -29,6 +29,14 @@ WAGIH_NI_CU = {
 
 
 def read_results(path: Path) -> list[dict[str, str]]:
+    if path.suffix.lower() in {".xlsx", ".xls"}:
+        try:
+            import pandas as pd
+        except ImportError as exc:
+            raise ImportError("Reading Excel input requires pandas/openpyxl.") from exc
+        data = pd.read_excel(path, sheet_name="DeltaE_Data")
+        return data.to_dict(orient="records")
+
     with path.open(encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))
 
@@ -38,6 +46,16 @@ def numeric_column(rows: list[dict[str, str]], key: str) -> np.ndarray:
 
 
 def summary_rows(deltae: np.ndarray) -> list[tuple[str, float | int | str]]:
+    ours_alpha, ours_mu, ours_sigma = skewnorm.fit(deltae)
+    ks = kstest(
+        deltae,
+        lambda x: skewnorm.cdf(
+            x,
+            WAGIH_NI_CU["alpha"],
+            loc=WAGIH_NI_CU["mu_kj_mol"],
+            scale=WAGIH_NI_CU["sigma_kj_mol"],
+        ),
+    )
     outside = np.mean(
         (deltae < WAGIH_NI_CU["range_min_kj_mol"])
         | (deltae > WAGIH_NI_CU["range_max_kj_mol"])
@@ -51,6 +69,11 @@ def summary_rows(deltae: np.ndarray) -> list[tuple[str, float | int | str]]:
         ("median_kj_mol", float(np.median(deltae))),
         ("q05_kj_mol", float(np.quantile(deltae, 0.05))),
         ("q95_kj_mol", float(np.quantile(deltae, 0.95))),
+        ("ours_fit_mu_kj_mol", float(ours_mu)),
+        ("ours_fit_sigma_kj_mol", float(ours_sigma)),
+        ("ours_fit_alpha", float(ours_alpha)),
+        ("ks_d_vs_wagih_approx", float(ks.statistic)),
+        ("ks_p_vs_wagih_approx", float(ks.pvalue)),
         ("wagih_mu_kj_mol", WAGIH_NI_CU["mu_kj_mol"]),
         ("wagih_sigma_kj_mol", WAGIH_NI_CU["sigma_kj_mol"]),
         ("wagih_range_min_kj_mol", WAGIH_NI_CU["range_min_kj_mol"]),
@@ -70,9 +93,30 @@ def plot_histogram(path: Path, deltae: np.ndarray, title: str) -> None:
     x_min = min(deltae.min(), WAGIH_NI_CU["range_min_kj_mol"]) - 5.0
     x_max = max(deltae.max(), WAGIH_NI_CU["range_max_kj_mol"]) + 5.0
     x = np.linspace(x_min, x_max, 500)
+    ours_alpha, ours_mu, ours_sigma = skewnorm.fit(deltae)
+    ks = kstest(
+        deltae,
+        lambda values: skewnorm.cdf(
+            values,
+            WAGIH_NI_CU["alpha"],
+            loc=WAGIH_NI_CU["mu_kj_mol"],
+            scale=WAGIH_NI_CU["sigma_kj_mol"],
+        ),
+    )
+    mean = np.mean(deltae)
+    std = np.std(deltae, ddof=1)
 
-    fig, ax = plt.subplots(figsize=(7.4, 4.8), constrained_layout=True)
-    ax.hist(deltae, bins=35, density=True, alpha=0.72, color="#4C78A8", label="Our Ni(Cu), 500 sites")
+    fig, ax = plt.subplots(figsize=(9.2, 5.8), constrained_layout=True)
+    ax.hist(
+        deltae,
+        bins=35,
+        density=True,
+        alpha=0.58,
+        color="#E98B91",
+        edgecolor="white",
+        linewidth=0.5,
+        label=f"Ours production (n={len(deltae)})",
+    )
     ax.plot(
         x,
         skewnorm.pdf(
@@ -81,23 +125,63 @@ def plot_histogram(path: Path, deltae: np.ndarray, title: str) -> None:
             loc=WAGIH_NI_CU["mu_kj_mol"],
             scale=WAGIH_NI_CU["sigma_kj_mol"],
         ),
-        color="#111111",
+        color="#157A35",
         linewidth=2.2,
-        label="Wagih Ni(Cu) approx. fit",
+        label=(
+            "Wagih fit  "
+            f"μ={WAGIH_NI_CU['mu_kj_mol']:+.1f} "
+            f"σ={WAGIH_NI_CU['sigma_kj_mol']:.1f} "
+            f"α={WAGIH_NI_CU['alpha']:+.2f}"
+        ),
+    )
+    ax.plot(
+        x,
+        skewnorm.pdf(x, ours_alpha, loc=ours_mu, scale=ours_sigma),
+        color="#A51D2D",
+        linewidth=2.2,
+        linestyle="--",
+        label=f"Ours fit  μ={ours_mu:+.1f}  σ={ours_sigma:.1f}  α={ours_alpha:+.2f}",
     )
     ax.axvspan(
         WAGIH_NI_CU["range_min_kj_mol"],
         WAGIH_NI_CU["range_max_kj_mol"],
         color="#111111",
         alpha=0.07,
-        label="Wagih approx. range",
+        label="Wagih (n=N/A)",
     )
-    ax.axvline(np.mean(deltae), color="#E45756", linewidth=1.7, linestyle="--", label="Our mean")
-    ax.set_title(title)
-    ax.set_xlabel("Delta E_seg (kJ/mol)")
+    ax.axvline(mean, color="#A51D2D", linewidth=1.3, alpha=0.65, linestyle=":")
+    ax.set_title(f"{title} (KS D={ks.statistic:.3f}, p={ks.pvalue:.3g})", fontsize=15)
+    ax.set_xlabel(r"$\Delta E_{\rm seg}$ (kJ/mol)")
     ax.set_ylabel("Probability density")
-    ax.legend(frameon=False, fontsize=9)
+    handles, labels = ax.get_legend_handles_labels()
+    order = [
+        labels.index("Wagih (n=N/A)"),
+        labels.index(f"Ours production (n={len(deltae)})"),
+        next(i for i, label in enumerate(labels) if label.startswith("Wagih fit")),
+        next(i for i, label in enumerate(labels) if label.startswith("Ours fit")),
+    ]
+    ax.legend([handles[i] for i in order], [labels[i] for i in order], frameon=True, fontsize=9.2, loc="upper left")
     ax.grid(axis="y", alpha=0.2)
+
+    stat_text = "\n".join(
+        [
+            f"n = {len(deltae)}",
+            f"mean = {mean:+.2f} kJ/mol",
+            f"std = {std:.2f} kJ/mol",
+            f"min/max = {deltae.min():+.1f} / {deltae.max():+.1f}",
+            f"outside Wagih range = {np.mean((deltae < WAGIH_NI_CU['range_min_kj_mol']) | (deltae > WAGIH_NI_CU['range_max_kj_mol'])):.1%}",
+        ]
+    )
+    ax.text(
+        0.985,
+        0.965,
+        stat_text,
+        transform=ax.transAxes,
+        ha="right",
+        va="top",
+        fontsize=9.5,
+        bbox={"boxstyle": "round,pad=0.35", "facecolor": "white", "edgecolor": "#CCCCCC", "alpha": 0.9},
+    )
     fig.savefig(path, dpi=240)
     plt.close(fig)
 
@@ -148,7 +232,7 @@ def write_xlsx(path: Path, rows: list[dict[str, str]], summary: list[tuple[str, 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--results", type=Path, required=True, help="cuni/nicu Delta E result CSV.")
+    parser.add_argument("--results", type=Path, required=True, help="cuni/nicu Delta E result CSV or Excel workbook.")
     parser.add_argument("--outdir", type=Path, default=Path("nicu_export"))
     parser.add_argument("--prefix", default="nicu_3d")
     return parser.parse_args()
