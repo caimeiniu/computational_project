@@ -2,6 +2,155 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-04-29 (evening) — third-party reframe: integration-first, mechanism from existing snapshots; X_c=0.075 HMC as bonus
+
+### Smoke job 65182528 result: methodology gotcha, not budget
+
+Smoke completed 18/55 sites before TIMEOUT. **All 18 sites stop reason
+"linesearch alpha is zero"** — CG cannot converge, PE unreliable.
+Per-site wall 150–260 s (vs 36 s/site on 200A pure-Al benchmark).
+
+**Diagnosis**: substrate `hmc_T500_Xc0.10_preseg_final.lmp` is the
+HMC-end NVT config at T=500 K — atomic positions carry ~kT thermal
+noise, not at the T=0 minimum. The X_c=0 reference workflow used a
+CG-relaxed annealed substrate, so single-Mg insertion was a tiny
+perturbation that converged cleanly. Our finite-X_c substrate hands
+CG a noisy starting point → line search fails on the rough landscape.
+
+**Fix on the table** (not executed): pre-relax substrate to T=0 with
+box/relax aniso 0.0, write a `_relaxed.lmp`, re-smoke. Cost: 30 min
+per substrate × 3 = 1.5 h compute. But before doing this, paused for
+a third-party review (next section).
+
+### X_c=0.20 multistart 65037861 result: TIMEOUT, no `_final.lmp`
+
+14 h budget consumed; only `_initial.lmp`, `_postcg.lmp`, `.dump`,
+and `.rst1` written. Since the project decommissioned multi-IC
+brackets in favor of ΔE-shift / now mechanism analysis, the run is
+**not restarted** — sunk cost, retained `.rst1` for any future
+revisit.
+
+### Third-party reframe: integration-first, mechanism from snapshots
+
+Stepping back: counting 5 days of methodology pivots (random-IC dead
+end → preseg → multi-IC → ΔE-shift → smoke debug) against the report
+deadline, the discipline error is **never having integrated existing
+panels**. Every panel (a)–(g) per `project_report_figure_plan.md`
+already has source data:
+
+| Panel | Source                                                     | Status        |
+|-------|------------------------------------------------------------|---------------|
+| (a)   | `output/compare_vs_wagih_200A_tight.{png,json}`             | ✓             |
+| (b)   | `output/fd_curves_theory_T500_loglog.{png,json}`            | ✓ (4/28)      |
+| (c)   | `output/verify_T500_Xc5e-2_two_sided.png`                   | ✓ (4/26)      |
+| (d)   | `output/hmc_vs_canonfd_T500.{png,json}` — 6 X_c points      | ✓             |
+| (e)   | `output/method_overview.png`                                | ✓ (refresh)   |
+| (f)   | `output/ovito_gb_render_xc{0.20,0.30}.png`                  | ✓             |
+| (g)   | `output/hmc_T500_Xc0.10_multistart_xgb0.3.{json,png}` etc.  | ✓             |
+
+`scripts/report_master_figure.py` was planned 2026-04-26 night; not a
+single line written. Do that **before** any more component work.
+
+### The X_c=0.10 breakdown is already proven by inequality
+
+User's correct reading (this evening): we do **not** need X_GB^∞ at
+X_c=0.10 to claim breakdown. The multistart trajectory shows:
+
+```
+X_GB(0)            = 0.300
+canon-FD predicts   = 0.352      (under Wagih's assumption)
+X_GB(end), descending = 0.228   (fwd/rev = 0.27 ≪ 1, still falling)
+```
+
+If Wagih held, true equilibrium = 0.352, and a trajectory starting at
+0.300 < 0.352 would **ascend** to 0.352. Instead it **descends** to
+0.228 and is still going. Therefore X_GB^∞ ≤ 0.228 < canon-FD 0.352.
+**One-sided inequality, contradiction with Wagih, breakdown proven** —
+canon-FD over-predicts X_GB by ≥ 35% relative at X_c=0.10. Reviewers
+cannot push back on the inequality direction; the precise value of
+X_GB^∞ is not part of the claim.
+
+### Mechanism layer from EXISTING snapshots — no new LAMMPS needed
+
+User's question (this evening) revealed an under-utilized analysis
+path. We have 5 finite-X_c HMC snapshots in `data/snapshots/`:
+
+| File                                                        | X_c | X_GB(end) |
+|-------------------------------------------------------------|-----|-----------|
+| hmc_T500_Xc0.10_multistart_xgb0.3_final.lmp                  | 0.10 | 0.228     |
+| hmc_T500_Xc0.10_preseg_final.lmp                              | 0.10 | 0.375     |
+| hmc_T500_Xc0.15_preseg_final.lmp                              | 0.15 | 0.589     |
+| hmc_T500_Xc0.20_preseg_final.lmp                              | 0.20 | 0.794     |
+| hmc_T500_Xc0.30_preseg_final.lmp                              | 0.30 | 0.838     |
+
+Three orthogonal mechanism analyses extractable from these snapshots
+with **pure Python + cKDTree, ~1 h on login**:
+
+1. **g_MgMg(r) — Mg-Mg pair correlation function**. For each
+   snapshot, histogram of Mg-Mg pair distances normalized by random
+   reference (uniform Mg distribution at same X_c). Deviation from
+   1 = direct evidence of solute-solute interaction; range over which
+   it deviates = interaction length scale. Expected for Al-Mg
+   (size mismatch ~12%): short-range repulsion at r ≤ 5–8 Å, possibly
+   weak long-range elastic oscillation to ~15–20 Å.
+
+2. **P_i(ΔE_i) vs Wagih FD prediction**. Cross-reference the n=500
+   reference sites (`delta_e_results_n500_200A_tight.npz`, ΔE_i known)
+   with each finite-X_c snapshot to get binary P_i (occupied = type 2,
+   empty = type 1). Bin by ΔE_i, plot fraction-occupied vs Wagih's
+   *P_i^Wagih(ΔE_i; T, X_c) = 1 / (1 + ((1−X_c)/X_c) exp(ΔE_i/kT))*.
+   Systematic deviation of empirical from theory = Wagih breakdown
+   localized in the ΔE_i spectrum.
+
+3. **P_i vs local Mg coordination n_Mg^local(r=5Å)**. Within a fixed
+   ΔE_i bin, plot P_i vs the per-site count of Mg neighbors within
+   r=5 Å. Slope < 0 = "more neighbor Mg → lower occupation
+   probability" = direct site-level evidence of solute-solute
+   repulsion in the *occupation* statistics, not just the spectrum.
+
+Together these are 3 independent lines of evidence (pair-level
+correlation, occupation-vs-energy, occupation-vs-environment).
+Cost: ~1 h Python, no LAMMPS, runs on login.
+
+### ΔE-shift: deferred indefinitely
+
+Substrate-pre-relax + smoke retry + production sweep is a 4–5 day
+investment. With the inequality breakdown argument established AND
+the mechanism layer extractable for free, ΔE-shift is no longer on
+the critical path. Reactivate only if the mechanism analysis turns
+out inconclusive (unlikely given physics).
+
+### Bonus: X_c=0.075 preseg HMC as idle-compute use
+
+User noted the 48-CPU public QOS is currently empty (no running
+jobs). One 24 h preseg HMC at X_c=0.075 (32 ranks → 67% quota,
+fits) explores the threshold region (X_c=0.05 Wagih works,
+X_c=0.10 Wagih fails, threshold X_c\* ∈ (0.05, 0.10); 0.075 is
+binary-search midpoint). Three possible outcomes, all useful:
+
+- converged + matches FD → X_c\* ∈ (0.075, 0.10)
+- converged + deviates from FD → X_c\* ∈ (0.05, 0.075)
+- descending UB → adds a ▽ to `hmc_vs_canonfd_T500.png`, UB still
+  evidence
+
+Off the critical path; bonus only.
+
+### Updated execution plan
+
+| Time              | Work                                                                  |
+|-------------------|-----------------------------------------------------------------------|
+| Tonight (4/29)    | (1) Submit X_c=0.075 preseg HMC SLURM. (2) Write + run                 |
+|                   |     `scripts/solute_correlation_analysis.py` on 5 snapshots.          |
+| Tomorrow (4/30)   | Build `scripts/report_master_figure.py`, integrate 6 panels +          |
+|                   | 1 mechanism panel. Auto-process X_c=0.075 result when it lands.        |
+| 5/1               | Decision point: figure good → start writing report; figure has gap →   |
+|                   | targeted fix (possibly ΔE-shift back on the table).                   |
+| 5/1–5/4           | Report writing.                                                       |
+
+### Files this entry
+
+- (none yet — implementation starts after this CHANGELOG commit)
+
 ## 2026-04-29 (afternoon, 4) — implementation: `sample_delta_e_finite_xc.py` driver + LAMMPS-free validation + smoke job 65182528 submitted
 
 ### `scripts/sample_delta_e_finite_xc.py` (new, 715 lines)
