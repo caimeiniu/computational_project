@@ -89,6 +89,14 @@ def main():
     p.add_argument("--gb-mask", type=Path, required=True)
     p.add_argument("--xc", type=float, required=True,
                    help="total Mg fraction; N_Mg = round(X_c · N_total)")
+    p.add_argument("--xgb-init", type=float, default=None,
+                   help="(multi-start) target initial X_GB. If unset, uses "
+                        "the default 'fill GB to ceiling' preseg. If set, "
+                        "places round(xgb_init · N_GB) Mg in GB and the "
+                        "remainder in bulk — used for multi-start brackets "
+                        "where X_GB(0) needs to lie BELOW the canon-FD "
+                        "prediction (i.e. ascend from below to meet the "
+                        "descending preseg trajectory).")
     p.add_argument("--seed", type=int, default=20260426)
     p.add_argument("--out-data", type=Path, required=True)
     args = p.parse_args()
@@ -96,6 +104,7 @@ def main():
     gb_mask = np.load(args.gb_mask).astype(bool)
     n_total = int(gb_mask.size)
     n_gb = int(gb_mask.sum())
+    n_bulk = n_total - n_gb
     n_mg = int(round(args.xc * n_total))
     if n_mg <= 0:
         sys.exit(f"X_c={args.xc} too small: N_Mg={n_mg}")
@@ -105,7 +114,30 @@ def main():
     bulk_ids = np.where(~gb_mask)[0] + 1
     rng = np.random.default_rng(args.seed)
 
-    if n_mg <= n_gb:
+    if args.xgb_init is not None:
+        # Multi-start preseg: configurable split.
+        # N_Mg(GB) = round(X_GB(0) · N_GB), remainder placed in bulk.
+        n_mg_gb = int(round(args.xgb_init * n_gb))
+        if n_mg_gb < 0 or n_mg_gb > n_gb:
+            sys.exit(f"--xgb-init={args.xgb_init} → N_Mg(GB)={n_mg_gb} "
+                     f"out of [0, {n_gb}]")
+        if n_mg_gb > n_mg:
+            sys.exit(f"--xgb-init={args.xgb_init} requires {n_mg_gb} Mg in "
+                     f"GB but X_c only provides {n_mg} total")
+        n_mg_bulk = n_mg - n_mg_gb
+        if n_mg_bulk > n_bulk:
+            sys.exit(f"--xgb-init={args.xgb_init} → N_Mg(bulk)={n_mg_bulk} "
+                     f"exceeds N_bulk={n_bulk}")
+        mg_ids_parts = []
+        if n_mg_gb > 0:
+            mg_ids_parts.append(rng.choice(gb_ids, size=n_mg_gb, replace=False))
+        if n_mg_bulk > 0:
+            mg_ids_parts.append(rng.choice(bulk_ids, size=n_mg_bulk, replace=False))
+        mg_ids = (np.concatenate(mg_ids_parts) if mg_ids_parts
+                  else np.empty(0, dtype=np.int64))
+        x_gb_init = n_mg_gb / n_gb
+        x_bulk_init = (n_mg_bulk / n_bulk) if n_bulk else 0.0
+    elif n_mg <= n_gb:
         # Standard preseg: fill `n_mg` random GB sites; X_GB(0) = n_mg/n_gb,
         # X_bulk(0) = 0. Bracket equilibrium from above (Mg over-saturated at GB).
         mg_ids = rng.choice(gb_ids, size=n_mg, replace=False)
@@ -131,10 +163,12 @@ def main():
 
     mg_ids.sort()  # for reproducibility / human-readability of the diff
 
+    mode = (f"multi-start xgb_init={args.xgb_init}"
+            if args.xgb_init is not None else "default preseg")
     comment = (f"X_c={args.xc:g}  N_Mg={n_mg}  "
                f"GB={n_mg_gb} bulk={n_mg_bulk}  "
                f"X_GB(0)={x_gb_init:.4f} X_bulk(0)={x_bulk_init:.4f}  "
-               f"seed={args.seed}")
+               f"mode={mode}  seed={args.seed}")
     audit = rewrite_data_types(args.in_data, args.out_data, mg_ids, comment)
 
     # sanity

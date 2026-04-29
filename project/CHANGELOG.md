@@ -2,6 +2,1421 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-04-29 (afternoon, 4) — implementation: `sample_delta_e_finite_xc.py` driver + LAMMPS-free validation + smoke job 65182528 submitted
+
+### `scripts/sample_delta_e_finite_xc.py` (new, 715 lines)
+
+Copy + extend of `scripts/sample_delta_e.py` per the script-preservation
+rule (2026-04-29 afternoon, 3). Original untouched (verified via
+`stat`: same 27,041 bytes, mtime 2026-04-25 22:54).
+
+7 functional changes vs parent:
+
+1. Header / CLI / docstring rewritten for finite-X_c semantics; `--annealed`
+   renamed to `--background-data`; new `--xc-label` for traceability.
+2. New `_read_lammps_data_positions_types` parser also extracts col 1
+   (atom type), returns `(positions, types, box)`.
+3. GB site selection filters to `mask & (types==1)` — empty GB only.
+4. `_sample_bulk_refs` adds a type filter (must be type 1).
+5. `_sample_bulk_refs` adds distance constraint to nearest Mg atom
+   (same `bulk_separation`, default 8 Å) — keeps μ_Mg^bulk reference
+   clean of solute-solute contamination at finite X_c. Both KDTrees
+   built once per call.
+6. Result dict + npz + json metadata gain `x_c_actual`, `x_gb_actual`,
+   `n_type1`, `n_type2`, `n_gb_total`, `n_gb_type2`,
+   `background_data_file`. Stdout adds X_c / X_gb / background lines.
+7. Sanity check: all selected sites must currently be type 1 — catches
+   filter bugs that would otherwise silently produce ΔE=0.
+
+`bulk_e_mean` is recomputed per substrate (decision A1, 2026-04-29
+afternoon, 3): each X_c gets its own μ_Mg^bulk → ΔE_eff is
+self-consistent to the test X_c, isolates spectrum shift from any
+X_c-dependence of the bulk chemical potential.
+
+### LAMMPS-free validation (login node, no compute)
+
+Parsed `data/snapshots/hmc_T500_Xc0.10_preseg_final.lmp`; cross-checked
+against CHANGELOG / memory:
+
+| quantity                   | computed   | expected                                        | match |
+|----------------------------|-----------:|-------------------------------------------------|------:|
+| n_atoms                    | 475,715    | 475,715 (`project_computational_modeling.md`)    | ✓ |
+| n_gb                       | 89,042     | 89,042 (memory)                                  | ✓ |
+| X_c_actual                 | 0.1000     | 0.10 (preseg target)                             | ✓ |
+| X_gb_actual                | 0.3747     | 0.3749 (CHANGELOG 2026-04-28 evening, 5 last)    | ✓ |
+| empty GB count             | 55,681     | 89,042 − 33,361                                  | ✓ |
+| 50-site GB sample          | all type 1 | required by sanity check                         | ✓ |
+| 5-site bulk sample         | all type 1, all ~gb_mask | required by sanity check       | ✓ |
+
+Filter logic + sanity check work on a real finite-X_c substrate. No
+LAMMPS yet — that comes from the smoke job.
+
+### `data/decks/submit_delta_e_xc0.10_smoke.sh` (new) + slurm 65182528
+
+50 GB + 5 bulk refs on X_c=0.10 preseg substrate, 16 ranks, 1 h budget.
+Timing basis: existing 200A pure-Al deck reported 36 s/site on 16 cores
+→ 55 sites ≈ 33 min; 1 h gives variance + queue.
+
+Smoke validates: LAMMPS deck builds correctly, single-Mg insertion
+CG-relaxes cleanly on a Mg-decorated substrate (no neighbor-list issues
+at types > 1), spectrum has plausible shape (n=50 too noisy for a
+breakdown claim, but a visible shift vs X_c=0 n=500 reference mean
+−6.9 kJ/mol would be encouraging).
+
+If smoke is green → production sweep on X_c ∈ {0.05, 0.075, 0.10},
+n_gb=500 each, 8 h jobs per X_c (matches existing 200A timing).
+
+Per `feedback_no_poll_jobs.md`: not polling. When 65182528 finishes
+the routine post-process is plumbing — no decision needed:
+1. Verify CG stop reasons all "energy tolerance" / "force tolerance".
+2. Load `delta_e_results_xc0.10_smoke.npz`, compute sample
+   moments (mean, std, skew) of ΔE_eff.
+3. Histogram overlay vs `delta_e_results_n500_200A_tight.npz`.
+4. Compare bulk_e_mean to the X_c=0 reference (−13.something eV per
+   `compare_vs_wagih_200A_tight.json`); large shift = sanity flag.
+
+### Files this entry
+
+- `scripts/sample_delta_e_finite_xc.py` (new, 715 lines)
+- `data/decks/submit_delta_e_xc0.10_smoke.sh` (new)
+- `scripts/sample_delta_e.py` UNCHANGED (script-preservation rule honored)
+
+## 2026-04-29 (afternoon, 3) — decision lock: ΔE-shift main + conditional HMC at X_c=0.075; in-place script edits prohibited
+
+### Decision (user green-lit afternoon, 2 plan)
+
+1. **Main path — ΔE drift sweep**: implement the spectrum-shift method on
+   X_c ∈ {0.05, 0.075, 0.10} backgrounds. ETA 2 days for raw μ(X_c) curve
+   and breakdown threshold X_c*.
+
+2. **Conditional HMC** — once X_c* is known:
+   - **X_c\* ≤ 0.07** → run HMC at X_c=0.075. Likely converges in 12–24 h
+     preseg (chemical crowding not yet basin-rich); X_GB^∞ vs canon-FD
+     gap completes the cause→consequence story. +1–2 days.
+   - **X_c\* ≥ 0.10** → no new HMC. Existing data already gives the
+     contrast: X_c=0.05 verify-preseg X_GB=0.238 ≈ canon-FD 0.228 (anchor:
+     Wagih holds) vs X_c=0.10 multistart UB X_GB=0.228 ≪ canon-FD 0.352
+     (anchor: Wagih breaks). +0 days.
+
+3. **REMD pilot** — deferred. Off the critical path; reconsider after ΔE
+   drift result is in.
+
+### Cause → consequence story for panel (d)
+
+| Layer       | Source                                                               | Output                                          |
+|-------------|----------------------------------------------------------------------|-------------------------------------------------|
+| Cause       | ΔE_eff(X_c) shift on X_c ∈ {0.05, 0.075, 0.10} backgrounds            | μ(X_c), σ(X_c), α(X_c) curves; threshold X_c\* |
+| Consequence | HMC X_GB^∞ at X_c=0.05 (anchor) + X_c=0.075 OR existing X_c=0.10 UB   | gap (HMC − canon-FD)                            |
+| Mechanism   | Per-site δ_i correlated with distance-to-nearest-Mg / local Mg density | short- vs long-range, chemical vs elastic       |
+
+Combined argument is stronger than either layer alone, and HMC dependency
+is bounded to ≤ 1 additional run.
+
+### Script-preservation policy (new project rule)
+
+Per user direction: **do NOT modify `scripts/sample_delta_e.py` in place**.
+The original produced `output/delta_e_results_n500_200A_tight.npz` — the
+n=500 X_c=0 reference spectrum on which the project's KS test, skew-normal
+fit, and Wagih benchmark depend. Preserve it by copying to a new
+descriptive filename before modifying.
+
+- New script: **`scripts/sample_delta_e_finite_xc.py`** — extends input
+  to accept arbitrary `.lmp` background; filters site selection to empty
+  GB sites only.
+- Original `scripts/sample_delta_e.py` stays untouched, importable for
+  re-running the X_c=0 reference if needed.
+
+Generalized rule documented in feedback memory
+(`feedback_no_in_place_script_edits.md`): any behavior-extending change
+to a canonical script follows copy+rename+modify.
+
+### Numerical-value-fabrication rule (separate feedback)
+
+Earlier in the session I quoted "μ(0) = −12.4 kJ/mol" without a source
+check. Actual sample mean of the n=500 reference is **−6.9 kJ/mol**
+(`output/compare_vs_wagih_200A_tight.json`, bootstrap σ = 0.71). User
+escalated to a permanent rule: every cited numerical value must trace
+to a file or computation, no "rough recall". Documented in
+`feedback_no_fabricated_numbers.md`.
+
+Practical consequence — the corrected breakdown criterion for panel (d):
+
+> A given X_c qualifies as "above breakdown threshold" when the sample
+> mean of its ΔE_eff spectrum deviates from −6.9 kJ/mol by more than 2σ
+> (≈ 1.4 kJ/mol).
+
+### Status
+
+- No code changes yet.
+- Next action: copy `sample_delta_e.py` → `sample_delta_e_finite_xc.py`,
+  add `--background-data` flag, smoke-test on one X_c=0.10 preseg snapshot.
+
+### Files this entry
+
+- (no project-code changes yet; memory files updated:
+  `feedback_no_fabricated_numbers.md`, `feedback_no_in_place_script_edits.md`)
+
+## 2026-04-29 (afternoon, 2) — strategic pivot proposal: ΔE-spectrum-shift to test Wagih's assumption directly; REMD only as stretch pilot for X_GB^∞
+
+### Diagnosis: HMC + `fix atom/swap` is a tool mismatch at X_c ≥ 0.10
+
+Three near-converged HMC trajectories at X_c=0.10, T=500 K have
+settled at three different plateaus from three different ICs:
+
+| IC                            | X_GB plateau | PE_final (eV)      |
+|-------------------------------|-------------:|-------------------:|
+| random IC (X_GB(0) ≈ 0.105)   | ≈ 0.105      | (kinetic floor)    |
+| multistart (X_GB(0) = 0.30)   | 0.228        | −1,488,858.5       |
+| preseg (X_GB(0) ≈ 0.534)      | 0.375        | −1,488,654.8       |
+
+These are not statistical fluctuations — they are different basins of
+the *chemical-arrangement* configuration space. Each basin is locally
+stable under single Mg↔Al swap moves, and traversing between them
+requires many concerted swaps. Swap acceptance is 6–11%, so the
+wall-cost of crossing inter-basin barriers exceeds 12–24 h budgets.
+
+This is a **methodology** problem, not a wall-time problem: HMC +
+`fix atom/swap` is a single-flip Metropolis sampler, and the chemical
+landscape at finite X_c has barriers single-flip moves cannot
+traverse efficiently. Extending wall time gives tighter upper bounds
+on the same basin, not the global equilibrium.
+
+### Reframe: we do not need X_GB^∞ to disprove Wagih
+
+Wagih's independent-site Fermi-Dirac framework rests on one specific
+mathematical assumption:
+
+```
+ΔE_i(X_c) = ΔE_i(0)    ∀ X_c
+```
+
+i.e. each GB site's segregation energy is independent of the bulk
+solute concentration. This is a statement about the **energy
+landscape**, not the **equilibrium occupation**. It can be tested
+directly without sampling any equilibrium ensemble.
+
+X_GB^∞ ≡ ⟨X_GB⟩_eq(T, X_c) = lim_{t→∞} X_GB(t) under detailed balance
+is a *consequence* of the assumption, not the assumption itself.
+Disproving the assumption disproves the prediction; the equilibrium
+is not on the critical path.
+
+### Proposed core experiment: ΔE-spectrum-shift measurement
+
+Setup:
+- **Reference (X_c=0, already in hand)**:
+  `output/delta_e_results_n500_200A_tight.npz` — 500 GB sites on a
+  pure-Al annealed substrate, each with single-Mg insertion ΔE_i.
+- **Test (X_c > 0)**: take an existing finite-X_c snapshot, e.g.
+  `data/snapshots/hmc_T500_Xc0.10_preseg_final.lmp` (X_GB ≈ 0.375
+  background) or the new multistart `_final.lmp` (X_GB ≈ 0.228), and
+  for each empty GB site i compute
+
+  ```
+  ΔE_i^eff = E[config + Mg@i] − E[config] − μ_Mg^bulk
+  ```
+
+- **Compare**: δ_i ≡ ΔE_i^eff − ΔE_i. Systematic δ_i ≠ 0 across the
+  spectrum is direct, equilibration-independent evidence that
+  Wagih's assumption fails at that X_c.
+
+Pure-Al substrate is *not* a valid test condition — that just
+re-measures the X_c=0 reference. The point of the experiment is that
+the substrate carries pre-existing Mg.
+
+### "Where it fails" — three answerable layers
+
+A natural worry is that ΔE shift only proves *that* Wagih fails, not
+*where*. In fact the method gives more granular "where" information
+than X_GB^∞ vs canon-FD:
+
+| "Where"                  | How to extract                                                                                                     | Output figure                                  |
+|--------------------------|--------------------------------------------------------------------------------------------------------------------|------------------------------------------------|
+| At what X_c threshold    | Run X_c ∈ {0.05, 0.10, 0.20} backgrounds; plot μ(X_c), σ(X_c), α(X_c) of the test spectrum                          | Spectrum moments vs X_c                        |
+| Which sites first        | Per-site δ_i correlated with (a) distance to nearest Mg, (b) local Mg coordination, (c) original ΔE_i              | Scatter plots — diagnoses interaction range and mechanism |
+| Where in the spectrum    | Histogram overlay: rigid right-shift = mean-field repulsion; deep-tail-only shift = strong-binding sites saturate first | Reference vs test histogram                    |
+
+This converts a binary "yes/no" answer into a quantitative breakdown
+threshold + a mechanism (chemical vs elastic, short- vs long-range,
+mean-field vs site-specific).
+
+### Enhanced sampling — three options if X_GB^∞ is desired
+
+User question: can we add system-wide PE to push atoms across basins?
+Yes — this is the standard enhanced-sampling problem. Three viable
+methods:
+
+| Method                     | Cost (replicas × ranks)                  | Implementation lift                                                              | Direct X_GB^∞ output? | Native compat with `fix atom/swap`?                                |
+|----------------------------|------------------------------------------|----------------------------------------------------------------------------------|-----------------------|--------------------------------------------------------------------|
+| **REMD / parallel tempering** | 5 × 32 = 160 (or 5 × 4 = 20 to fit quota) | LAMMPS `fix temper` — one command                                                 | yes                   | likely yes; needs verification                                     |
+| **Metadynamics on X_GB**       | 1 × 32 = 32                              | PLUMED + custom CV + atom/swap coupling                                          | yes (+ F(X_GB))        | non-native — PLUMED hooks at MD timestep, not MC moves              |
+| **Wang-Landau on N_Mg^GB**     | 2–4 × 32                                 | Custom MC code, modification-factor schedule, reweighting                         | yes (+ DOS g(N))       | best theoretical fit (discrete chemical space), but needs code     |
+
+Naïve simulated annealing (heat → slow cool) is *not* a substitute —
+high-T equilibrium differs from 500 K equilibrium, the cooling path
+does not guarantee convergence, and the literature treats it as
+exploratory not as evidence.
+
+### Why REMD as the pilot (project-management choice, not physics)
+
+If we run *one* enhanced-sampling pilot, REMD wins on
+*implementation friction*, not on physics fit:
+
+- **LAMMPS-native** (`fix temper`); no PLUMED, no custom code.
+- **Time to first result**: hours to submit, not days to write.
+- **Standard, defensible** in a final report; reviewers know it.
+- **Clean fallback**: if REMD acceptance is poor or `fix temper`
+  fights `fix atom/swap`, abandon the pilot — the ΔE-shift result
+  still stands as the main deliverable.
+
+Wang-Landau is arguably the *physics-best* fit (discrete chemical
+sampling matches the atom/swap move set), but writing custom MC code
+under deadline pressure is high risk. Metadynamics sits in between
+but needs PLUMED + non-standard coupling to MC moves.
+
+### Recommendation: parallel paths, ΔE-shift as main deliverable
+
+1. **Main deliverable** — extend `scripts/sample_delta_e.py` with a
+   `--background-data` flag accepting any `.lmp` file as substrate
+   (currently hardcoded to pure Al). Run on three X_c backgrounds
+   ({0.05, 0.10, 0.20}, ~200 GB sites each). A few CPU-hours per
+   background. New panel (d): X_c-dependent ΔE moments + per-site
+   shift correlation + histogram overlay.
+
+2. **Stretch pilot** — single REMD run at X_c=0.10 (5 replicas,
+   T = {500, 650, 850, 1100, 1500 K}, 4 ranks/replica = 20 ranks
+   total to fit the 48-CPU public-QOS quota per
+   `reference_euler_quota.md`). If it converges within wall budget →
+   reportable X_GB^∞. If not → main deliverable does not depend on it.
+
+### Report panel (d) — revised framing
+
+Old: "HMC X_GB vs canon-FD" (depends on equilibration of every X_c).
+New:
+
+> "ΔE_eff(X_c) shift directly demonstrates breakdown of Wagih's
+> independent-site assumption. Equilibrium X_GB^∞ requires enhanced
+> sampling (REMD ongoing) and is reported as a constraint, not a
+> point estimate, where applicable."
+
+Tighter scope than originally planned, but a stronger scientific
+claim — *we measured the assumption itself* beats *we measured a
+discrepancy that may be sampling-limited*.
+
+### Status
+
+- Discussion only; no code changes yet.
+- Pending user decision: green-light ΔE-shift implementation; whether
+  REMD pilot runs in parallel or waits for ΔE-shift result.
+- X_c=0.20 multistart job (slurm `65037861`, RUNNING ~12 h elapsed)
+  result is independent of pivot decision — auto-process when finished.
+
+### Files this entry
+
+- (none — discussion + plan; implementation deferred pending decision)
+
+## 2026-04-29 (afternoon) — X_c=0.10 multi-start finished: surprise descent, first non-trivial breakdown signal
+
+### Job 65035837 (X_c=0.10 multi-start, X_GB(0)=0.30) COMPLETED
+
+Finished 2026-04-29 04:57:57 CEST after 12h29m wall (full PROD_PS=300
+budget); ExitCode 0. `_final.lmp` written, copied to
+`project/data/snapshots/hmc_T500_Xc0.10_multistart_xgb0.3_final.lmp`
+(61 MB, gitignored).
+
+### Trajectory: monotone DESCENT from 0.300 → 0.228 (NOT ascent as planned)
+
+`scripts/hmc_xgb_timeseries.py` post-processed; key numbers:
+
+| metric | value |
+|--------|------:|
+| X_GB(0)        | 0.2996 |
+| X_GB(end)      | 0.2278 |
+| X_GB max / min | 0.2996 (frame 0) / 0.2278 (frame 299) — strictly monotone |
+| post-burnin mean (frames 60–300) | 0.2459 ± 0.0036 |
+| canon-FD (ours, X_c=0.10) | 0.3520 |
+| swap accept | 6.46 % (19,387 / 300,000) |
+| **fwd / rev (post-burnin)** | **0.270** (1468 / 5445; imbalance −0.575) |
+| PE drift | −2155 eV over 300 ps |
+
+The submit-script comment (`submit_hmc_T500_Xc0.10_multistart_xgb0.3.sh`,
+written 2026-04-28 evening, 5) called for an ascending trajectory:
+*"Companion to the descending-IC run … Together the two trajectories
+form a two-sided bracket: ascending from 0.30 + descending from 0.375
+→ meeting point ≈ true equilibrium."* That **did not happen**. The
+random-GB-site placement at X_GB(0)=0.300 is **not** a metastable IC
+at T=500 K — the system net-decays Mg out of GB faster than it
+re-enters, even though X_GB(0)=0.30 < canon-FD = 0.352.
+
+### Interpretation: NEW tighter upper bound at X_c=0.10, BELOW canon-FD
+
+The trajectory is still descending (fwd/rev = 0.27 ≪ 1, PE still
+drifting), so 0.228 is a **one-sided upper bound** on the true
+equilibrium: X_GB^eq ≤ 0.228. Combined with the descending preseg
+upper bound 0.375 (slurm 64864478, 2026-04-27), the working upper
+bound at X_c=0.10 tightens to **0.228 — which lies below canon-FD
+0.352**.
+
+If true equilibrium ≤ 0.228:
+- canon-FD over-predicts X_GB by ≥ 0.124 (relative error ≥ 35 %)
+- This is the **first non-trivial breakdown signal** of Wagih's
+  independent-site approximation in this project. Sign matches: high
+  Mg concentration → solute-solute interactions repel → effective
+  ΔE_seg becomes less attractive → fewer sites occupied than
+  independent-site FD predicts. (Opposite of saturation, which would
+  push X_GB toward the ceiling.)
+
+### Caveats — multiple metastable basins, not yet a closed proof
+
+The X_c=0.10 phase-space at T=500 K shows **at least three plateaus**
+the dynamics has visited:
+
+| IC                        | trajectory plateau / endpoint | PE_final (eV) |
+|---------------------------|------------------------------:|--------------:|
+| random IC (X_GB(0) ≈ 0.105) | ≈ 0.105 (kinetic floor) | (logged 2026-04-27 morning) |
+| multi-start (X_GB(0) = 0.30) | 0.228 (still descending) | −1,488,858.5 |
+| preseg (X_GB(0) ≈ 0.534)    | 0.375 (still descending) | −1,488,654.8 |
+
+Notably the multistart's PE is **lower** than the preseg's by ~204 eV
+despite having lower X_GB — the lower-X_GB basin is energetically
+favored. This is *consistent* with true equilibrium living at or
+below 0.228, but does NOT prove it: both trajectories are
+non-equilibrium (fwd/rev ≪ 1, both reverse-dominated).
+
+A two-sided bracket has *not* been closed. What we have is two upper
+bounds from two different starting points, with the tighter one
+(0.228) below canon-FD.
+
+### Pending evidence to elevate this to a publishable claim
+
+1. **Run continuation**: extend either trajectory (multi-start or
+   preseg) until fwd/rev → 1 (detailed balance) or PE plateaus.
+   Likely needs >24 h additional wall on the multistart run since it
+   has 0.10 still to descend (assuming linearity). User decision.
+2. **Independent confirmation**: launch a third IC, e.g. X_GB(0)=0.18
+   (between 0.105 kinetic floor and 0.228 multistart end), to test
+   whether the system descends past 0.228 (true eq < 0.228) or
+   ascends to 0.228 (true eq ≈ 0.228). User decision.
+3. **Counter-evidence**: a longer multi-start that ASCENDS past 0.228
+   would invalidate the breakdown reading — but the current data has
+   no ascending segment anywhere.
+
+### Headline figure (`output/hmc_vs_canonfd_T500.{png,json}`) refreshed
+
+Now shows TWO ▽ markers at X_c=0.10 (0.375 from preseg-from-above,
+0.228 from multistart-from-0.30). Both are upper bounds; the tighter
+one straddles canon-FD. The other 4 X_c points (0.05, 0.15, 0.20,
+0.30) are unchanged.
+
+Visually, descent arrows from each ▽ point at the canon-FD curve, so
+the two arrows at X_c=0.10 point AT each other — visual cue that the
+bracket has not closed.
+
+Console table:
+
+```
+   X_c     X_HMC   canon-O   canon-W     gap-O     gap-W
+  0.050    0.2375    0.2282    0.2410   +0.0093   −0.0035   ●
+  0.100    0.3749    0.3519    0.3590   +0.0230   +0.0159   ▽ preseg
+  0.100    0.2278    0.3519    0.3590   −0.1241   −0.1312   ▽ multistart 0.30 (NEW)
+  0.150    0.5888    0.4204    0.4253   +0.1684   +0.1635   ▽
+  0.200    0.7942    0.4671    0.4712   +0.3271   +0.3229   ▽
+  0.300    0.8379    0.5337    0.5368   +0.3042   +0.3010   ▽
+```
+
+### X_c=0.20 multi-start (slurm 65037861) still RUNNING
+
+Started 2026-04-29 04:58, target ends 2026-04-29 ~18:58 (14 h budget).
+Same setup pattern (X_GB(0)=0.40, between bulk-equiv 0.20 and
+canon-FD 0.467); will reveal whether the same descent surprise
+repeats at higher X_c. Let it run; auto-process when finished.
+
+### Files this entry
+
+- `output/hmc_T500_Xc0.10_multistart_xgb0.3.{json,png}` (new)
+- `output/hmc_vs_canonfd_T500.{png,json}` (regenerated; UB list +1 entry)
+- `data/snapshots/hmc_T500_Xc0.10_multistart_xgb0.3_final.lmp` (new)
+
+## 2026-04-28 (evening, 5) — X_c=0.30 in; theory-only figure; OVITO render; multi-start jobs queued; filename refactor
+
+### X_c=0.30 preseg complete (slurm 64864525)
+
+Finished 2026-04-28 15:20:46 CEST after 5h08m wall (much faster than
+the 12h budget). `_final.lmp` written; copied to
+`project/data/snapshots/`.
+
+Post-processed with the fwd/rev tool:
+
+| metric | value |
+|--------|-------|
+| X_GB^HMC mean (post-burn) | 0.8953 |
+| X_GB last (used as ▽ marker) | 0.8379 |
+| canon-FD ours / Wagih | 0.534 / 0.537 |
+| gap-O (▽ vs canon-O) | +0.30 |
+| fwd | 284 |
+| rev | 11,211 |
+| **fwd/rev** | **0.025** |
+| imbalance | −0.951 |
+| swap accept | 11.6% |
+
+Same picture as X_c=0.10/0.15/0.20: still descending heavily, far from
+detailed balance. Adds a 4th ▽ to the sweep.
+
+### Theory-only reference figure (formerly "panel b")
+
+New `scripts/fd_curves_theory_loglog.py`: log-log of GC-FD, canon-FD
+(ours + Wagih dashed overlay), closed-box ceiling, no-segregation
+diagonal vs X_c at T=500 K. NO HMC points — purely educational, shows
+why we compare HMC against canon-FD (mass-conserving) and not GC-FD
+(textbook Wagih, diverges at concentrated X_c because reservoir
+assumption breaks).
+
+Output: `output/fd_curves_theory_T500_loglog.{png,json}`.
+
+Visual takeaway: GC-FD and canon-FD diverge above X_c ≈ 0.05; canon-FD
+asymptotes to ceiling at high X_c while GC-FD continues to climb
+toward 1.
+
+### OVITO render script (formerly "panel f")
+
+New `scripts/render_panel_f.py` (filename inherits "panel_f" but the
+output PNG is named descriptively per the new naming convention; will
+rename script later). Uses OVITO Python API headlessly with
+TachyonRenderer (software ray-tracer, no X server needed) — installed
+via `pip install --user ovito` (3.15.4) on the home filesystem.
+
+Renders `_final.lmp` snapshots with type coloring (Al gray, Mg
+orange-red), perspective view, auto-zoom, 1600×1200 px PNG. No GUI
+needed → fully reproducible.
+
+Outputs:
+- `output/ovito_gb_render_xc0.20.png` — moderate segregation, X_GB=0.79
+- `output/ovito_gb_render_xc0.30.png` — heavy segregation, X_GB=0.84+,
+  Mg overflows from GBs into bulk
+
+### `hmc_vs_canonfd_T500.png` updated to 5 HMC points
+
+Default `--upper-bound` list in `canonical_fd_compare_5pt.py` now
+includes `hmc_T500_Xc0.30_preseg.json`. Re-rendered:
+
+| X_c | mark | X_HMC | canon-O | gap-O |
+|-----|------|------:|--------:|------:|
+| 0.05 | ● equilibrated bracket | 0.2375 | 0.2282 | +0.009 |
+| 0.10 | ▽ preseg upper bound  | 0.3749 | 0.3519 | +0.023 |
+| 0.15 | ▽ preseg upper bound  | 0.5888 | 0.4204 | +0.168 |
+| 0.20 | ▽ preseg upper bound  | 0.7942 | 0.4671 | +0.327 |
+| 0.30 | ▽ preseg upper bound  | 0.8379 | 0.5337 | +0.304 |
+
+### Multi-start jobs queued
+
+- `65035837` — X_c=0.10 multi-start, X_GB(0)=0.300, 14h, RUNNING.
+- `65037861` — X_c=0.20 multi-start, X_GB(0)=0.400, 14h, PENDING.
+  IC built via the new `--xgb-init` flag in `pre_segregate.py`.
+  Decks: `data/decks/submit_hmc_T500_Xc{0.10,0.20}_multistart_xgb*.sh`.
+  Both target ascending-from-below trajectories to bracket the
+  descending preseg trajectories from above; meeting points = true
+  equilibrium, distance from canon-FD = breakdown signal.
+
+### Filename refactor (descriptive over layout-label)
+
+User feedback (2026-04-28 evening): "不建议用什么 panelabcd 这样的命名方式,
+要显示的看了知道是干什么的命名最好". Renamed:
+- `panel_d_draft_T500.{png,json}` → `hmc_vs_canonfd_T500.{png,json}`
+- `panel_f_xc0.20_preseg.png` → `ovito_gb_render_xc0.20.png`
+
+The script default `--out-prefix` was updated accordingly. Memory
+`feedback_descriptive_filenames.md` records the convention for future
+work: filename should describe content, not internal report layout.
+
+### Memory feedbacks updated
+
+- `feedback_no_poll_jobs.md` refined: don't poll RUNNING jobs, but
+  AUTO-process FINISHED ones (running post-process tools, copying
+  snapshots, refreshing comparison figures is plumbing, not a decision
+  to wait for).
+- `feedback_descriptive_filenames.md` added.
+
+### Files this entry
+
+- `scripts/fd_curves_theory_loglog.py` (new)
+- `scripts/render_panel_f.py` (new; OVITO Python)
+- `scripts/canonical_fd_compare_5pt.py` (default --upper-bound +0.30,
+  default --out-prefix renamed)
+- `data/decks/submit_hmc_T500_Xc{0.10,0.20}_multistart_xgb*.sh` (new)
+- `data/snapshots/hmc_T500_Xc0.30_preseg_final.lmp` (new, gitignored)
+- `output/hmc_T500_Xc0.30_preseg.{json,png}` regenerated with fwd/rev
+- `output/fd_curves_theory_T500_loglog.{png,json}` (new)
+- `output/ovito_gb_render_xc{0.20,0.30}.png` (new)
+- `output/hmc_vs_canonfd_T500.{png,json}` (renamed from panel_d_draft)
+
+## 2026-04-28 (evening, 4) — strategic correction: X_c=0.15/0.20 UB do NOT establish breakdown
+
+The (evening, 2) plan and the first draft of (evening, 3) both contained
+an over-statement: "X_c=0.15/0.20 preseg upper bounds already exceed
+any plausible canon-FD; the story of mid-X_c breakdown is already
+established."
+
+This is wrong. ▽ is a one-sided UPPER bound on the equilibrium, not a
+LOWER bound. From a still-descending trajectory all we know is
+X_GB^eq ≤ UB. The X_c=0.15/0.20 trajectories could in principle keep
+descending all the way to canon-FD (Wagih works) or below it
+(breakdown by saturation/repulsion); current data does not
+distinguish. **No breakdown claim at X_c ≥ 0.15 is supported by
+non-equilibrium data.**
+
+### Corrected reading of the panel-d draft
+
+| X_c | mark | what it actually says |
+|-----|------|----------------------|
+| 0.05 | ● | equilibrium ≈ 0.224, **inside canon-FD reference band** [0.228, 0.241] → consistent with Wagih |
+| 0.10 | ▽ | equilibrium ≤ 0.375; canon-FD = 0.352–0.359; **boundary case** — answer between "Wagih works" and "breakdown" lies in the 0.015 window between canon-FD and current UB |
+| 0.15 | ▽ | equilibrium ≤ 0.589; canon-FD = 0.420; **undetermined** — no information about whether equilibrium is at, above, or below canon-FD |
+| 0.20 | ▽ | equilibrium ≤ 0.794; canon-FD = 0.467; **undetermined** |
+
+### Why X_c=0.10 is the right next test
+
+1. **Most reachable equilibrium**: only 0.015 to descend from current UB
+   to canon-FD; expected wall-time ~1–2 h (linear extrapolation of
+   observed descent rate, allowing exponential slowdown near
+   equilibrium). 12 h is overkill but safe. The trajectory could
+   over-shoot canon-FD if breakdown is real → that itself is the
+   measurement.
+2. **Discriminating power within the 0.015 window**: sampling CI 0.005
+   + reference Δ 0.007 = total resolution ~0.01 → resolves "exactly at
+   canon-FD" vs "above canon-FD" vs "below canon-FD" with confidence.
+3. **Boundary mapping**: outcome at X_c=0.10 directly answers "does
+   Wagih's independent-site breakdown start at ≤ 0.10 or > 0.10?",
+   which is the central scientific question of the project.
+
+### Why not X_c=0.15 or 0.20 first
+
+Pure compute budget, NOT prior knowledge of breakdown:
+- X_c=0.15: needs ~10–12 h to descend from 0.59 to canon-FD 0.42
+  (linear extrapolation of current descent rate). Borderline within
+  one 12-h slot; close-IC multi-start (X_GB(0)=0.40) could equilibrate
+  faster.
+- X_c=0.20: needs ~15–18 h to descend from 0.79 to canon-FD 0.47.
+  Single 12-h job not enough; would need close-IC multi-start
+  (X_GB(0)=0.50) or a longer queue.
+
+### Strategy revision
+
+- "X_c=0.15/0.20 brackets: not invested in" reasoning **changes** from
+  "story already established" to "compute budget too tight for current
+  12 h slot". They become next-round candidates after X_c=0.10
+  resolves.
+- If X_c=0.10 lands at canon-FD → Wagih works at 0.10 → next round
+  test X_c=0.15/0.20 to find where breakdown actually starts.
+- If X_c=0.10 lands below canon-FD → breakdown found at ≤ 0.10 → main
+  scientific result; X_c=0.15/0.20 become confirmation runs.
+
+### Files this entry
+
+(no code changes; planning correction only)
+
+## 2026-04-28 (evening, 3) — Phase 1 complete: fwd/rev decomposition + panel (d) draft
+
+### Phase 1.1 — fwd/rev swap decomposition tool
+
+`scripts/hmc_xgb_timeseries.py` extended to compute, per inter-frame
+interval, the count of GB-site type flips: forward (1→2 in GB,
+"Mg into GB") and reverse (2→1 in GB, "Mg out of GB"). Net = fwd − rev
+exactly equals Δn_Mg^GB and is mass-conserved. GB-GB swaps add 1 to
+both counters (cancel in net) so they bias the ratio toward 1; an
+observed ratio far from 1 is therefore a *one-sided* indicator of
+"trajectory still drifting". Per-run JSON gains a `swap_decomposition`
+block (all-frames + post-burnin) and `series.fwd_gb_per_frame /
+rev_gb_per_frame`; PNG gains a 5th panel showing per-interval flip
+counts.
+
+### Phase 1.1 results — every existing run is reverse-dominated
+
+| run | X_GB end | fwd | rev | fwd/rev | imbalance |
+|-----|---------:|----:|----:|--------:|----------:|
+| X_c=0.05 verify-preseg (purported "bracket equilibrated") | 0.224 | 379 | 3035 | **0.125** | −0.778 |
+| X_c=0.10 preseg | 0.375 | 718 | 10379 | **0.069** | −0.871 |
+| X_c=0.15 preseg | 0.589 | 589 | 14345 | **0.041** | −0.921 |
+| X_c=0.20 preseg | 0.794 | 261 | 14204 | **0.018** | −0.964 |
+
+Surprising finding: **even the "control" (X_c=0.05 verify-preseg) is
+not at detailed balance** — its trajectory is still descending with 8×
+reverse bias. The "bracket equilibrated" label was justified only by
+the verify-preseg endpoint (0.224) sitting near canon-FD ours (0.228);
+the verify-rand companion (random-IC) ascended only to 0.062, never
+meeting the preseg endpoint, so the strict two-sided bracket never
+closed. We accept verify-preseg as the X_c=0.05 point because it lies
+inside the canon-FD reference band, but it is itself a tight
+upper bound, not a converged equilibrium.
+
+### Phase 1.1 implication for Phase 3 routing
+
+Threshold "fwd/rev ≳ 0.5 → 3a (extension)" is not met by any current
+run. The data points hard at **3b (multi-start preseg from below,
+X_GB(0)=0.30 IC)** for X_c=0.10. A naive extension at the X_c=0.10
+preseg restart would still be reverse-dominated and likely cover only a
+small additional descent before timeout.
+
+Caveat: GB-GB swap contamination biases the ratio TOWARD 1, so the
+true swap-event-level ratio is even more reverse-dominated than the
+observed values. The threshold "0.5" might still be too generous;
+"≳ 0.8" would be a stricter equilibrium criterion.
+
+### Phase 1.2 — panel (d) draft
+
+`scripts/canonical_fd_compare_5pt.py` extended to:
+- load Wagih's LAMMPS-truth ΔE spectrum (n=82,646)
+- compute canon-FD on Wagih spectrum + Wagih box (N_total=483,425,
+  N_GB=82,646)
+- shade a `fill_between(canon_ours, canon_wagih)` reference band
+- support a third HMC marker class `--upper-bound` (▽ open
+  down-triangle) for preseg trajectories that have not equilibrated;
+  uses the trajectory END value as the one-sided upper bound rather
+  than the post-burnin mean
+- annotate descent arrows from each ▽ to its canon-ours target
+- default output renamed to `panel_d_draft_T500.{png,json}`
+
+### Panel (d) draft data table (T=500 K)
+
+| X_c | X_HMC mark | X_HMC | canon-O | canon-W | gap-O | gap-W |
+|-----|------------|------:|--------:|--------:|------:|------:|
+| 0.05 | ● equilibrated bracket | 0.2375 | 0.2282 | 0.2410 | +0.009 | −0.004 |
+| 0.10 | ▽ preseg upper bound  | 0.3749 | 0.3519 | 0.3590 | +0.023 | +0.016 |
+| 0.15 | ▽ preseg upper bound  | 0.5888 | 0.4204 | 0.4253 | +0.168 | +0.164 |
+| 0.20 | ▽ preseg upper bound  | 0.7942 | 0.4671 | 0.4712 | +0.327 | +0.323 |
+
+Story the draft already supports without further compute: dilute end
+(X_c=0.05) sits **inside** the canon-FD reference band → consistent
+with Wagih within reference + sampling uncertainty. Mid-X_c (≥ 0.10)
+upper bounds sit systematically above canon-FD, with the gap growing
+from +0.02 at X_c=0.10 (borderline) to +0.32 at X_c=0.20 (manifestly
+above any canon-FD). All ▽ trajectories still descending → the true
+equilibria are below the upper bounds.
+
+### Phase 4 — snapshots persisted
+
+Copied to `project/data/snapshots/` (gitignored via newly-added
+`project/data/snapshots/` + `*.lmp` rules):
+- `hmc_T500_Xc{0.10,0.15,0.20}_preseg_final.lmp` (~63 MB each)
+- `gb_mask_200A.npy`, `delta_e_results_n500_200A_tight.npz`
+
+`hmc_T500_Xc0.30_preseg_final.lmp` will be added once the running
+job (slurm 64864525, started 2026-04-28 ~10:13) finishes (~12 h
+budget, ETA 2026-04-29 ~22:00).
+
+### Files this entry
+
+- `scripts/hmc_xgb_timeseries.py` extended with fwd/rev decomposition
+- `scripts/canonical_fd_compare_5pt.py` extended with Wagih reference
+  band + upper-bound markers
+- `output/hmc_T500_Xc{5e-2_verify-preseg_xgb,0.10_preseg,0.15_preseg,0.20_preseg}.{json,png}`
+  regenerated with `swap_decomposition` block
+- `output/panel_d_draft_T500.{json,png}` new
+- `.gitignore`: added `project/data/snapshots/` and `*.lmp`
+
+## 2026-04-28 (evening, 2) — post-disconnect resync: project state + 3-phase plan to make panel (d) reportable
+
+Server SSH dropped mid-session; this entry rebuilds the analytical state
+of the project so the next run-through can pick up cold. Nothing new
+was computed — this is a planning checkpoint.
+
+### Real state of the data (as of this checkpoint)
+
+- **Spectrum (panel a)**: n=500, KS-pass against Wagih LAMMPS truth at
+  p=0.89.
+- **HMC at T=500 K**:
+  | X_c | run | X_GB^HMC | status |
+  |-----|-----|---------:|--------|
+  | 0.05 | bracket-equilibrated (verify-preseg) | 0.235 ± 0.005 (CI [0.232, 0.242]) | inside canon-FD reference band [0.226, 0.239] → consistent with Wagih |
+  | 0.10 | preseg, traj-end | 0.3749 (upper bound) | monotonically descending, NOT equilibrated |
+  | 0.15 | preseg, traj-end | 0.5888 (upper bound) | NOT equilibrated |
+  | 0.20 | preseg, traj-end | 0.7942 (upper bound) | NOT equilibrated |
+  | 0.30 | preseg | RUNNING (ETA ~2026-04-29 ~22:00) | partial dump shows X_GB stuck at 0.300 (random-IC kinetic dead-end) |
+
+### Error-budget zoning (now that LAMMPS-truth reference is locked in)
+
+| X_c regime | reference Δ (canon-W − canon-O) | sampling CI | bottleneck |
+|------------|---------------------------------|------------:|------------|
+| ≤ 0.075 | 0.011 – 0.013 | ±0.005 | reference (n=500 left tail sparse) |
+| 0.10    | 0.007         | ±0.005 (if equilibrated) | borderline |
+| ≥ 0.15  | 0.002 – 0.005 | one-sided upper bound only | sampling (not equilibrated) |
+
+Panel (d) is missing exactly **one reportable equilibrated point at
+X_c ≥ 0.10**. The other 5 panels are READY.
+
+### 3-phase plan to close panel (d) (~440 CPU-h ≈ 14 wall-h on 32 ranks)
+
+Total budget assumes one targeted long HMC job. Excludes the 5 panels
+already done.
+
+#### Phase 1 — diagnostics + draft, no new HMC jobs (today, ~3–4 h)
+
+- **1.1 fwd/rev accept decomposition** (1–2 h coding). Extend
+  `scripts/hmc_xgb_timeseries.py` to compute per-frame Δn_Mg^GB from
+  type-flip differences across consecutive dump frames; classify
+  "forward" (Δ>0, Mg moving INTO GB) vs "reverse" (Δ<0) accepted swap
+  counts and report fwd/rev ratio. Run on 4 existing dumps:
+  - X_c=0.05 verify-preseg — sanity / control: at equilibrium fwd/rev
+    should ≈ 1.
+  - X_c=0.10/0.15/0.20 preseg — diagnostic: fwd/rev → 1 means close to
+    detailed balance (extension by ~12 h likely converges); fwd/rev ≪ 1
+    means reverse-dominated, far from equilibrium (need a different IC
+    bracket, not just a longer run).
+- **1.2 panel (d) draft using current data only**. Modify
+  `canonical_fd_compare_5pt.py` to draw the canon-ours / canon-Wagih
+  shaded reference band, and HMC points with three marker classes:
+  (●) equilibrated bracket = X_c=0.05; (▽) preseg upper bound =
+  X_c=0.10/0.15/0.20; (▽ pending) X_c=0.30 once it lands. Output:
+  `output/panel_d_draft_T500.{png,json}`. The story this draft already
+  tells: dilute end (X_c=0.05) verifies Wagih within reference + sampling
+  uncertainty; mid-X_c (≥ 0.10) upper bounds sit systematically above
+  canon-FD with monotone descent — already publishable as
+  "approaches but does not reach canon-FD" pending Phase 3.
+
+#### Phase 2 — n=500 → n=2000 ΔE spectrum extension (CONDITIONAL, ~24–50 CPU-h, embarrassingly parallel)
+
+Run only if Phase 1.1 shows a dilute-end break-up signal in the
+fwd/rev histogram (i.e. X_c=0.05 fwd/rev meaningfully ≠ 1).
+Otherwise n=500 already passes KS and the dilute reference Δ ≈ ±0.013
+is **not** the dominant gap at X_c ≥ 0.10. `scripts/sample_delta_e.py`
+already supports arbitrary N_GB; bump the parameter and split into
+parallel small jobs to dodge queue. Expected payoff: dilute reference
+Δ → ±0.007.
+
+#### Phase 3 — one 12 h HMC job to push X_c=0.10 to reportable
+
+Branch chosen by Phase 1.1 verdict:
+- **3a (preferred)** — if fwd/rev ≳ 0.5 at X_c=0.10: single extension
+  from `hmc_T500_Xc0.10_preseg_final.lmp` restart, PROD=400 k steps
+  (400 ps), `--time=12h`. Expected end-frame ≈ 0.36; midpoint of
+  current upper bound 0.375 and lower-bound assumption 0.105 also
+  ≈ 0.24 → if extension hits ≈ 0.36 reportable as "approaches but does
+  not reach canon-FD".
+- **3b (fallback)** — if fwd/rev ≪ 0.5: launch X_GB(0)=0.30 multi-start
+  preseg (12 h job). Two ICs converging on ≈ 0.36 → reportable bracket;
+  not converging → at least both bounds tighten.
+
+X_c=0.15 / 0.20 brackets: **not invested in.** Current upper bounds
+(0.589 / 0.794) already exceed any plausible canon-FD value; precise
+landing point doesn't change the conclusion. Each bracket would cost
+≥ 24 h × 2 for known qualitative information.
+
+#### Phase 4 — data preservation against scratch TTL (5 min, do today in parallel)
+
+Copy the panel (f) source files out of `/cluster/scratch/cainiu/` into
+`project/data/snapshots/` (gitignored):
+- `hmc_T500_Xc{0.10,0.15,0.20}_preseg_final.lmp` (~63 MB each)
+- `gb_mask_200A.npy` (~3.6 MB)
+- `delta_e_results_n500_200A_tight.npz` (small)
+
+Dumps stay in scratch unless reruns are planned (200–600 MB each).
+
+### Schedule
+
+| Day | Work |
+|-----|------|
+| Today (~3–4 h left) | Phase 1.1 + 1.2 + 4 |
+| Tomorrow | Wait for X_c=0.30 (passive); apply 1.1 to all dumps; pick 3a or 3b |
+| Day after | Submit Phase 3 (12 h) |
+| Day +3 | Phase 3 results → finalize panel (d) |
+| Day +4 onward | Report writing |
+
+### Out of scope (explicit non-goals)
+
+- ❌ X_c=0.15 / 0.20 brackets (24 h × 2 each, ROI too low)
+- ❌ T-grid extension (single-T story not closed yet)
+- ❌ X_c=0.025 / X_c=0.40 (not in 6-panel report)
+- ❌ UMA / multi-component (already out of scope per 2026-04-22)
+- ❌ Submitting X_GB(0)=0.30 preseg before Phase 1.1 verdict
+
+### User decision points (still pending)
+
+1. Approve the "Phase 1 fully done before any new HMC job" priority?
+2. Phase 2 (n=2000 spectrum) — gate on Phase 1.1, or run in parallel
+   anyway since it is cheap + parallel?
+3. Phase 3a vs 3b — auto-pick from Phase 1.1, or hand the verdict back
+   for manual call?
+4. Report deadline — sets how tight Phase 3 timing is.
+
+## 2026-04-28 (evening) — audit correction: Wagih has TWO Zenodo spectra; reference gap is X_c-dependent
+
+The earlier afternoon entry below quoted canon-W − canon-O ≈ +0.008–0.014
+across the X_c range. That used the WRONG Wagih file: the dump
+`Al_Mg_20nm_GB_segregation.dump` in `accelerated_model/` is Wagih's
+**ML-predicted** spectrum (SOAP+PCA+kmeans+linear-regression, ~4 kJ/mol
+MAE per site). The **LAMMPS ground-truth** spectrum lives in
+`machine_learning_notebook/seg_energies_Al_Mg.txt` (82,646 site energies)
++ `bulk_solute_Al_Mg.dat` (the bulk solute reference). The
+`compare_vs_wagih_200A_tight.png` figure (already in the report pipeline)
+correctly used the LAMMPS source — its data are unchanged by this
+correction.
+
+### Corrected canon-FD comparison (T=500 K, LAMMPS truth)
+
+| X_c   | canon-ours | canon-Wagih (LAMMPS) | Δ (W − O) |
+|-------|-----------:|---------------------:|----------:|
+| 0.025 |    0.1320  |              0.1434  | **+0.011** |
+| 0.050 |    0.2257  |              0.2385  | **+0.013** |
+| 0.075 |    0.3009  |              0.3105  | **+0.010** |
+| 0.100 |    0.3570  |              0.3639  | **+0.007** |
+| 0.150 |    0.4278  |              0.4326  | **+0.005** |
+| 0.200 |    0.4620  |              0.4662  | **+0.004** |
+| 0.300 |    0.5310  |              0.5342  | **+0.003** |
+| 0.400 |    0.5872  |              0.5890  | **+0.002** |
+
+Same direction, but **gap collapses 4× at high X_c** (was ~0.008 with
+ML-predicted, now ~0.002 with LAMMPS truth). The dilute end is largely
+unchanged — it's still left-tail-limited regardless of which Wagih
+source you use.
+
+### Corrected Spectrum stats
+
+| | n | mean (kJ/mol) | std | 5% quantile | 10% quantile |
+|---|---|---|---|---|---|
+| ours (n=500)        |   500 | −6.91 | 15.06 | −33.9 | −27.6 |
+| Wagih LAMMPS (n=82,646) | 82646 | **−6.81** | **15.85** | **−35.0** | **−28.1** |
+| (Wagih ML-pred dump, for the record) | 82635 | −7.46 | 15.80 | −36.3 | −28.6 |
+
+ML smoothing pushed Wagih's mean ~0.65 kJ/mol more negative and the 5%
+quantile ~1.3 kJ/mol deeper than the LAMMPS truth — entirely consistent
+with Wagih SI's own ~4 kJ/mol MAE. **For all canon-FD comparisons we
+should use the LAMMPS truth, not the ML-predicted dump.**
+
+### Refined error-budget zoning
+
+Sampling uncertainty (HMC CI95) at our current PROD lengths is ~0.005
+(equilibrated point) and unbounded (one-sided upper bound). Reference
+uncertainty (canon-W − canon-O) is now:
+
+| regime | reference Δ | sampling CI | which dominates |
+|---|---|---|---|
+| X_c ≤ 0.075 | 0.010–0.013 | ±0.005 | **reference** |
+| X_c = 0.10  | 0.007       | ±0.005 (if equilib) | borderline |
+| X_c ≥ 0.15  | 0.002–0.005 | one-sided ≫ 0 | **sampling** |
+
+The earlier ML-based table over-stated the high-X_c reference gap by
+roughly 2×, which inflated the perceived motivation for boosting our
+spectrum to n=2000. With LAMMPS truth, the n=500 → n=2000 benefit is
+mainly at low X_c (≤ 0.075) — exactly where bracket sampling at low X_c
+is also feasible.
+
+### Implications for X_c=0.05 measurement (refined)
+
+HMC bracket-equilibrated 0.235 ± 0.005:
+- vs canon-ours  = 0.226 → +0.009 (HMC slightly above)
+- vs canon-Wagih = 0.239 → −0.004 (HMC slightly below)
+
+Sign-flip persists. Both gaps within HMC CI. **X_c=0.05 is consistent
+with Wagih's prediction within reference + sampling uncertainty.**
+Conclusion unchanged.
+
+### Implications for X_c=0.10 upper bound (refined)
+
+HMC preseg upper bound 0.375:
+- vs canon-ours  = 0.357 → ≤ +0.018
+- vs canon-Wagih = 0.364 → ≤ +0.011
+
+If true equilibrium lands ≤ 0.364, fully Wagih-consistent. The X_c=0.10
+upper bound at +0.011 against canon-Wagih is the closest current
+"approaching breakdown" signal — still requires equilibration to confirm.
+
+### Implications for X_c≥0.15 upper bounds (refined)
+
+Reference uncertainty (~0.003–0.005) is now **much smaller** than the
+preseg-IC upper-bound gaps (0.15–0.30). Once these runs equilibrate,
+reference noise will not contaminate the gap signal at any concentration.
+This actually makes high-X_c the LEAST reference-noise-limited regime,
+contrary to my earlier claim.
+
+### Files this entry
+
+- corrected: `output/audit_canon_fd_curves.{json,png}` (now uses LAMMPS truth)
+- `scripts/audit_canon_fd_ours_vs_wagih.py` updated to load `seg_energies_Al_Mg.txt`
+- `output/audit_canon_fd_corrected.json` includes side-by-side LAMMPS vs ML-pred numbers for traceability
+
+## 2026-04-28 (afternoon, 2) — KS-passing spectra still produce DIFFERENT canon-FD curves: reference uncertainty is the new bottleneck
+
+### What this audit was
+
+User suggested directly comparing HMC against Wagih's published FD curve
+(rather than canon-FD computed on our own n=500 spectrum), reasoning that
+KS p > 0.5 already proved our spectrum is statistically the same as
+Wagih's. New script `scripts/audit_canon_fd_ours_vs_wagih.py` integrates
+canon-FD (mass-conserving, Wagih eq. 2) directly on both spectra, no
+skew-normal smoothing.
+
+### Spectra moments — both small, both real
+
+| | n | mean (kJ/mol) | std | 5% quantile | 10% quantile |
+|---|---|---|---|---|---|
+| ours  (n=500)    |   500 | −6.91 | 15.06 | −33.9 | −27.6 |
+| Wagih (n=82,635) | 82635 | −7.46 | 15.80 | −36.3 | −28.6 |
+
+Difference in mean is 0.55 kJ/mol; in std is 0.74 kJ/mol; in 5%-quantile
+left tail is 2.4 kJ/mol. None of these is large at the per-site level
+(< 1 kT for mean & std, ~½ kT for tail), and at our n=500 a KS test does
+not flag them. **The sample-level interpretation "our spectrum matches
+Wagih" stays correct.**
+
+### canon-FD curves at T=500 K — DIFFER systematically by 0.008–0.014
+
+| X_c   | canon-ours | canon-Wagih | Δ (W − O) |
+|-------|-----------:|------------:|----------:|
+| 0.025 |    0.1320  |    0.1441   | +0.0120   |
+| 0.050 |    0.2257  |    0.2395   | +0.0139   |
+| 0.075 |    0.3009  |    0.3119   | +0.0110   |
+| 0.100 |    0.3570  |    0.3658   | +0.0088   |
+| 0.150 |    0.4278  |    0.4354   | +0.0076   |
+| 0.200 |    0.4620  |    0.4696   | +0.0077   |
+| 0.300 |    0.5310  |    0.5389   | +0.0079   |
+| 0.400 |    0.5872  |    0.5946   | +0.0074   |
+
+Wagih's spectrum predicts ~+0.013 X_GB at low X_c, settling to ~+0.008
+in the high-X_c regime where geometry (ceiling) dominates. **Direction:
+Wagih predicts MORE segregation than ours**, consistent with his slightly
+deeper left tail (q05 = −36.3 vs ours −33.9 kJ/mol) — at low X_c the
+FD integral is dominated by the deepest sites, so 2.4 kJ/mol extra
+left-tail depth gets amplified to a ~0.014 X_GB offset via exp(−ΔE/kT).
+
+### Why KS test does not catch this
+
+KS is a sup-norm statistic on the CDF — sensitive to the largest gap
+between two CDFs anywhere. The largest gap typically lives in the bulk
+(near the median), not in the deep left tail. Two distributions can be
+KS-twins (gap < 0.04 anywhere on CDF) but have ~10–20 % more atoms
+below ΔE = −30 kJ/mol in the tail. Because canon-FD weights atoms by
+exp(−ΔE/kT), a 10 % tail-density difference at ΔE = −30 kJ/mol weighs
+~exp(30/4.3) = 1100× more than at ΔE = 0. **KS is the wrong tool for
+this question.**
+
+### Implication for the X_c=0.05 "gap" claim
+
+Existing record: HMC bracket-equilibrated X_GB = 0.235 ± 0.005 at X_c=0.05.
+
+| reference | predicted X_GB | "gap" vs HMC |
+|---|---|---|
+| canon-ours  | 0.226 | +0.009 |
+| canon-Wagih | 0.240 | −0.005 |
+
+**The sign of the X_c=0.05 gap flips depending on which reference we use.**
+Both gaps are within the HMC CI95 of ±0.005. The X_c=0.05 measurement is
+**fully consistent with Wagih's prediction**, AND fully consistent with
+ours, AND the canon-W − canon-O reference uncertainty is bigger than the
+HMC measurement noise. **We cannot resolve whether Wagih breaks down or
+not at X_c=0.05** with our current spectrum precision.
+
+### Implication for the X_c=0.10 upper bound
+
+HMC preseg upper bound 0.375 (still descending after 200 ps PROD).
+
+| reference | predicted X_GB | upper-bound gap |
+|---|---|---|
+| canon-ours  | 0.357 | ≤ +0.018 |
+| canon-Wagih | 0.366 | ≤ +0.009 |
+
+If the X_c=0.10 trajectory equilibrates anywhere ≤ 0.366, the data is
+fully consistent with Wagih. Resolving this would require continuing
+the run to plateau AND tightening the spectrum reference (since 0.009
+is below the canon-W − canon-O floor of ~0.009).
+
+### Implication for the X_c≥0.15 upper bounds
+
+Upper bound − canon-Wagih: at X_c=0.15 = 0.589 − 0.435 = +0.154; at
+X_c=0.20 = 0.794 − 0.470 = +0.324. **These bounds dwarf the reference
+uncertainty by 10–40×, so even with the loosest interpretation the
+breakdown signal — IF the true equilibrium is anywhere near the upper
+bound — is robustly detectable here.** The catch is "if": these are
+upper bounds, true equilibrium could still be at canon-FD. We cannot
+distinguish the two cases without bracket / multi-start verification.
+
+### What this means for the project plan
+
+Two distinct error budgets to manage going forward:
+
+1. **Reference uncertainty (this audit's finding)**: canon-W − canon-O
+   ≈ 0.008–0.014 in X_GB across the X_c range. Two paths to shrink:
+   - Compute ΔE_seg on more sites of OUR polycrystal (n=500 → n=2000+)
+     to tighten our left-tail estimate. Each site is ~5 minutes wall;
+     n=2000 = ~16 CPU-hours (not 16 wall-hours — embarrassingly parallel).
+     Cheap compared to a single 12 h HMC job.
+   - OR adopt canon-Wagih as primary reference and stop computing
+     canon-ours, accepting a ~ ½ kJ/mol per-site systematic from
+     polycrystal-to-polycrystal variance.
+   - **Most defensible**: report HMC against the BAND between canon-W
+     and canon-O. Anything inside the band is "consistent with Wagih";
+     anything outside is "deviates beyond reference uncertainty".
+
+2. **Sampling uncertainty (what we've been working on)**: HMC CI95 +
+   bracket-vs-single-IC. Currently the sampling error at X_c=5e-2 is
+   ±0.005 (smaller than reference), so reference is the bottleneck at
+   low X_c. At X_c≥0.15 sampling error (one-sided, unbounded) is the
+   bottleneck.
+
+The X_c at which "sampling error matters more than reference error"
+is somewhere around X_c = 0.10–0.15. **Effort budget should be
+proportional**: at X_c<0.10 invest in spectrum precision (cheap), at
+X_c≥0.15 invest in HMC equilibration (expensive bracket runs).
+
+### Decision on immediate next step (revised, AGAIN)
+
+Earlier today's plan was to launch X_c=0.10 multi-start preseg
+(another 12 h job). This audit changes priorities:
+
+**Step 1 — extend the spectrum to n=2000 (highest priority)**
+
+`scripts/sample_delta_e.py` already supports arbitrary n_GB — just
+re-submit with N_GB=2000 (Wagih protocol unchanged). Embarrassingly
+parallel, ~24 CPU-h, no walltime risk. Output: a new
+`delta_e_results_n2000_200A_tight.npz`. Re-run this audit; if canon-ours
+stabilises within ±0.003 of canon-Wagih, the reference question is
+resolved and we move on. If still differs by 0.01+, we either accept
+canon-Wagih as primary or push n to 5000.
+
+**Step 2 — implement forward/reverse accept diagnostic** (no new runs)
+on existing dumps. Already proposed yesterday, still unstarted. Tells us
+how close X_c=0.10 preseg is to detailed balance without spending
+12 h on another bracket job.
+
+**Step 3 — only after 1+2** decide whether X_c=0.10 needs bracket or
+just an extension.
+
+### Files this entry
+
+- `scripts/audit_canon_fd_ours_vs_wagih.py` (NEW)
+- `output/audit_canon_fd_curves.json`, `output/audit_canon_fd_curves.png`
+
+## 2026-04-28 (afternoon) — methodology: a single preseg plateau is NOT proof of equilibrium
+
+### The core ambiguity
+
+A flat `X_GB(t)` over the last 100 ps of a single preseg trajectory has
+**two physically distinct explanations** that look identical at the
+trajectory level:
+
+| | (A) thermodynamic equilibrium | (B) kinetic plateau / quasi-stationary |
+|---|---|---|
+| Net flux mechanism | forward ≈ reverse, both moderate, **detailed balance** holds | forward ≈ 0 **and** reverse ≈ 0, both extinguished, no detailed balance |
+| Response to small perturbation | returns to plateau value | may not return |
+| Visible signatures | flat X_GB, flat PE, steady accept rate | flat X_GB, flat PE, steady accept rate — **same** |
+
+The user's question "can't a preseg plateau prove Wagih failed?" therefore
+has to be answered: **no, not by itself** — because the flat segment may
+be (B), in which case the plateau value is a sampling artefact, not a
+physical observable.
+
+### This project's own existence proof of (B)
+
+Random-IC at X_c=0.10 (job 64811160, 2026-04-27 morning entry):
+
+- X_GB(t) plateaued at 0.105 ± 0.001
+- PE small drift, accept rate steady at 8.66 %
+- Looked exactly like a converged equilibrium
+
+But canon-FD = 0.352 — the "plateau" was 3× off. The 2026-04-27
+afternoon proposal × acceptance decomposition explained why: forward and
+reverse fluxes were both tiny (~0.067 forward × 0.44 accept ≈ 0.030 vs
+0.085 reverse × 0.56 accept ≈ 0.048 per attempt at random IC), nearly
+cancelling, with 70 % of proposals geometrically inert. **Pure case (B).**
+
+If we had not run preseg as the second IC and verified (X_c=5e-2) that
+both random and preseg meet at the same value, we would have published
+"Wagih wrong by 3× at X_c=0.10". That would have been wrong. Same
+mistake remains possible at X_c≥0.10 from preseg alone.
+
+### Why two-sided IC bracket is the gold standard
+
+Two independent dynamics starting on opposite sides of the suspected
+equilibrium sample **completely different** corners of phase space and
+encounter **completely different** proposal-geometry × acceptance-energy
+landscapes. If both relax to the same X_GB:
+
+- coincidence-of-traps explanation requires both traps to land on the
+  same value → unlikely
+- detailed-balance equilibrium → **only** consistent explanation
+
+If they land at different values, the gap is itself a measurable upper
+bound on the residual sampling error. Either way the diagnostic is
+unambiguous, in a way single-direction "plateau quality" never is.
+
+### When bracket is infeasible — fallback diagnostics (in order of strength)
+
+For X_c ≥ 0.10, random IC fails kinetically (2026-04-27 morning), so the
+canonical bracket is not available. Replacements, ranked weakest →
+strongest:
+
+1. **Plateau hardness** (necessary, not sufficient): last-100-ps PE drift
+   < 1 eV, X_GB drift < CI95 width, half2−half1 ≈ 0 within CI. All three
+   passed = (B) cannot be ruled out, only "not obviously failing".
+2. **Forward/reverse acceptance balance**: at true equilibrium, the
+   number of accepted forward swaps ≈ accepted reverse swaps over a
+   stationary block. At a kinetic plateau, both are small **and** can be
+   imbalanced (e.g. asymmetric proposal geometry). LAMMPS `fix atom/swap`
+   does not split forward vs reverse acceptance natively — would need a
+   per-frame post-process from dump deltas. Worth implementing.
+3. **Reverse-perturbation test**: from `_final.lmp`, manually move ~5 %
+   of GB Mg into random bulk sites (so X_GB drops by ~0.02), run 50 ps
+   PROD. If X_GB returns to the original plateau → consistent with (A).
+   If it stays low or drops further → (B). Implementable as a one-shot
+   LAMMPS run + post-analysis, ~2 h wall.
+4. **Multi-start preseg** (closest to bracket without random IC): same
+   X_c, three preseg ICs at e.g. X_GB(0) ∈ {0.30, 0.534, 0.80}. If all
+   three converge to the same X_GB ± CI → strong (A) evidence; if not →
+   identifies the relaxation direction that is still incomplete.
+5. **Two-sided bracket** (if the lower side is reachable at all). For
+   X_c=0.10, X_GB(0)=0.30 is below canon-FD=0.352 but above random-IC
+   uniform (X_GB=X_c=0.10 → which fails). Open question: is the proposal
+   geometry good enough at X_GB(0)=0.30 (with bulk depleted to 0.054) to
+   actually drift up? Empirical only.
+
+### Implication for current data
+
+The 2026-04-28 (morning) entry above reports preseg sweep last-frame
+values as "upper bounds on canon-FD gap". That framing is correct **only
+under the additional assumption that the descent has not yet stalled into
+case (B)**. None of the three runs (X_c=0.10, 0.15, 0.20) have been
+verified against any of the fallback diagnostics 1–5, so strictly
+speaking they are upper bounds on a still-descending trajectory of
+unknown final destination, not bounds on the true equilibrium.
+
+In particular, "X_c=0.10 last-frame 0.375 vs canon-FD 0.352, gap +0.023"
+must NOT be read as "Wagih is right at X_c=0.10 within 6 %". It can only
+be read as "after 200 ps PROD from preseg IC the system sits at 0.375;
+true equilibrium is somewhere ≤ 0.375, possibly equal to 0.352, possibly
+above, and we have not yet performed any test that can distinguish".
+
+### Project rule (additive to 2026-04-27 "default to preseg IC")
+
+**No HMC point on the (T, X_c) grid is reportable as `X_GB^HMC` until at
+least one of these conditions holds**:
+
+- two-sided bracket (random + preseg) closes within CI, OR
+- multi-start preseg (≥ 2 distinct X_GB(0)) closes within CI, OR
+- reverse-perturbation returns to plateau within CI.
+
+Otherwise the point is a one-sided bound, and must be drawn as such on
+panel (d) (open marker, asymmetric error indicator pointing toward FD).
+
+The X_c=5e-2 verify-bracket (2026-04-26) is the only point currently
+satisfying this rule. The X_c=0.10 preseg result (2026-04-28 morning) is
+a one-sided upper bound until further verification.
+
+### Files this entry
+
+No code changes. Records the methodology decision so future runs
+default-budget for the bracket / multi-start cost from the start, instead
+of running single preseg trajectories and discovering after the fact
+that they cannot be promoted to reportable points.
+
+## 2026-04-28 (morning) — preseg sweep COMPLETED: descent observed, none fully equilibrated in 200 ps PROD
+
+### What ran (12 h walltime, 32 ranks, preseg IC)
+
+| job ID    | X_c   | wall   | state     | _final.lmp |
+|-----------|-------|--------|-----------|-----------|
+| 64864478  | 0.10  | 8h22m  | COMPLETED | YES (200 k PROD) |
+| 64864522  | 0.15  | 8h32m  | COMPLETED | YES (200 k PROD) |
+| 64864524  | 0.20  | 8h57m  | COMPLETED | YES (200 k PROD) |
+| 64864525  | 0.30  | RUNNING (started 2026-04-28 ~10:13) | — | pending |
+
+All three completed runs reached the full 200 ps PROD target (200 000 swap
+attempts) and wrote `hmc_T500_Xc{0.10,0.15,0.20}_preseg_final.lmp`. Panel
+(f) source data is now SAFE on scratch.
+
+### Quantitative result: monotonic descent, NOT plateau
+
+`scripts/hmc_xgb_timeseries.py` (burn-in 0.2, n=200 frames, output JSONs in
+`output/hmc_T500_Xc{0.10,0.15,0.20}_preseg.json`):
+
+| X_c  | IC X_GB(0) | quartile means (Q1→Q4)        | last frame | canon-FD | last−FD | half2−half1 |
+|------|------------|--------------------------------|------------|----------|---------|-------------|
+| 0.10 | 0.5337     | 0.502 → 0.451 → 0.414 → 0.386 | 0.375      | 0.352    | +0.023  | −0.076      |
+| 0.15 | 0.8014     | 0.765 → 0.701 → 0.650 → 0.608 | 0.589      | 0.420    | +0.169  | −0.104      |
+| 0.20 | 1.0000     | 0.969 → 0.913 → 0.862 → 0.815 | 0.794      | 0.467    | +0.327  | −0.103      |
+
+Descent is monotonic across all three runs — quartile means decrease
+linearly through the trajectory; the half2−half1 differences are large
+(−0.08 to −0.10) and dominated by trend, not noise. The default `x_gb.mean`
+field (with 0.2 burn-in) is therefore a TREND-BIASED HIGH ESTIMATE; the
+late-trajectory last-frame value is a tighter upper bound but still above
+canon-FD.
+
+### Interpretation: 200 ps preseg PROD is sufficient only for X_c=0.10
+
+- **X_c=0.10**: last-frame 0.375 vs canon-FD 0.352 → ~6 % relative gap.
+  Single extension to ~400 ps PROD likely closes it.
+- **X_c=0.15**: last-frame 0.589 vs canon-FD 0.420 → 40 % relative gap.
+  Descent rate ~0.05 per quartile (50 ps); naive linear extrapolation
+  needs ~+170 ps to reach FD. But the curve is flattening (Q3−Q4 = −0.04
+  vs Q1−Q2 = −0.06) → real rate slows as deep sites empty. Likely needs
+  ≥500 ps PROD.
+- **X_c=0.20**: last-frame 0.794 vs canon-FD 0.467 → 70 % relative gap.
+  Same descent rate (~0.05/quartile); FD is ~7 quartiles away → ~350 ps
+  more if linear, more if rate decays. Likely ≥800 ps PROD needed —
+  out of single-job 12 h budget.
+
+### Why descent slows at high X_c
+
+Same proposal × acceptance logic as 2026-04-27 afternoon entry, but inverted:
+the "productive direction" is now reverse (GB → bulk), and as X_GB drops
+toward FD only the SHALLOWEST GB-Mg sites remain candidates for productive
+release. ΔE_seg(remaining GB Mg) becomes more negative on average ⇒ accept
+rate for reverse swaps drops ⇒ descent rate decays. Mirror image of
+yesterday's deep-site-trapping argument that pinned X_GB at X_c on random IC.
+
+### Headline figure update
+
+`scripts/canonical_fd_compare_5pt.py` re-run with preseg JSONs:
+`output/hmc_vs_fd_T500_preseg_3pt.{png,json}`. One equilibrated point
+(X_c=5e-2, filled circle) plus three preseg upper bounds (open squares).
+Visually: HMC lies between canon-FD and ceiling — qualitatively right, but
+quantitatively above FD due to incomplete descent. **The figure is honest
+about non-equilibrium; a re-run with longer PROD is the headline blocker.**
+
+### Decision: extend X_c=0.10 PROD; defer X_c=0.15/0.20 to multi-segment runs
+
+Path forward (in order of priority):
+1. **X_c=0.10 extension** — restart from `hmc_T500_Xc0.10_preseg_final.lmp`,
+   PROD=400 k steps (400 ps), --time=12h. Likely converges and gives the
+   first non-trivial equilibrated point above the dilute X_c=5e-2 baseline.
+2. **X_c=0.15 multi-segment** — chain 2× 12 h jobs from the
+   `_final.lmp` snapshot (~500 ps cumulative PROD). Same protocol works.
+3. **X_c=0.20 / 0.30** — defer to Phase 4 grid scan with longer wall
+   budget. The 12 h × 32 rank single-job format does not equilibrate
+   these from preseg IC at T=500 K; either need (a) ≥48 h budget,
+   (b) higher T to accelerate sampling then back-extrapolate, or
+   (c) `region GB ± shell` to attack proposal mode (1) on top of preseg IC.
+
+### Master-figure status (per memory `project_report_figure_plan.md`)
+
+- Panel (a) — n=500 ΔE spectrum + Wagih KS overlay: **READY**.
+- Panel (b) — theoretical reference curves: **READY**.
+- Panel (c) — two-sided IC verification at X_c=5e-2: **READY**.
+- Panel (d) — 5-point HMC vs FD: **PARTIAL**. Only X_c=5e-2 is equilibrated;
+  X_c=0.10 close (~6 % gap); X_c=0.15/0.20 are upper bounds. Needs
+  X_c=0.10 extension before report-ready.
+- Panel (e) — pipeline schematic: **READY** (existing `method_overview.png`).
+- Panel (f) — OVITO render: **UNBLOCKED**. `_final.lmp` written for X_c=0.10/0.15/0.20.
+  Pick X_c=0.20 (most segregated visual) or X_c=0.10 (most physically meaningful).
+- Panel (g) — sampler diagnostics: **READY**. Pick X_c=0.10 preseg (cleanest
+  monotonic descent + clean PE drift).
+
+### Files this entry
+
+- output JSONs: `output/hmc_T500_Xc{0.10,0.15,0.20}_preseg.{json,png}`
+- headline figure: `output/hmc_vs_fd_T500_preseg_3pt.{png,json}`
+- scratch (panel (f) / (g) source): `/cluster/scratch/cainiu/hmc_AlMg/hmc_T500_Xc{0.10,0.15,0.20}_preseg_final.lmp`
+- scratch dumps (still on disk, ~200–600 MB each): `hmc_T500_Xc{0.10,0.15,0.20}_preseg.dump`
+
+## 2026-04-27 (afternoon) — random-IC kinetic floor: full proposal × acceptance decomposition + preseg speedup factorisation
+
+This entry deepens the morning entry's "Proposal-level analysis" section.
+The morning entry showed proposal **geometry** is symmetric at random IC
+(0.152 forward, 0.152 reverse). It did not quantify the **energetic**
+side of the asymmetry, nor explain the **quasi-stationary kinetic floor**
+that pins X_GB at X_c. Both filled in below from
+the conversation discussion 2026-04-27 afternoon — recorded so future-me
+doesn't re-derive.
+
+### Acceptance asymmetry from the ΔE_seg spectrum
+
+Productive forward proposal (bulk Mg ↔ GB Al) has ΔU ≈ ΔE_seg(chosen GB
+site) under a dilute single-site approximation. Productive reverse has
+ΔU ≈ −ΔE_seg of the chosen site. At random IC the GB site picked in
+*either* direction is uniform over all 89 042 GB sites, so both directions
+sample the **same** ΔE_seg distribution — our n=500 spectrum
+(`output/delta_e_fit_n500.json`, μ=+11.5, σ=21.3, α=−1.93 kJ/mol).
+
+| direction | accepts iff | average accept rate (skewnormal CDF) |
+|---|---|---|
+| forward (bulk → GB) | ΔE_seg(site) < 0 | **P(ΔE < 0) ≈ 0.44** |
+| reverse (GB → bulk) | ΔE_seg(site) > 0 | **P(ΔE > 0) ≈ 0.56** |
+
+(The "≈" hides the contribution from sites in the wrong sign with |ΔE|
+near kT=4.3 kJ/mol; small because σ=21.3 ≫ kT.)
+
+### Net flux at the random-IC initial moment
+
+```
+J_net  =  P(propose fwd) × ⟨accept_fwd⟩  −  P(propose rev) × ⟨accept_rev⟩
+       =  0.152 × 0.44   −  0.152 × 0.56
+       =  −0.018  per attempt
+```
+
+**Sign is negative** — the very first phase of a random-IC run actually
+expels Mg from GB by a tiny amount, because Wagih `Mg^15` has μ > 0 and
+slightly more anti-segregating sites than segregating ones. The
+data-side fingerprint of this is invisible in our 100 ps run because the
+quasi-stationary state (next section) overrides the initial flux quickly.
+
+### Why X_GB pins at ≈ X_c rather than drifting somewhere else
+
+A few ns of MD drives **GB↔GB internal swaps** (the 3.5 % proposal
+channel) toward the configuration that minimises GB potential energy at
+fixed N_Mg_GB:
+
+- the few Mg currently in GB migrate onto the **deepest** ΔE_seg sites,
+- the GB-Al population concentrates on the **shallow / positive** ΔE
+  sites.
+
+After this internal reorganisation:
+
+- forward acceptance ≈ 0  (only shallow Al-GB sites left, ΔU > 0 on entry)
+- reverse acceptance ≈ 0  (only deep Mg-GB sites left, ΔU > 0 on exit)
+
+Both fluxes drop to near zero **but stay equal**, so X_GB stalls. The
+JSON evidence: `hmc_T500_Xc0.10_xgb.json` reports
+`x_gb.mean = 0.10514` vs `x_total_mean = 0.10000` — a +0.5 % enrichment
+that is precisely the deep-site filling described above, *and nothing
+beyond it*.
+
+### Time-to-equilibrium from random IC (order-of-magnitude)
+
+Empirical effective forward rate from the X_c=0.10 random-IC log:
+ΔX_GB = +0.005 over 100 ps PROD ⇒ ~445 net Mg moves into GB out of
+~100k attempts ⇒ **~0.0044 net forward per attempt**.
+
+Required net flux to reach canon-FD (X_GB: 0.10 → 0.352) at X_c=0.10:
+0.252 × 89 042 ≈ **22 300 Mg**.
+
+```
+22 300 / 0.0044  ≈  5.0 × 10⁶ attempts  ≈  5 ns MD
+                ≈  13 days wall at 32 ranks (3.6 min/ps × 5 000 ps)
+```
+
+This is the quantitative meaning of "kinetic dead-end" — not that the
+sampler is broken, but that detailed-balance equilibration from a
+maximum-entropy initial condition is **two orders of magnitude beyond
+our wall-time budget** at this T.
+
+### Why preseg-IC speedup factorises into ~10 × ~10 ≈ 100×
+
+| factor | random IC | preseg IC | gain |
+|---|---|---|---|
+| **geometric**: P(propose productive)<sup>†</sup> | 0.152 | ~0.90 | ~6× |
+| **energetic**: ⟨accept | productive⟩ | ~0.50 | ~0.50–0.80 | ~1–1.6× |
+| **occupation bias**: Mg on shallow vs deep sites | mixed | random fill ⇒ mostly shallow | ~10× on the *signed* flux |
+| net effective rate per attempt | ~0.0044 | ~0.4 (verify-preseg fit) | **~100×** |
+
+<sup>†</sup>"productive" means a single-direction proposal that monotonically
+moves toward the eventual equilibrium. For preseg IC the productive
+direction is reverse (GB → bulk).
+
+The decomposition makes clear that the dominant gain isn't the geometric
+6× — it's that **preseg places Mg on random GB sites, ~56 % of which are
+energetically unfavorable**, so eviction is downhill and acceptance
+stays high *until the system is near equilibrium*. The CHANGELOG morning
+entry quoted "80 % productive direction at preseg vs ~10–15 % at
+random IC" — that 5–8× is the same effect measured per *accepted* swap,
+not per *attempt*.
+
+### Files this entry
+
+No code or data changes — analytical record only. References:
+- `data/decks/hmc_AlMg.lammps:71,100` — `set type/fraction` (random IC)
+  + `fix atom/swap … types 1 2`
+- `output/delta_e_fit_n500.json` — μ, σ, α used for ΔE CDF integrals
+- `output/hmc_T500_Xc0.10_xgb.json` — empirical 0.0044/attempt rate
+- `output/hmc_T500_Xc5e-2_verify-preseg_xgb.json` — empirical preseg
+  rate for the 100× comparison
+
 ## 2026-04-27 (morning) — sweep dead-end: random IC fails kinetically at every X_c; preseg restart submitted
 
 ### What ran overnight

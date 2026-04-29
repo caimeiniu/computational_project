@@ -29,10 +29,12 @@ slurm-*.err
 
 # Output data (large files)
 output/
+project/data/snapshots/
 *.h5
 *.hdf5
 *.npy
 *.npz
+*.lmp
 
 # OS
 .DS_Store
