@@ -2,6 +2,123 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-04-30 (morning) — X_c=0.075 result: breakdown at the threshold, mechanism panels refreshed on 6 snapshots
+
+### X_c=0.075 preseg HMC 65208332: COMPLETED, breakdown confirmed
+
+Submitted 2026-04-29 22:12, finished 2026-04-30 08:32 (10h 20min wall,
+24h budget — ample headroom). Full PROD schedule (300 ps) reached;
+`_final.lmp` written cleanly (63 MB, persisted to `data/snapshots/`).
+
+```
+X_GB^HMC mean (post-burnin) = 0.2886   CI95 = [0.2816, 0.2952]
+X_GB(t) trajectory:  start 0.4001 → end 0.2543  (still descending)
+swap accept overall = 6.421%   (19,262 / 300,000)
+fwd/rev (post-burnin) = 0.122   imbalance = -0.783
+canon-FD prediction (ours, n=500) at X_c=0.075 = 0.3007
+canon-FD prediction (Wagih, n=82,646) at X_c=0.075 = 0.3103
+```
+
+**Outcome stronger than CHANGELOG 4/29 evening's three-scenario tree
+predicted.** The pre-registered cases were:
+  - (a) converged + matches FD → X_c\* ∈ (0.075, 0.10)
+  - (b) converged + deviates from FD → X_c\* ∈ (0.05, 0.075)
+  - (c) descending UB → adds a ▽ to panel (d), still evidence
+
+What we got is **(b)+(c) hybrid**: descending UB *already strictly
+below* canon-FD. The bootstrap CI95 [0.2816, 0.2952] does NOT contain
+0.3007, and fwd/rev = 0.122 says X_GB^∞ ≤ 0.2543 (still falling).
+**X_c=0.075 is in breakdown** — Wagih over-predicts by ≥ 15% relative.
+
+**Threshold update**: X_c\* ≤ 0.075 (was bracketed in (0.05, 0.10)).
+Next binary-search midpoint = 0.06 (planned this afternoon, see below).
+
+### Plumbing: snapshot persisted, mechanism analysis re-run on 6
+
+1. `cp /cluster/scratch/cainiu/hmc_AlMg/hmc_T500_Xc0.075_preseg_final.lmp
+    project/data/snapshots/` (63 MB; defends against scratch TTL).
+
+2. `scripts/solute_correlation_analysis.py` — SNAPSHOTS list extended
+   to 6 entries (added `0.075_preseg` as first row). Trivial config
+   update, in-place edit allowed per script-preservation rule.
+
+3. **Bug fix**: same script line 305 had `r\!\le\!` which matplotlib
+   mathtext does not parse (`\le` → unknown symbol). Silent failure
+   on 4/29 22:13 run produced the first 2 panels but crashed before
+   panel 3, leaving `output/site_occupation_vs_density.png` missing
+   (was never noticed — entry CHANGELOG 4/29 evening claims panel 3
+   was generated but it wasn't). Replaced `\le` with `\leq`.
+
+4. Re-ran → 3 PNGs + 1 JSON refreshed:
+   - `g_MgMg_pair_correlation.png`: 6 lines now; `0.075_preseg` (X_GB=0.254)
+     first peak ≈ 1.1× (mild correlation, weakest of all snapshots — at
+     low X_GB, fewer Mg-Mg neighbour opportunities). Strongest peaks
+     remain at 0.10_multistart / 0.10_preseg (~1.6×).
+   - `site_occupation_vs_energy.png`: 6 panels. 0.075_preseg shows the
+     same flat-ish empirical P_i ~ 0.25 across all ΔE_i bins — Wagih
+     sigmoid completely violated.
+   - `site_occupation_vs_density.png`: 6 panels. **slope at 0.075 =
+     -0.083, the steepest negative of all snapshots**. Direct site-
+     level repulsion signal: in the favourable-ΔE window, sites with
+     more Mg neighbours are *less* likely to be occupied. Slope
+     decreases toward saturation: 0.075:-0.083, 0.10mu:-0.031,
+     0.10pre:-0.040, 0.15:-0.019, 0.20:+0.015, 0.30:-0.002.
+
+### Plumbing: panel (d) refreshed with X_c=0.075
+
+`scripts/canonical_fd_compare_5pt.py` default `--upper-bound` list
+extended to include `hmc_T500_Xc0.075_preseg.json` as first entry.
+Re-ran → `output/hmc_vs_canonfd_T500.{png,json}` updated. Gap table:
+
+| X_c   | X_HMC  | canon-O | canon-W | gap-O   | gap-W   | source |
+|-------|--------|---------|---------|---------|---------|--------|
+| 0.050 | 0.2375 | 0.2282  | 0.2410  | +0.0093 | −0.0035 | equilibrated |
+| 0.075 | 0.2543 | 0.3007  | 0.3103  | **−0.0464** | **−0.0560** | preseg UB (descending) |
+| 0.100 | 0.3749 | 0.3519  | 0.3590  | +0.0230 | +0.0159 | preseg UB |
+| 0.150 | 0.5888 | 0.4204  | 0.4253  | +0.1684 | +0.1635 | preseg UB |
+| 0.200 | 0.7942 | 0.4671  | 0.4712  | +0.3271 | +0.3229 | preseg UB |
+| 0.300 | 0.8379 | 0.5337  | 0.5368  | +0.3042 | +0.3010 | preseg UB |
+
+Note that 0.10/0.15/0.20/0.30 preseg UBs are *above* canon-FD — those
+trajectories haven't equilibrated downward yet, so they bound only
+"X_GB^∞ ≤ end value" which is a vacuous bound when end > FD. The
+breakdown at those X_c is established by the *multistart* family
+(e.g. 0.10_multistart UB = 0.228 ≪ FD 0.352, contradiction direction).
+**0.075 is the first X_c where preseg alone gives breakdown evidence**
+because the descent crossed below the FD prediction within wall
+budget.
+
+### `canonical_fd_compare_5pt.py` filename now misleading (6 points)
+
+Script name says `5pt` but defaults now stage 6 measurements. Leave
+the filename for now — all output filenames are generic
+(`hmc_vs_canonfd_T500.{png,json}`) so external readers see no name.
+Reconsider during master-figure assembly.
+
+### Plan: X_c=0.06 preseg HMC this afternoon (machine-idle slot)
+
+Threshold X_c\* ∈ (0.05, 0.075] after the morning result. Binary-search
+midpoint = 0.06. Three outcomes again, all useful:
+  - converged + matches FD → X_c\* ∈ (0.06, 0.075]
+  - converged + deviates → X_c\* ∈ (0.05, 0.06]
+  - descending UB → adds another ▽ left of 0.075
+
+Quota: 32 ranks = 67% of public QOS (48 CPU); fits since cluster idle.
+24h time budget mirrors the X_c=0.075 submission.
+
+### Files this entry
+
+- `data/snapshots/hmc_T500_Xc0.075_preseg_final.lmp` (cp from scratch, 63 MB)
+- `output/hmc_T500_Xc0.075_preseg.{json,png}` (post-processing)
+- `scripts/solute_correlation_analysis.py` — added 0.075 to SNAPSHOTS,
+  fixed `\le` → `\leq`
+- `output/g_MgMg_pair_correlation.{png,json}` — refreshed with 6 lines
+- `output/site_occupation_vs_energy.{png,json}` — refreshed (6 panels)
+- `output/site_occupation_vs_density.{png,json}` — first successful run
+- `output/solute_correlation_analysis.json` — refreshed
+- `scripts/canonical_fd_compare_5pt.py` — added 0.075 to default UB list
+- `output/hmc_vs_canonfd_T500.{png,json}` — refreshed with 0.075 ▽
+
 ## 2026-04-29 (evening) — third-party reframe: integration-first, mechanism from existing snapshots; X_c=0.075 HMC as bonus
 
 ### Smoke job 65182528 result: methodology gotcha, not budget

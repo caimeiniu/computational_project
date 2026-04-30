@@ -39,6 +39,7 @@ from scipy.spatial import cKDTree
 
 REPO = Path(__file__).resolve().parent.parent
 SNAPSHOTS = [
+    ("0.075_preseg",    REPO / "data/snapshots/hmc_T500_Xc0.075_preseg_final.lmp",           0.075),
     ("0.10_multistart", REPO / "data/snapshots/hmc_T500_Xc0.10_multistart_xgb0.3_final.lmp", 0.10),
     ("0.10_preseg",     REPO / "data/snapshots/hmc_T500_Xc0.10_preseg_final.lmp",            0.10),
     ("0.15_preseg",     REPO / "data/snapshots/hmc_T500_Xc0.15_preseg_final.lmp",            0.15),
@@ -302,7 +303,7 @@ def panel_occupation_vs_density(
             xfit = np.linspace(n_mg_unique.min(), n_mg_unique.max(), 50)
             ax.plot(xfit, np.polyval(coeff, xfit), "k--", lw=1.0,
                     label=f"slope={coeff[0]:+.3f}/Mg-neighbour")
-        ax.set_xlabel(rf"$n_\mathrm{{Mg}}^\mathrm{{local}}(r\!\le\!{R_LOCAL:.0f}\,\mathrm{{Å}})$")
+        ax.set_xlabel(rf"$n_\mathrm{{Mg}}^\mathrm{{local}}(r\!\leq\!{R_LOCAL:.0f}\,\mathrm{{Å}})$")
         ax.set_title(snap["label"])
         ax.set_ylim(-0.05, 1.05)
         ax.grid(alpha=0.3)

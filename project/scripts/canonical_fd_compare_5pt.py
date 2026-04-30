@@ -74,6 +74,7 @@ def main():
         "hmc_T500_Xc5e-2_verify-preseg_xgb.json"],
         help="JSONs of equilibrated HMC measurements (drawn solid ●).")
     ap.add_argument("--upper-bound", nargs="*", default=[
+        "hmc_T500_Xc0.075_preseg.json",
         "hmc_T500_Xc0.10_preseg.json",
         "hmc_T500_Xc0.15_preseg.json",
         "hmc_T500_Xc0.20_preseg.json",
