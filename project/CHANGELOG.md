@@ -2,6 +2,75 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-04-30 (afternoon) — queue-fill: X_c=0.06 + T=700 K sweep (X_c=0.10, 0.15) submitted; auto-post-processing pattern
+
+### Triggered by user delegation: "尽可能多跑些数据" while away ~2 days
+
+User unavailable for figure assembly / report writing for ~2 days; said
+"don't let the machine idle, queue as much data as possible." With the
+public-QOS hard cap of 48 CPU (32-rank HMC = 67% quota → strict serial
+scheduling), the budget is **3 jobs × 24 h = ~72 h**, comfortably under
+the 2-day window.
+
+### Three-job lineup (priority order)
+
+| # | Job   | Target          | preseg X_GB(0) | canon-FD (ours) | Rationale |
+|---|-------|-----------------|---------------:|----------------:|-----------|
+| 1 | 65224958 | T=500, X_c=0.06 |          0.3206 |          0.2611 | threshold refinement: validate X_c\* ≤ 0.06 vs ∈ (0.06, 0.075] |
+| 2 | 65227656 | T=700, X_c=0.10 |          0.40   |          0.2956 | T-axis exploration (high-T) — does breakdown persist? |
+| 3 | 65227658 | T=700, X_c=0.15 |          0.80   |          0.3666 | T=700 second point; together with #2 forms the T=700 row of the (T, X_c) grid |
+
+Initial squeue reason: **PartitionDown** (cluster maintenance briefly
+took `normal.24h` offline this morning). Resolved within minutes;
+reason now `Priority` (normal scheduling). Job #1 starts first; jobs
+#2 and #3 backfill as #1 / #2 free the QOS slot.
+
+### Skipped: T=300 K row
+
+At T=300 K, canon-FD predicts X_GB^FD(X_c=0.10) ≈ 0.55 > preseg
+X_GB(0)=0.40 → trajectory must **ascend**, reversing the descending-UB
+semantics that all our preseg analyses depend on. Additionally, at
+T=300 K the swap kinetics slow ~10–100× vs T=500 K (Metropolis accept
+rate scales as exp(−ΔE/kT)), so 300 ps PROD likely insufficient.
+Defer T=300 to a future random-IC experiment with longer wall budget.
+
+### New SLURM template pattern: embedded auto-post-processing
+
+`submit_hmc_T700_Xc{0.10,0.15}_preseg.sh` extend the standard SLURM
+template by appending `python3 scripts/hmc_xgb_timeseries.py` after
+`srun lmp`. Same allocation, ~1 min runtime (negligible vs 12 h sim),
+writes `output/<stub>.{json,png}` directly into the repo. When user
+returns ~5/2, both `_xgb.json` and `_xgb.png` will already exist for
+each completed job; no manual plumbing needed.
+
+Wrapped in `|| echo "POST-PROCESS FAILED..."` so a post-process error
+doesn't tank the SLURM exit code (sim succeeded; logs still on disk
+for manual rerun).
+
+X_c=0.06 job 65224958 was submitted before the auto-post-process
+pattern was decided, so it lacks the embedded step. When it lands,
+manual `hmc_xgb_timeseries.py --stub ... --fd-pred 0.2611` is needed
+(or auto-process via the future scheduled-agent route).
+
+### What lands in the repo on completion
+
+For each of the 3 jobs (assuming sim succeeds and `_final.lmp` writes):
+
+- `/cluster/scratch/cainiu/hmc_AlMg/<stub>.{log,dump,_final.lmp}` (large
+  artefacts, kept on scratch)
+- `output/<stub>.{json,png}` (jobs #2, #3 only — auto-post-processed;
+  job #1 needs manual step)
+
+CHANGELOG entry on completion is also a manual step — defer to user's
+return.
+
+### Files this entry
+
+- `data/decks/submit_hmc_T700_Xc0.10_preseg.sh` (new, 76 lines, with
+  auto-post-process)
+- `data/decks/submit_hmc_T700_Xc0.15_preseg.sh` (new, 76 lines, with
+  auto-post-process)
+
 ## 2026-04-30 (morning) — X_c=0.075 result: breakdown at the threshold, mechanism panels refreshed on 6 snapshots
 
 ### X_c=0.075 preseg HMC 65208332: COMPLETED, breakdown confirmed
