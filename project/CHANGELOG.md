@@ -2,6 +2,122 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-05-01 (afternoon) — Defense figures rebuilt + `report/` folder assembled with audited explanations
+
+### Action plan from morning audit → executed
+
+Morning audit flagged 3 mechanism figures as unreadable to non-experts.
+This entry implements the proposed fixes (story-order re-sequence, story
+clarity, audience-friendly labels) and assembles the answerable defense
+package.
+
+### New script: `scripts/replot_mechanism_for_defense.py`
+
+Per project convention "don't modify canonical scripts in place", the
+existing `solute_correlation_analysis.py` is left untouched (still
+produces the original 6-curve / 6-panel SI versions). The new script
+**only consumes `output/solute_correlation_analysis.json`** — no LAMMPS,
+no recomputation, ~2 s on a login node.
+
+Produces 3 PNGs in `output/`:
+- `defense_MgMg_clustering.png`     — single panel, 3 representative
+  X_c curves (0.075 / 0.15 / 0.30, sorted by X_GB ascending in legend),
+  plain-language y-axis with "> 1: clustered  < 1: avoidant", 1st-NN
+  shell band annotated, footer note pointing to Fig. 3 to disambiguate
+  geometric clustering from site-level repulsion.
+- `defense_occupation_breakdown.png` — 1×3 panels at the same X_c set;
+  Wagih FD curve + binned empirical P_i with 95% CIs; favourable-ΔE
+  band shaded green; ΔP_i annotation arrow at largest favourable-end
+  gap (verified values 0.77, 0.57, 0.13 for X_c=0.075, 0.15, 0.30).
+- `defense_repulsion_summary.png`    — 2-subplot: left = slope vs X_c
+  on 5 preseg points + 1 multistart UB (open square, kinetic-floor),
+  with annotated "steepest repulsion" callout at X_c=0.075 and
+  "saturation regime" callout at X_c=0.20; right = zoom on X_c=0.075
+  raw scatter + linear fit, slope value in legend.
+
+3 minor layout iterations after first render: (i) figure 2 X_GB labels
+were obscured by data points → moved into panel titles ("X_c → X_GB");
+(ii) figure 2 "favourable" text overlapped data → replaced with green
+band + axvline at ΔE=0 + footer note; (iii) figure 3 "saturation"
+annotation got clipped by ylim → repositioned with curved arrow below
+the slope=0 line.
+
+### New folder: `report/` (defense deliverable)
+
+```
+report/
+├── README.md (424 lines)
+└── figures/
+    ├── 00_headline_hmc_vs_wagih_T500.png   (cp from output/, panel d)
+    ├── 01_MgMg_clustering.png              (cp from output/defense_*)
+    ├── 02_occupation_breakdown.png
+    └── 03_repulsion_summary.png
+```
+
+The README is structured for defense use:
+- **TL;DR** + **Story arc / talk order** (4-row table)
+- **Definitions table** (HMC, GB, X_c, X_GB, ΔE_seg, Wagih FD,
+  canon-FD, GC-FD, preseg, multistart UB, KS test) — for non-experts
+- **Methods summary** (substrate geometry, ΔE spectrum, HMC settings,
+  6 snapshot table)
+- **Per-figure walkthrough** (×4): role, what it shows, axes,
+  parameters, key numerical results table, conclusion (presenter
+  script), advisor Q&A predictions
+- **Cross-figure narrative** (logical chain: Wagih breaks → mechanism
+  hypothesis → 3 orthogonal evidence)
+- **Q&A predictions** (7 most-likely advisor questions with
+  pre-prepared answers)
+- **Provenance / data integrity** section with verification log of
+  6 spot-checks (X_GB, N_GB_Mg, ΔP, slopes, panel d gaps, KS test)
+- **Known caveats** (honest list: panel d missing multistart, X_c=0.20
+  slope sign, ΔE reference-frame simplification, binomial CI)
+- **Reproduction instructions**
+
+### Data integrity verification (all 6 PASS)
+
+Re-ran from-scratch checks, all numbers cited in figures/CHANGELOG/README
+trace to source files:
+
+```
+[1] N_GB_Mg recompute (LAMMPS file → JSON):      PASS (Δ=0)
+[2] X_GB recompute (3 snapshots):                PASS (Δ=+0.00e+00)
+[3] Wagih FD ΔP at most-favourable bin (3 X_c):  PASS (drawn values match)
+[4] slope-vs-X_c (6 snapshots):                  PASS (match JSON)
+[5] panel (d) gap table:                         PASS (match hmc_vs_canonfd_T500.json)
+[6] spectrum stats KS test:                      PASS (D=0.0256, p=0.8920)
+```
+
+Verbal correction recorded earlier today (0.075 first peak: 1.075 at
+r=3.30 Å, NOT 1.22 — that was second-shell at r=5.90 Å) is now
+correctly reflected in figure 1 + README §5.
+
+### Critical review (advisor + audience views) — addressed in README
+
+4 advisor concerns identified, all addressed in §5 per-figure Q&A and
+§7 Q&A predictions:
+- panel (d) breakdown evidence: only directly proven at X_c=0.075;
+  X_c=0.10 evidence comes from multistart UB (not currently in panel d
+  → addressed by Q&A talking point + future-work caveat).
+- figure 1 0.075 first-NN peak weak (1.075 vs 1.604 at 0.10_multistart):
+  not a plotting error, supports site-level repulsion picture (early
+  1st-NN avoidance signal).
+- figure 3 X_c=0.20 slope flips positive: saturation effect (X_GB=0.794,
+  most favourable sites filled, statistical noise dominates), not a
+  physical sign reversal — annotated.
+- ΔE reference frame uses X_c=0 spectrum: by-design simplification to
+  enable direct comparison with Wagih's site-independent FD; renormalized
+  ΔE is future work — acknowledged.
+
+3 audience-level jargon points (uniform-random reference, Wagih FD,
+∂P_i/∂n_Mg^local) all expanded inline in README §3 definitions table.
+
+### Files this entry
+
+- `scripts/replot_mechanism_for_defense.py` — new
+- `output/defense_{MgMg_clustering,occupation_breakdown,repulsion_summary}.png` — new (gitignored, regeneratable)
+- `report/README.md` — new (defense package, 424 lines)
+- `report/figures/{00_headline,01_MgMg_clustering,02_occupation_breakdown,03_repulsion_summary}.png` — new (cp'd from output/ for self-contained deliverable)
+
 ## 2026-05-01 (late morning) — Defense-prep audit: mechanism analysis figures unclear, story re-sequencing needed
 
 ### Trigger
