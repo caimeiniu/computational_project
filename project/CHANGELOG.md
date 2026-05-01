@@ -2,6 +2,116 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-05-01 (late morning) — Defense-prep audit: mechanism analysis figures unclear, story re-sequencing needed
+
+### Trigger
+
+User couldn't read `output/g_MgMg_pair_correlation.png` cold and flagged it as
+likely unreadable to defense audience. Per defense-prep practice, an analysis
+figure that fails the author's own re-read fails the audience.
+
+### Audit process (sources, in the order checked)
+
+1. Located the three mechanism figures and their generator:
+   - `output/g_MgMg_pair_correlation.png` + `output/site_occupation_vs_energy.png`
+     + `output/site_occupation_vs_density.png`
+   - shared script: `scripts/solute_correlation_analysis.py` (panel functions
+     at lines 144–180, 188–254, 257–325)
+   - shared metadata: `output/solute_correlation_analysis.json`
+
+2. Read the script docstring (lines 1–29) and `panel_g_r` (144–180) to confirm
+   axis semantics. Per script comment lines 147–152:
+   *"Ratio < 1 at small r = Mg avoid each other (repulsive); > 1 = clustering."*
+
+3. Recomputed peak heights from JSON (g_r axis: 125 bins, dr = 0.20 Å), to
+   replace numbers I cited verbally earlier in this conversation:
+
+   | label             | X_GB  | N_GB_Mg | ratio @ r=3.30 Å | global max in r∈(2.5, 6.0) Å |
+   |-------------------|-------|---------|------------------|------------------------------|
+   | 0.10_multistart   | 0.228 | 20,276  |            1.604 | 1.604 @ r=3.30 Å             |
+   | 0.075_preseg      | 0.254 | 22,635  |        **1.075** | 1.220 @ r=5.90 Å             |
+   | 0.10_preseg       | 0.375 | 33,361  |            1.388 | 1.388 @ r=3.30 Å             |
+   | 0.15_preseg       | 0.588 | 52,394  |            1.225 | 1.225 @ r=3.30 Å             |
+   | 0.20_preseg       | 0.794 | 70,672  |            1.132 | 1.132 @ r=3.30 Å             |
+   | 0.30_preseg       | 0.838 | 74,582  |            1.099 | 1.099 @ r=3.30 Å             |
+
+   **Verbal correction**: I initially said the 0.075_preseg first peak was
+   1.22. That was the *global* peak at r=5.90 Å (second-shell shoulder), not
+   the first-NN peak at r=3.30 Å where the ratio is 1.075. The other 5
+   snapshots all peak at r=3.30 Å, so 0.075_preseg's first-NN suppression is
+   a real anomaly worth calling out, not a mis-read.
+
+4. Cross-checked density-panel slopes from JSON against CHANGELOG 2026-04-30
+   morning entry (favourable ΔE window [−30, −5] kJ/mol, 218/500 sites,
+   R_local = 5 Å, T = 500 K, kT = 4.157 kJ/mol):
+
+   0.075 = −0.0826  |  0.10mu = −0.0310  |  0.10pre = −0.0402
+   0.15  = −0.0194  |  0.20   = +0.0148  |  0.30    = −0.0018
+
+   All match the prior entry; reproduced for traceability.
+
+5. Re-read `output/hmc_vs_canonfd_T500.json` (`equilibrated` + `upper_bound`
+   records) to anchor the mechanism panels against panel (d). Numbers match
+   CHANGELOG 2026-04-30 morning gap table; no recomputation triggered.
+
+### Findings (figure-by-figure, plus cross-figure narrative gap)
+
+**`g_MgMg_pair_correlation.png`**:
+1. Title and y-axis assume the audience already knows what "uniform-random
+   GB reference" means — undefined term.
+2. No annotation distinguishes ratio>1 (clustering) from ratio<1 (avoidance);
+   dashed line at 1.0 is unlabeled.
+3. Legend ordered by X_c (input) but visual ranking is by X_GB (output).
+   0.075_preseg (X_GB=0.254) and 0.10_multistart (X_GB=0.228) read as
+   neighbours in legend yet bracket the whole curve family visually.
+4. The 0.075_preseg first-NN suppression (1.075 vs 1.604 at 0.10_multistart,
+   even though X_GB is similar) is currently buried — this is a real signal,
+   not a plotting artifact.
+
+**`site_occupation_vs_energy.png`**: 6 panels in one row, default-size
+sub-titles, y-label only on leftmost — cramped at slide resolution. The
+"Wagih sigmoid violated at favourable-ΔE end" message has no visual
+emphasis (no shading of the gap region, no callout).
+
+**`site_occupation_vs_density.png`**: The progression −0.083 → +0.015 →
+−0.002 across X_c is the quantitative mechanism story but spread across 6
+separate sub-panels. Reader must read 6 slope values from legend boxes and
+assemble the trend mentally. Missing: a summary panel of slope vs X_c.
+
+**Cross-figure narrative gap** (root cause of why `g_MgMg` is unreadable):
+- g_MgMg(r) ratio > 1 at first peak  ⇒ aggregate spatial clustering
+- panel 3 slope < 0 in fixed-ΔE window ⇒ site-level repulsion
+
+These look contradictory in isolation but are not: the first is *geometric*
+(deep-binding sites are themselves spatially clustered on the GB plane, so
+when Mg fills them, Mg-Mg pairs accumulate at small r), the second is the
+*residual after controlling for ΔE_i*. Caption and talk script must spell
+this out; current figures do not.
+
+### Proposed actions (no code changes yet — pending alignment)
+
+1. **Talk + report sequence**: present mechanism in cause-controlled-residual
+   order — (a) g_MgMg(r) aggregate signal → (b) P_i vs ΔE_i shows energy-axis
+   breakdown → (c) P_i vs n_Mg^local in fixed-ΔE window (residual repulsion,
+   the smoking gun). Current alphabetical export order swaps (b) and (c).
+
+2. **Script revisions** (per project convention "don't modify canonical
+   scripts in place" — copy to `solute_correlation_analysis_v2.py`):
+   - `panel_g_r`: plain-language y-axis ("clustering ratio g_HMC / g_random,
+     >1 = clustered, <1 = avoidant"), annotate ratio=1 line, sort legend by
+     X_GB ascending, prune to 3 representative curves for master figure
+     (keep 6-line full version in SI).
+   - `panel_occupation_vs_density`: add summary subplot of fitted slope vs
+     X_c (one curve, 6 points) so saturation is visible at a glance.
+
+3. **Master-figure caption** (defer to assembly time): explicit one-liner
+   reconciling the geometric-clustering vs site-repulsion picture.
+
+### Scope unchanged, no files modified
+
+Audit only. No re-analysis, no recomputation. Decisions on scripts/captions
+deferred until master-figure assembly.
+
 ## 2026-04-30 (afternoon) — queue-fill: X_c=0.06 + T=700 K sweep (X_c=0.10, 0.15) submitted; auto-post-processing pattern
 
 ### Triggered by user delegation: "尽可能多跑些数据" while away ~2 days
