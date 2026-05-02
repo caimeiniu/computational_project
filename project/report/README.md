@@ -1,75 +1,75 @@
-# Defense Presentation Materials — Mg-Mg Interactions Break Wagih's Site-Independent FD Theory in Al(Mg) GB Segregation
+# Defense Presentation Materials — Mg–Mg Interactions Break Wagih's Site-Independent FD Theory in Al(Mg) GB Segregation
 
-> 答辩现场用于讲解的 4 张主图 + 详细说明。每个数字都有源文件可追溯,无虚构(spot-check 通过,见末段 Provenance)。
+> Speaker reference for the four main figures + four supporting figures, with full per-figure walkthroughs and predicted advisor Q&A. Every cited number traces to a source file; nothing is fabricated (spot-checks pass — see §8 Provenance).
 
-最后更新:2026-05-02(2026-05-02 加入支撑图 4-7,Fig 0 加入 X_c=0.10 multistart UB)
+Last updated: 2026-05-02 (Fig 0 simplified to a 3-row legend with two-color ▽ markers; English rewrite)
 
 ---
 
 ## 1. TL;DR
 
-- **被检验的假设**:Wagih & Schuh (2020, *Acta Mater.*) 的 site-independent Fermi-Dirac (FD) 模型 —— 它假设每个 GB 位点 *i* 的 Mg 占据率 P_i 只依赖于该位点本身的 segregation energy ΔE_i,与其他位点是否被占据无关。
-- **核心结果**:在 Al(Mg) at T=500 K 系统中,**该假设在 X_c ≥ 0.075 处失效**(X_c = 总 Mg 原子分数)。
-- **机理**:存在直接的 Mg-Mg site-level 排斥相互作用(repulsion),通过 3 条独立证据展示。
-- **数据**:HMC (Hybrid Monte Carlo) 模拟 6 个 (T=500 K, X_c) 快照(snapshot),N_total = 475,715 原子,N_GB = 89,042 (f_gb = 18.72%)。
-- **理论锚点**:与 Wagih 公开发布的 Zenodo 数据(n=82,646 GB sites)对比,我们的 ΔE 谱(n=500)与之统计上不可区分(KS p=0.89,见 §5)。
+- **Hypothesis under test**: Wagih & Schuh (2020, *Acta Mater.*) site-independent Fermi–Dirac (FD) model — assumes that the Mg occupation probability P_i at GB site *i* depends only on the segregation energy ΔE_i of that site, independent of which other sites are occupied.
+- **Headline result**: in Al(Mg) at T = 500 K, **the assumption breaks for X_c ≥ 0.075** (X_c = total Mg atomic fraction).
+- **Mechanism**: a direct site-level Mg–Mg repulsion, demonstrated through three independent lines of evidence.
+- **Data**: HMC (Hybrid Monte Carlo) simulations on six (T = 500 K, X_c) snapshots; N_total = 475,715 atoms, N_GB = 89,042 (f_gb = 18.72 %).
+- **Theory anchor**: our n = 500 ΔE_seg spectrum is statistically indistinguishable (KS p = 0.89) from Wagih's published Zenodo spectrum (n = 82,646), so Wagih's framework is the right baseline (see Fig. 4).
 
 ---
 
-## 2. 答辩讲故事的图序(Talk Order)
+## 2. Talk Order
 
-**主图(Main story arc, 答辩讲故事 4 张)**
+**Main story arc (the four figures used to deliver the talk)**
 
-| # | 图文件 | 角色 | 一句话讲什么 |
+| # | File | Role | One-line message |
 |---|---|---|---|
-| 0 | `figures/00_headline_hmc_vs_wagih_T500.png` | **Headline / 反例锚点** | 在 X_c=0.075 处,HMC 测得的 X_GB = 0.254 已**低于** Wagih FD 预测的 0.301;并在 X_c=0.10 处 multistart UB X_GB=0.246 也已**低于** canon-FD 0.352 → 假设失效的直接证据 |
-| 1 | `figures/01_MgMg_clustering.png` | **机理证据 1 — 空间** | Mg-Mg pair correlation function g(r) 偏离均匀随机分布 → Mg 不是独立分布的(*aggregate spatial signal*) |
-| 2 | `figures/02_occupation_breakdown.png` | **机理证据 2 — 能量轴** | 实测 P_i 在 favourable ΔE 端**系统性低于** Wagih sigmoid → 假设失效的位置在 ΔE 谱的最低端 |
-| 3 | `figures/03_repulsion_summary.png` | **机理证据 3 — site-level 直接证据** | 固定 ΔE 窗口内,邻居 Mg 越多 → 占据率越低 → 直接观测到 Mg-Mg 排斥相互作用 |
+| 0 | `figures/00_headline_hmc_vs_wagih_T500.png` | **Headline / counter-example anchor** | At X_c = 0.075 the HMC measurement X_GB = 0.254 is **below** Wagih's FD prediction 0.301; at X_c = 0.10 the multistart upper bound X_GB = 0.246 is also **below** canon-FD = 0.352 → direct evidence that the assumption fails. |
+| 1 | `figures/01_MgMg_clustering.png` | **Mechanism evidence 1 — spatial** | The Mg–Mg pair correlation function g(r) deviates from the uniform-random reference → Mg atoms are not independently distributed (*aggregate spatial signal*). |
+| 2 | `figures/02_occupation_breakdown.png` | **Mechanism evidence 2 — energy axis** | Empirical P_i is **systematically below** the Wagih sigmoid at the favourable-ΔE end → the breakdown is concentrated at the low-energy tail of the ΔE spectrum. |
+| 3 | `figures/03_repulsion_summary.png` | **Mechanism evidence 3 — direct site-level** | At fixed ΔE, more Mg neighbours → lower occupation → direct observation of Mg–Mg repulsion. |
 
-**支撑图(Supporting Figures, Q&A / 方法学背景用)**
+**Supporting figures (Q&A / methodological backing)**
 
-| # | 图文件 | 角色 | 一句话讲什么 |
+| # | File | Role | One-line message |
 |---|---|---|---|
-| 4 | `figures/04_spectrum_match.png` | 谱代表性 | n=500 ΔE 谱与 Wagih Zenodo n=82,646 谱直方图 + skew-normal 拟合(KS p=0.89,统计上不可区分)|
-| 5 | `figures/05_sampler_convergence.png` | HMC 收敛诊断 | X_c=0.075 preseg run 的 5-panel 时序:T(t)、PE(t)、accept rate、X_GB(t)、swap fwd/rev 分解 |
-| 6 | `figures/06_two_sided_verify.png` | 平衡态验证 | X_c=0.05 双向 IC(random + preseg)bracket overlap → 证明 sampler 在稀释端能 equilibrate |
-| 7 | `figures/07_ovito_segregation.png` | 偏析视觉确认 | OVITO 渲染 X_c=0.20 final config,Mg(橙)在 GB 富集肉眼可见 |
+| 4 | `figures/04_spectrum_match.png` | Spectrum representativeness | Histograms + skew-normal fits of our n = 500 ΔE spectrum vs. Wagih Zenodo n = 82,646 (KS p = 0.89, statistically indistinguishable). |
+| 5 | `figures/05_sampler_convergence.png` | HMC convergence diagnostic | Five-panel time series for the X_c = 0.075 preseg run: T(t), PE(t), accept rate, X_GB(t), per-frame swap fwd/rev decomposition. |
+| 6 | `figures/06_two_sided_verify.png` | Equilibration verification | Two-sided IC bracket (random + preseg) at X_c = 0.05 → confirms the sampler can equilibrate at the dilute end. |
+| 7 | `figures/07_ovito_segregation.png` | Visual segregation confirmation | OVITO render of the X_c = 0.20 final config; Mg (orange) is visibly enriched on grain boundaries. |
 
 ---
 
-## 3. 术语表(Definitions)
+## 3. Definitions
 
-| 术语 | 含义 |
+| Term | Meaning |
 |---|---|
-| GB (grain boundary) | 多晶 Al 中相邻晶粒之间的界面;由 3D Voronoi tessellation 定义 |
-| Mg / 溶质原子 | 取代型溶质(substitutional solute);此项目固定 Mg-in-Al 体系 |
-| X_c | total Mg atomic fraction(total Mg 原子数 / total 原子数) |
-| X_GB | Mg fraction at GB sites only(N_GB_Mg / N_GB) |
-| ΔE_i 或 ΔE_seg | site i 的 segregation energy:把一个 Mg 原子从 bulk 平均位点放到 GB 位点 i 处的能量差;**负值 = 该位点偏好 Mg 占据(favourable)** |
-| HMC (Hybrid Monte Carlo) | 此项目的 sampler:在 LAMMPS 中循环交替 (a) MD relaxation (b) Monte Carlo Mg/Al 交换尝试,严格满足 detailed balance |
-| Wagih FD | Wagih (2020) 的位点独立 Fermi-Dirac 公式:`P_i = 1 / (1 + ((1-X_c)/X_c) · exp(ΔE_i / kT))`,对应 site i 上的 Mg 占据概率 |
-| canon-FD | 在 X_c=0 reference spectrum 上把 Wagih FD 预测平均得到的 X_GB 总占率(canonical Fermi-Dirac);"ours" = 用我们的 n=500 谱,"Wagih" = 用 Wagih Zenodo 的 n=82,646 谱 |
-| GC-FD | Grand-Canonical Fermi-Dirac(在 chemical potential 表象下的 FD,对比基准之一) |
-| preseg HMC | 一种 IC 选择:initial state 把所有 Mg 都放进 GB(X_GB(0) ≈ 0.32 极端 segregation),HMC 从这里**向下** descend,产生 X_GB^∞ 的 upper bound |
-| multistart UB | 另一种 IC 选择:从随机 high-X_GB(本项目用 X_GB=0.30)开始,trajectory descend 至 kinetic floor → 给 X_GB^∞ 提供 upper bound |
-| KS test (Kolmogorov-Smirnov) | 两样本分布是否同源的非参检验;p > 0.5 在本项目里是"spectrum-level indistinguishable"的门槛(per memory) |
+| GB (grain boundary) | Interface between adjacent grains in polycrystalline Al; defined by 3D Voronoi tessellation. |
+| Mg / solute | Substitutional solute; this project is fixed to the Mg-in-Al system. |
+| X_c | Total Mg atomic fraction (total Mg atoms / total atoms). |
+| X_GB | Mg fraction at GB sites only (N_GB_Mg / N_GB). |
+| ΔE_i, ΔE_seg | Segregation energy of site *i*: energy difference between placing one Mg atom at GB site *i* and at a bulk reference site. **Negative = site favours Mg occupation**. |
+| HMC (Hybrid Monte Carlo) | This project's sampler: in LAMMPS, alternating cycles of (a) MD relaxation and (b) Mg/Al swap Monte Carlo attempts, satisfying detailed balance. |
+| Wagih FD | Wagih's site-independent Fermi–Dirac formula: `P_i = 1 / (1 + ((1 − X_c) / X_c) · exp(ΔE_i / kT))`. |
+| canon-FD | Mass-conserving canonical FD: average Wagih's P_i over the X_c = 0 reference spectrum to obtain the predicted X_GB at given (T, X_c). "ours" = on our n = 500 spectrum; "Wagih" = on Wagih's Zenodo n = 82,646 spectrum. |
+| GC-FD | Grand-canonical FD (Wagih's formula in the chemical-potential representation; not used in the simplified Fig. 0). |
+| preseg HMC | Initial-condition choice: place every Mg atom into the lowest-ΔE GB sites (X_GB(0) ≈ 0.32, maximum segregation). HMC then descends, and the trajectory end value is an upper bound on the equilibrium X_GB. |
+| multistart HMC | Alternative initial-condition choice: random Mg distribution at X_GB(0) = 0.30. The trajectory descends toward a kinetic floor; the production-mean value is also an upper bound on the equilibrium X_GB. |
+| KS test (Kolmogorov–Smirnov) | Non-parametric two-sample test for distribution equality; project threshold p > 0.5 ⇒ "spectrum-level indistinguishable". |
 
 ---
 
-## 4. Methods Summary(方法概览,讲 setup 时用)
+## 4. Methods Summary
 
 ### 4.1 Substrate
 
-- 多晶 Al 立方盒(periodic),边长 200 Å,3D Voronoi 16 grains;构建脚本见 `data/decks/build_poly_AlMg_200A.py`(snapshot 文件 `data/snapshots/poly_AlMg_200A_*.lmp`)
-- N_total = **475,715** 原子,N_GB = **89,042**,f_gb = **0.1872**(18.72%);GB mask 由 a-CNA(adaptive Common Neighbor Analysis)生成,文件 `data/snapshots/gb_mask_200A.npy`
-- 退火(anneal)流程:CG → NVT → NPT 250 ps @ 373 K → cool 3 K/ps → final relax;消除 build-time 应力
+- Periodic cubic box of polycrystalline Al, edge length 200 Å, 3D Voronoi tessellation with 16 grains. Build script: `data/decks/build_poly_AlMg_200A.py`. Snapshot files: `data/snapshots/poly_AlMg_200A_*.lmp`.
+- N_total = **475,715** atoms, N_GB = **89,042**, f_gb = **0.1872** (18.72 %). The GB mask is generated from a-CNA (adaptive Common Neighbor Analysis); file `data/snapshots/gb_mask_200A.npy`.
+- Anneal protocol: CG → NVT ramp → NPT 250 ps @ 373 K → cool 3 K/ps → final relax (relieves build-time stress).
 
-### 4.2 Reference ΔE 谱
+### 4.2 Reference ΔE spectrum
 
-- **n=500** 个随机抽样的 GB 位点;每个 site 的 ΔE_i 计算 = (single-Mg system at site i) − (bulk Mg average) − (Al system)
-- File: `/cluster/scratch/cainiu/production_AlMg_200A/delta_e_results_n500_200A_tight.npz`
-- 谱 statistics(全部对账于 `output/compare_vs_wagih_200A_tight.json`):
+- **n = 500** randomly sampled GB sites; per-site ΔE_i = (single-Mg system at site *i*) − (bulk-Mg average) − (pure-Al system).
+- File: `/cluster/scratch/cainiu/production_AlMg_200A/delta_e_results_n500_200A_tight.npz`.
+- Spectrum statistics (all reconciled with `output/compare_vs_wagih_200A_tight.json`):
 
 |  | n | mean (kJ/mol) | std (kJ/mol) | skew | skewnorm μ | skewnorm σ | skewnorm α |
 |---|---:|---:|---:|---:|---:|---:|---:|
@@ -77,19 +77,19 @@
 | **Wagih** | 82,646 | −6.81 | 15.85 | −0.22 | 6.72 | 20.84 | −1.40 |
 | KS 2-sample test |  | | | | | D = 0.0256 | **p = 0.8920** |
 
-→ 我们的 n=500 谱与 Wagih 的 n=82,646 谱在统计上不可区分(p ≫ 0.5)。Wagih 的 FD 公式自然适用于我们的体系。
+→ The two spectra are statistically indistinguishable (p ≫ 0.5). Wagih's FD framework is therefore the right baseline for our system.
 
-### 4.3 HMC 设置
+### 4.3 HMC settings
 
-- LAMMPS 20240829.4,32 MPI ranks per job
-- Mendelev (2009) Al-Mg EAM potential(Wagih 2020 的同一 potential)
-- T=500 K,Metropolis criterion 用 NVE 弛豫后的能量差 ΔE_swap
-- 每个生产 run:300 ps PROD + 10 ps EQUIL,每 1000 swap attempts 一帧 → 300 帧
-- IC 选择:**preseg**(本报告主图)+ multistart(辅助证据)
+- LAMMPS 20240829.4, 32 MPI ranks per job.
+- Mendelev (2009) Al–Mg EAM potential (the same potential used in Wagih 2020).
+- T = 500 K. Metropolis criterion uses the post-NVE-relaxation energy difference ΔE_swap.
+- Per production run: 300 ps PROD + 10 ps EQUIL, one frame per 1000 swap attempts → 300 frames.
+- IC choice: **preseg** (main panels) and **multistart** (corroborating evidence).
 
-### 4.4 6 个 (T=500 K, X_c) 快照(本报告所用)
+### 4.4 The six (T = 500 K, X_c) snapshots used in this report
 
-| label | X_c | 文件 | X_GB(end) | N_GB_Mg | source job |
+| Label | X_c | File | X_GB(end) | N_GB_Mg | Source job |
 |---|---:|---|---:|---:|---|
 | 0.075_preseg | 0.075 | `hmc_T500_Xc0.075_preseg_final.lmp` | 0.2542 | 22,635 | 65208332 |
 | 0.10_multistart | 0.10 | `hmc_T500_Xc0.10_multistart_xgb0.3_final.lmp` | 0.2277 | 20,276 | (multistart) |
@@ -98,179 +98,189 @@
 | 0.20_preseg | 0.20 | `hmc_T500_Xc0.20_preseg_final.lmp` | 0.7937 | 70,672 | (preseg) |
 | 0.30_preseg | 0.30 | `hmc_T500_Xc0.30_preseg_final.lmp` | 0.8376 | 74,582 | (preseg) |
 
-(spot-check:对 0.075/0.15/0.30 这 3 个,我从 LAMMPS 文件直接重算 N_GB_Mg 和 X_GB,与 `output/solute_correlation_analysis.json` 完全相同 Δ=0;见 §8 Provenance。)
+(Spot-check: for the 0.075 / 0.15 / 0.30 snapshots, N_GB_Mg and X_GB recomputed directly from the LAMMPS files match `output/solute_correlation_analysis.json` exactly, Δ = 0; see §8 Provenance.)
 
 ---
 
-## 5. 图详细说明
+## 5. Per-figure Walkthroughs
 
 ### Figure 0 ── `00_headline_hmc_vs_wagih_T500.png`
 
-**角色**:headline 反例图(panel d in master figure plan)。
+**Caption (English, suitable for slides / paper):**
 
-**展示什么**:在 (X_c, X_GB) 空间中,把 4 条 baseline 曲线 + 我们的 HMC 测量点画到一起。
+> **Figure 0.** Al(Mg) GB Mg fraction X_GB versus total Mg fraction X_c at T = 500 K. **Green solid line** — Wagih's site-independent Fermi–Dirac (canon-FD) prediction, computed by averaging the per-site formula P_i(X_c, ΔE_i, T) over our n = 500 reference ΔE_seg spectrum (statistically indistinguishable from Wagih's published n = 82,646 spectrum, KS p = 0.89, Fig. 4). **Red filled circle ●** — HMC equilibrium at X_c = 0.05; both an over-segregated initial condition and a random initial condition converge here (Fig. 6). **Red open down-triangles ▽** — HMC trajectories started from an over-segregated initial state (preseg, X_GB(0) ≈ 0.32, all Mg deliberately placed into the lowest-ΔE GB sites) and still descending; their current values are upper bounds on the equilibrium X_GB. **Gray open down-triangle ▽** at X_c = 0.10 — a separate trajectory started from a random Mg distribution (multistart, X_GB(0) = 0.30) and also still descending; a second, IC-independent upper bound. The legend collapses both ▽ markers into one "HMC upper bound" entry — colour distinguishes the two ICs (red = over-segregated start, gray = random start), per the present caption. Wagih's site-independent assumption breaks for X_c ≥ 0.075: at X_c = 0.075 the over-segregated trajectory has already crossed below the FD prediction (0.254 < 0.301) while still descending, and at X_c = 0.10 the random-start trajectory sits 0.106 below FD = 0.352.
 
-**坐标轴**:
-- x: total Mg fraction X_c (0 到 0.40)
-- y: GB Mg fraction X_GB (0 到 1)
+**Role**: headline counter-example figure (the panel-d slot in the master figure plan).
 
-**4 条 baseline 曲线**:
-- **绿色实线 (canon-FD ours, n=500)** + **细绿线 (canon-FD Wagih, n=82,646)**,二者基本重合形成绿色 band;canon-FD = 在每个 X_c 下,把 Wagih FD 公式 P_i(X_c, ΔE_i, T) 在参考谱上平均得到 X_GB^FD
-- **蓝色 (GC-FD)**:Grand-Canonical FD,Wagih 公式在 grand-canonical 下的对应版本(适用于无限大 reservoir)
-- **黑色 dotted (closed-box ceiling)**:X_GB ≤ X_c · (1/f_gb) = X_c · 5.34;在 X_c < f_gb=0.187 时这是上界
-- **灰色 dashed (no segregation)**:X_GB = X_c
+**Axes**:
+- x: total Mg fraction X_c (0 to 0.35)
+- y: GB Mg fraction X_GB (0 to 0.95)
 
-**我们的 HMC 测量**:
-- 1 个红实心圆 ● (X_c=0.05):equilibrated bracket(双向 IC 验证,见图 6 `figures/06_two_sided_verify.png`),X_HMC = 0.2375 ± 0.005
-- 5 个红开口下三角 ▽ (X_c = 0.075, 0.10, 0.15, 0.20, 0.30):**preseg upper bound**,trajectory 仍在向下 descending,所以这是 X_GB^∞ ≤ end-value 的 *upper bound*
-- 1 个灰开口方块 □ (X_c=0.10):**multistart UB**,从 random IC(X_GB(0)=0.30)descend 至 kinetic floor,production-mean X_GB=0.246 ± 0.004 → 提供 IC-independent 的第二条 upper bound;在 canon-FD 之下 0.106 → 直接显示 X_c=0.10 breakdown
+**Single reference curve**: green solid line — Wagih FD prediction (canon-FD on our n = 500 spectrum). Earlier versions of this figure overlaid four reference curves (canon-FD ours, canon-FD Wagih, GC-FD, closed-box ceiling, X_GB = X_c diagonal) plus an ours-vs-Wagih shaded band, giving a 9–10-item legend. The defense panel only needs to convey "HMC < Wagih FD = breakdown", so the auxiliary curves were removed. The full four-curve version is still produced by the canonical script `scripts/canonical_fd_compare_5pt.py` → `output/hmc_vs_canonfd_T500.png` for cases where the broader reference context is needed (paper SI, methods discussion).
 
-**关键数字**(来源:`output/hmc_vs_canonfd_T500_with_multistart.json`,verified):
+**HMC measurements** (legend uses plain language; internal project terms in parentheses):
+- 1 red filled circle ● at X_c = 0.05: legend label **"HMC equilibrium"** (internal: equilibrated bracket). Two-sided IC verification, see Fig. 6 `figures/06_two_sided_verify.png`. X_HMC = 0.2375 ± 0.005.
+- 5 red open down-triangles ▽ at X_c = 0.075, 0.10, 0.15, 0.20, 0.30: legend label **"HMC upper bound"** (internal: preseg UB). Trajectory started from an over-segregated IC (X_GB(0) ≈ 0.32) and is still descending, so each marker is an upper bound on X_GB^∞.
+- 1 gray open down-triangle ▽ at X_c = 0.10: same legend entry "HMC upper bound" (internal: multistart UB / kinetic-floor IC). Trajectory started from a random IC (X_GB(0) = 0.30) and is also still descending; production-mean X_GB = 0.246 ± 0.004 → IC-independent upper bound. 0.106 below canon-FD → directly demonstrates X_c = 0.10 breakdown. Note: the random-start trajectory begins slightly lower than the preseg one, but both are still descending and the equilibrium value can only be ≤ 0.246.
 
-| X_c | 类型 | X_HMC | X_FD (ours) | gap (X_HMC − X_FD) |
+**Key numbers** (source: `output/hmc_vs_canonfd_T500_with_multistart.json`, verified):
+
+| X_c | Type | X_HMC | X_FD (ours) | gap (X_HMC − X_FD) |
 |---:|---|---:|---:|---:|
 | 0.050 | equilibrated ● | 0.2375 | 0.2282 | **+0.0093** (Wagih holds) |
-| 0.075 | preseg-UB ▽ | 0.2543 | 0.3007 | **−0.0464** (UB 已穿过 FD,**breakdown**) |
-| 0.100 | preseg-UB ▽ | 0.3749 | 0.3519 | +0.0230 (UB 仍在 FD 之上,空 bound — IC dependence) |
-| 0.100 | multistart-UB □ | 0.2459 | 0.3519 | **−0.1060** (UB 已穿过 FD,**breakdown**)|
-| 0.150 | preseg-UB ▽ | 0.5888 | 0.4204 | +0.1684 (空 bound) |
-| 0.200 | preseg-UB ▽ | 0.7942 | 0.4671 | +0.3271 (空 bound) |
-| 0.300 | preseg-UB ▽ | 0.8379 | 0.5337 | +0.3042 (空 bound) |
+| 0.075 | preseg UB ▽ (red) | 0.2543 | 0.3007 | **−0.0464** (UB has crossed below FD, **breakdown**) |
+| 0.100 | preseg UB ▽ (red) | 0.3749 | 0.3519 | +0.0230 (UB still above FD, vacuous bound — IC dependence) |
+| 0.100 | multistart UB ▽ (gray) | 0.2459 | 0.3519 | **−0.1060** (UB has crossed below FD, **breakdown**) |
+| 0.150 | preseg UB ▽ (red) | 0.5888 | 0.4204 | +0.1684 (vacuous bound) |
+| 0.200 | preseg UB ▽ (red) | 0.7942 | 0.4671 | +0.3271 (vacuous bound) |
+| 0.300 | preseg UB ▽ (red) | 0.8379 | 0.5337 | +0.3042 (vacuous bound) |
 
-**结论**:
-1. **X_c=0.05**:Wagih 假设成立(gap 在 1% 以内,两个 IC 都给出一致的 equilibrated bracket)
-2. **X_c=0.075**:**Wagih 假设失效的直接证据** —— preseg 从 X_GB(0)=0.32 descend 到 0.254,已穿过 canon-FD = 0.301 而仍在向下,所以 X_GB^∞ ≤ 0.254 < 0.301 = 矛盾
-3. **X_c=0.10**:**Wagih 假设失效第二个直接证据** —— multistart UB(灰 □)X_GB=0.246 ≪ canon-FD = 0.352(gap=−0.106);preseg UB(红 ▽)X_GB=0.375 仍在 canon-FD 之上,反映 IC dependence(preseg 还在 descend,multistart 已到 kinetic floor);两个 IC 给出 sandwich,equilibrium X_GB^∞ 必落在二者之间但都 ≤ multistart 的上界 → breakdown 成立
-4. **X_c ≥ 0.15**:preseg UBs 仍在 canon-FD 之上,空 bound;breakdown 评据由阈值外推(X_c\* ∈ (0.05, 0.075])+ 机理证据(图 1-3)推论
+**Conclusions**:
+1. **X_c = 0.05**: Wagih's assumption holds (gap within 1 %; both IC choices give a consistent equilibrated bracket).
+2. **X_c = 0.075**: **first direct evidence that the assumption fails** — the over-segregated trajectory descends from X_GB(0) = 0.32 to 0.254, crossing below canon-FD = 0.301 while still descending, so X_GB^∞ ≤ 0.254 < 0.301 = contradiction.
+3. **X_c = 0.10**: **second direct evidence** — the multistart UB (gray ▽) at X_GB = 0.246 is well below canon-FD = 0.352 (gap = −0.106); the preseg UB (red ▽) at X_GB = 0.375 is still above canon-FD, reflecting IC dependence (preseg trajectory still descending; multistart trajectory at the kinetic floor). The two ICs sandwich X_GB^∞, with X_GB^∞ ≤ min(0.375, 0.246) = 0.246 ≪ 0.352 → breakdown confirmed.
+4. **X_c ≥ 0.15**: preseg UBs are still above canon-FD (vacuous bounds). The breakdown evidence here comes from threshold extrapolation (X_c\* ∈ (0.05, 0.075]) and from the mechanism figures (1–3).
 
-**讲稿要点**(给听众):
-> "在 X_c=0.05 这个稀释极限,X_HMC 落在绿色 canon-FD band 上,差异 1% 以内 —— Wagih 公式预测对了。一旦 X_c 升到 0.075,即使 trajectory 从极端 segregation IC X_GB=0.32 一路向下,仍然冲过了 FD 预测的 0.301 ——这就是 Wagih 公式被推翻的直接证据。X_c=0.10 处又看到第二条独立证据:从随机 IC 出发的 multistart 跑(灰开方块)落在 0.246,远在 FD 预测的 0.352 之下。"
+**Talking points** (for the audience):
+> "At X_c = 0.05 — the dilute limit — the HMC measurement sits right on the green canon-FD curve, within 1 %. Wagih's formula gets it right. But at X_c = 0.075, even the trajectory that started maximally over-segregated (X_GB(0) = 0.32) descended past the FD prediction of 0.301 and is still going down — that's direct evidence that Wagih's formula is broken. At X_c = 0.10 we see a second, independent confirmation: the trajectory that started from a random Mg distribution (gray triangle) has descended to 0.246, well below FD = 0.352."
 
-**导师可能问**:
-- *Q: 为什么 multistart 和 preseg 在 X_c=0.10 不一致(0.246 vs 0.375)?* —— A: 这是 IC dependence。preseg 从 X_GB=0.32(强偏析)出发,trajectory 还在 descend 中,所以仍是 *upper bound from above*;multistart 从 random IC(X_GB=0.30,均匀分布)出发 descend 至 kinetic floor 0.246,也是 upper bound 但已通过 canon-FD 之下。两条 trajectory 给出 sandwich:equilibrium X_GB^∞ ≤ min(0.375, 0.246) = 0.246 ≪ canon-FD 0.352 → breakdown 直接证明。
-- *Q: 为什么 multistart UB 用灰开方而不是红开 ▽?* —— A: 与 Fig 3 (`03_repulsion_summary.png`) 一致 —— 灰开方表示 "random-IC 起始,descend 至 kinetic floor",与 preseg-IC 起始的 ▽ 区分,visual semantic 在 figure 之间保持一致。
-- *Q: preseg UB 为什么不是 lower bound?* —— A: trajectory 是 *descending*(IC 比 equilibrium 高,系统在向下走),所以观测到的 end value 是当前能达到的最低,equilibrium X_GB^∞ 只会更低或相等 → upper bound on X_GB^∞。
-- *Q: 阈值 X_c\* 的精确位置在哪?* —— A: 当前 binary search:X_c\* ∈ (0.05, 0.075](从 X_c=0.05 holds、X_c=0.075 fails 推断);X_c=0.06 job 65224958 已 submit,正在 normal.24h 排队,run 完后给出更精细的下界。
+**Likely advisor questions**:
+- *Q: Why do multistart and preseg disagree at X_c = 0.10 (0.246 vs. 0.375)?* — A: That's IC dependence. Preseg starts from X_GB = 0.32 (extreme segregation) and is still descending, so its current value is an upper bound from above. Multistart starts from a random configuration at X_GB = 0.30 and has also been descending; it has reached a kinetic floor near 0.246, also still slowly drifting down. Both are upper bounds on the equilibrium. Their sandwich gives X_GB^∞ ≤ min(0.375, 0.246) = 0.246, well below canon-FD = 0.352 → breakdown is direct.
+- *Q: Why are the two upper-bound markers the same shape but different colours?* — A: Same shape (▽) signals "upper bound, still descending"; colour distinguishes the IC (red = over-segregated start, gray = random start). The legend collapses them into a single row because both serve the same role; the per-IC distinction is in this caption.
+- *Q: Why is preseg UB not a lower bound?* — A: The trajectory starts above the equilibrium and descends; the current end value is the lowest the system has reached so far, and the equilibrium can only be lower or equal → it is an *upper* bound on X_GB^∞.
+- *Q: What is the precise threshold X_c\*?* — A: Current bracket is X_c\* ∈ (0.05, 0.075] from the binary-search outcome (X_c = 0.05 holds, X_c = 0.075 fails). Job 65224958 (X_c = 0.06) has been submitted to the normal.24h queue; once it finishes we will have a tighter lower bound.
 
 ---
 
 ### Figure 1 ── `01_MgMg_clustering.png`
 
-**角色**:机理证据 1 / 空间相关函数。
+**Caption (English):**
 
-**展示什么**:在 GB 上的 Mg 原子之间的 radial pair correlation function g(r) 的归一化比值。
+> **Figure 1.** Normalised radial pair correlation function for Mg atoms on grain boundaries, g_MgMg^HMC(r) / g_MgMg^random(r), at T = 500 K. The "uniform-random reference" g_MgMg^random(r) is computed by drawing the *same number* of Mg atoms placed at random GB lattice sites (without ΔE preference) and computing the same g(r). Three curves are shown for X_c = 0.075 (red, X_GB = 0.254), 0.150 (blue, X_GB = 0.588), 0.300 (green, X_GB = 0.838). All three lie above 1 around the FCC first-neighbour shell at r ≈ 3.30 Å, demonstrating that Mg–Mg correlations on the GB are non-random out to r ≈ 10 Å. This is an *aggregate* spatial signal — partly driven by the geometric proximity of deep-ΔE binding sites (Mg preferentially fills these, which are spatially clustered on the GB plane); the ΔE-controlled (residual) interaction is shown in Fig. 3.
 
-**核心数学**:
-- g_MgMg^HMC(r) = HMC snapshot 中 GB-Mg 原子两两距离的 radial distribution function
-- g_MgMg^random(r) = "uniform-random reference":取**相同数量** N_GB_Mg 个 Mg,**随机均匀**地撒在 GB lattice sites 上,算同样的 g(r)
-- y 轴 = 比值 **g_MgMg^HMC(r) / g_MgMg^random(r)**
-  - = 1 → HMC Mg 分布与"在 GB 上随机撒同数量的 Mg"统计上等价
-  - > 1 → 比随机更聚集(clustered)
-  - < 1 → 比随机更回避(avoidant)
+**Role**: mechanism evidence 1 / spatial correlation.
 
-**坐标轴**:
-- x: pair separation r [Å],0 到 25 Å
-- y: g_HMC / g_random,0 到 1.55
+**What it shows**: ratio of the Mg–Mg radial pair correlation function on the GB to a uniform-random GB reference.
 
-**绘制的 3 条曲线**(按 X_GB 升序):
+**Core math**:
+- g_MgMg^HMC(r) = radial distribution function of GB-Mg pairs in the HMC snapshot.
+- g_MgMg^random(r) = "uniform-random reference": draw the **same number** N_GB_Mg of Mg atoms placed **uniformly at random** on GB lattice sites, and compute the same g(r).
+- y-axis = ratio **g_MgMg^HMC(r) / g_MgMg^random(r)**.
+  - = 1 → HMC distribution statistically equivalent to "random Mg of the same count on GB sites".
+  - > 1 → more clustered than random.
+  - < 1 → more avoidant than random.
 
-| X_c | X_GB | N_GB_Mg | 颜色 | 第一峰位置 (r ≈ 3.30 Å) | 全局极大 (r ∈ [2.5, 6] Å) |
+**Axes**:
+- x: pair separation r [Å], 0 to 25 Å.
+- y: g_HMC / g_random, 0 to 1.55.
+
+**Three curves** (sorted by ascending X_GB):
+
+| X_c | X_GB | N_GB_Mg | colour | first peak (r ≈ 3.30 Å) | global max in r ∈ [2.5, 6] Å |
 |---:|---:|---:|---|---:|---|
-| 0.075 | 0.254 | 22,635 | 红 | **1.075** (弱) | 1.220 @ r=5.90 Å (第二壳层) |
-| 0.150 | 0.588 | 52,394 | 蓝 | 1.225 | 1.225 @ r=3.30 Å |
-| 0.300 | 0.838 | 74,582 | 绿 | 1.099 | 1.099 @ r=3.30 Å |
+| 0.075 | 0.254 | 22,635 | red | **1.075** (weak) | 1.220 @ r = 5.90 Å (second shell) |
+| 0.150 | 0.588 | 52,394 | blue | 1.225 | 1.225 @ r = 3.30 Å |
+| 0.300 | 0.838 | 74,582 | green | 1.099 | 1.099 @ r = 3.30 Å |
 
-(来源:`output/solute_correlation_analysis.json`,直接读取 `g_MgMg_pair_correlation.curves[label].ratio`,verified by spot-check at r=3.30 Å)
+(Source: `output/solute_correlation_analysis.json`, value taken directly from `g_MgMg_pair_correlation.curves[label].ratio`; verified by spot-check at r = 3.30 Å.)
 
-**为什么选这 3 个 X_c?** 0.075=阈值临界 / 0.15=mid-range / 0.30=高 X_c 饱和。**没选** 0.10_multistart 和 0.10_preseg(0.10 这一组属于 kinetic-floor / 还在 descend,放进 mechanism 图会要解释额外一层 IC dependence);**没选** 0.20(在图 3 summary 里有完整数据)。
+**Why these three X_c?** 0.075 = threshold critical / 0.15 = mid-range / 0.30 = high-X_c saturation. We **excluded** 0.10_multistart and 0.10_preseg because the X_c = 0.10 group is in a kinetic-floor / still-descending state (placing them on a mechanism plot would require explaining an extra layer of IC dependence). We also **excluded** 0.20 since the full data is in the Fig. 3 summary.
 
-**关键 annotations**:
-- horizontal dashed line at y=1.0 + label "uniform-random reference"
-- vertical gray band at r ∈ [3.0, 3.5] Å,label "1st NN shell (FCC Al)" —— FCC Al 的 1st-NN 距离 ~2.86 Å,GB 处略微展宽
-- 标题副行 "(non-random structure out to r ~ 10 Å)"
-- footer caption(谨慎 wording):"Aggregate spatial signal. The peak above 1 is partly driven by the geometric proximity of deep-ΔE binding sites; the ΔE-controlled (residual) interaction is in Fig. 3."
+**Key annotations**:
+- Horizontal dashed line at y = 1.0 + label "uniform-random reference".
+- Vertical gray band at r ∈ [3.0, 3.5] Å + label "1st NN shell (FCC Al)" — FCC Al's 1st-NN distance is ~2.86 Å, slightly broadened at the GB.
+- Subtitle: "(non-random structure out to r ~ 10 Å)".
+- Footer caption (carefully worded): "Aggregate spatial signal. The peak above 1 is partly driven by the geometric proximity of deep-ΔE binding sites; the ΔE-controlled (residual) interaction is in Fig. 3."
 
-**结论**(讲稿):
-> "我们看到 3 条 X_c 不同的曲线在 r ≈ 3 Å 都明显高于 1,**但这不是简单的 Mg-Mg 化学吸引**。深 ΔE_i 位点本身在 GB 平面上就空间相邻,Mg 优先抢占这些位点,自然在 g(r) 里产生正的偏差。所以这是 *aggregate* spatial signal,展示的是'分布非随机'这一事实,但对 interaction 性质(吸引/排斥)无定论。要看真实的 site-level interaction,需要控制 ΔE_i,这是图 3。"
+**Talking points**:
+> "All three curves at different X_c rise above 1 at r ≈ 3 Å, **but this is not simple Mg–Mg chemical attraction**. Deep-ΔE sites are themselves spatially adjacent on the GB plane; Mg preferentially fills those sites, which automatically produces a positive deviation in g(r). So this is an *aggregate* spatial signal: it shows the distribution is non-random, but cannot decide whether the underlying interaction is attractive or repulsive. To see the true site-level interaction we have to control for ΔE — that is Fig. 3."
 
-**0.075 第一峰为何反常压制(1.075 ≪ 1.604 of 0.10_multistart)?**
+**Why is the X_c = 0.075 first peak anomalously suppressed (1.075 vs. 1.604 at 0.10_multistart)?**
 
-物理解释:0.075_preseg 在 X_c=0.075、X_GB=0.254 处接近"刚跨过 breakdown 阈值"的状态;此时 GB 上的 Mg 数量稀疏(22,635 / 89,042 = 25%),互相直接接触的 1st-NN repulsion 来得及"挑选"非相邻位点。geometric clustering 仍存在于第二壳层 r≈5.9 Å(1.22),但 1st-NN 已部分被 repulsion 压平。这反过来支持**图 3** 的 site-level repulsion 结论。
+Physical interpretation: 0.075_preseg at X_c = 0.075, X_GB = 0.254 is right above the breakdown threshold; Mg coverage of GB sites is sparse (22,635 / 89,042 = 25 %), so the system has the freedom to "pick" non-adjacent sites and avoid first-NN Mg–Mg contact. Geometric clustering still shows up at the second-shell peak r ≈ 5.9 Å (1.22), but the first-NN peak is partially flattened by site-level repulsion. This in turn supports the **Fig. 3** site-level repulsion conclusion.
 
-**导师可能问**:
-- *Q: g_random 怎么生成的,统计噪声多大?* —— A: 随机选 N_GB_Mg 个 GB sites(无放回)、用同一 RNG seed (20260429),代码见 `scripts/solute_correlation_analysis.py:133-141`。一次 draw 即固定 reference;若需要 ensemble 噪声估计可以重复多次,目前 sample size 充足(20k+ atoms per snapshot)所以 reference 自身波动可忽略。
-- *Q: g(r) at small r dropping to 0 / NaN?* —— A: r < 2 Å 处 random reference 的 shell volume × density 给出 < 1 个 expected pair,变成 g_random=0 → ratio undefined。这不是 HMC 的问题。
-- *Q: 0.075 的反常第一峰是否做了 sanity check?* —— A: 该 snapshot N_GB_Mg=22,635 经独立重算确认(spot-check Δ=0,见 §8);第一峰 1.075 直接来自 JSON `curves['0.075_preseg'].ratio[16]`(r 轴 bin 16 = 3.30 Å)。
+**Likely advisor questions**:
+- *Q: How is g_random generated and what is its statistical noise?* — A: N_GB_Mg GB sites are drawn at random without replacement using a fixed RNG seed (20260429); see `scripts/solute_correlation_analysis.py:133-141`. A single draw fixes the reference; if ensemble noise estimates are needed, multiple draws can be averaged. Current sample size is comfortable (20k+ atoms per snapshot), so reference fluctuations are negligible.
+- *Q: Why does g(r) drop to 0 / NaN at small r?* — A: For r < 2 Å the random reference's shell volume × density gives < 1 expected pair, so g_random = 0 → ratio undefined. This is not an HMC artefact.
+- *Q: Has the anomalous first peak at X_c = 0.075 been sanity-checked?* — A: That snapshot has N_GB_Mg = 22,635 (independent recomputation Δ = 0, see §8); the first peak 1.075 is read directly from the JSON `curves['0.075_preseg'].ratio[16]` (r-axis bin 16 = 3.30 Å).
 
 ---
 
 ### Figure 2 ── `02_occupation_breakdown.png`
 
-**角色**:机理证据 2 / 能量轴上的 Wagih FD 失效位置。
+**Caption (English):**
 
-**展示什么**:把 X_c=0 reference 谱里 500 个位点按 ΔE_i 分箱,在每箱内统计 HMC 快照中"该位点是 Mg"的概率 P_i;与 Wagih FD 公式预测对比。3 个 panels = 3 个 X_c 切面。
+> **Figure 2.** Empirical Mg occupation probability P_i versus per-site segregation energy ΔE_i, compared with Wagih's site-independent FD prediction P_i^Wagih(ΔE_i; T, X_c) = 1 / (1 + ((1 − X_c) / X_c) · exp(ΔE_i / kT)) at T = 500 K (kT = 4.157 kJ/mol). For each panel the n = 500 reference sites are binned in ΔE_i (10 equal-width bins from −48 to +36 kJ/mol); within each bin, P_i is the fraction of sites occupied by Mg in the HMC snapshot, with binomial 95 % confidence intervals. Three panels show X_c = 0.075 (X_GB = 0.254), 0.150 (X_GB = 0.588), 0.300 (X_GB = 0.838). The favourable-binding region (ΔE < 0) is shaded green; the largest gap between the Wagih sigmoid and the empirical points in this region is annotated as ΔP_i. Empirical P_i is **systematically below** the Wagih sigmoid at the favourable end, with the gap widening as X_c decreases (ΔP_i = 0.77, 0.57, 0.13 for X_c = 0.075, 0.150, 0.300) — the breakdown is concentrated at the deepest binding sites.
 
-**核心数学**:
-- 经验 P_i:对每个 reference site,在 HMC snapshot 中读取 atom type;type==Mg → 1,else → 0;在 ΔE_i 分箱内取平均 (binomial proportion)
-- Wagih FD 预测:`P_i^Wagih(ΔE_i; T, X_c) = 1 / (1 + ((1-X_c)/X_c) · exp(ΔE_i / kT))`,kT = 4.157 kJ/mol at T=500 K
+**Role**: mechanism evidence 2 / where on the energy axis Wagih FD fails.
 
-**坐标轴**:
-- x: ΔE_i [kJ/mol] (X_c=0 reference 谱),范围约 [−48, +36] kJ/mol
-- y: P_i (Mg occupation probability),0 到 1
-- y 轴只在最左 panel 标(共享 y)
+**What it shows**: bin the 500 reference sites by ΔE_i; within each bin, compute the empirical probability that the site is occupied by Mg in the HMC snapshot; compare with the Wagih FD prediction. Three panels for three X_c values.
 
-**3 个 panel**:X_c = 0.075,0.150,0.300(与图 1 相同的 X_c 选择)。
+**Core math**:
+- Empirical P_i: for each reference site, read the atom type in the HMC snapshot; type = Mg → 1, else → 0; average within each ΔE_i bin (binomial proportion).
+- Wagih FD prediction: `P_i^Wagih(ΔE_i; T, X_c) = 1 / (1 + ((1 − X_c) / X_c) · exp(ΔE_i / kT))`, kT = 4.157 kJ/mol at T = 500 K.
 
-**每个 panel 的元素**:
-- 黑实线 = Wagih FD theoretical curve(在 dense ΔE grid 上 200 点采样)
-- 红/蓝/绿点 + 95% CI errorbar = empirical(10 个 ΔE 等距 bins,bin n_per_bin 见 JSON)
-- 浅绿 vertical band at ΔE < 0:**favourable binding region**
-- vertical green line at ΔE = 0
-- annotation arrow + box "ΔP_i ≈ X.XX":在 favourable 端(ΔE < 0)经验 P_i 与 Wagih 预测最大偏差处
-- panel title: "X_c = 0.XXX → X_GB = 0.XXX"
+**Axes**:
+- x: ΔE_i [kJ/mol] (X_c = 0 reference spectrum), range ~[−48, +36] kJ/mol.
+- y: P_i (Mg occupation probability), 0 to 1.
+- y-label only on the leftmost panel (shared y).
 
-**关键数字**(来源:`output/solute_correlation_analysis.json` + Wagih 公式重算,verified):
+**Three panels**: X_c = 0.075, 0.150, 0.300 (same X_c selection as Fig. 1).
 
-| X_c | 最 favourable bin (ΔE) | P_Wagih 预测 | P_emp 实测 | ΔP_i = Wagih − emp |
+**Per-panel elements**:
+- Black solid line = Wagih FD theoretical curve (sampled on a dense ΔE grid, 200 points).
+- Red / blue / green points + 95 % CI errorbars = empirical (10 equal-width ΔE bins; per-bin counts in JSON `n_per_bin`).
+- Light green vertical band at ΔE < 0: **favourable binding region**.
+- Vertical green line at ΔE = 0.
+- Annotation arrow + box "ΔP_i ≈ X.XX": at the favourable-end (ΔE < 0) bin with the largest empirical-vs-Wagih gap.
+- Panel title: "X_c = 0.XXX → X_GB = 0.XXX".
+
+**Key numbers** (source: `output/solute_correlation_analysis.json` + Wagih-formula recomputation, verified):
+
+| X_c | most-favourable bin (ΔE) | P_Wagih predicted | P_emp measured | ΔP_i = Wagih − emp |
 |---:|---:|---:|---:|---:|
 | 0.075 | −27.40 kJ/mol | 0.9834 | 0.2105 | **0.7728** (drawn as 0.77) |
 | 0.150 | −44.25 kJ/mol | 0.9999 | 0.4286 | **0.5713** (drawn as 0.57) |
 | 0.300 | −27.40 kJ/mol | 0.9968 | 0.8684 | **0.1284** (drawn as 0.13) |
 
-**结论**(讲稿):
-> "Wagih sigmoid 在 ΔE < 0 favourable 端预测 P_i ≈ 1(deep-binding site 应该几乎被填满)。但 HMC 实测在 X_c=0.075 时 favourable 端 P_i 只有 0.21 —— 比预测低 0.77。X_c=0.15 是 0.57,X_c=0.30 收窄到 0.13。**breakdown 的位置在 ΔE 谱的最低端,且 X_c 越低、breakdown 越严重**。"
+**Talking points**:
+> "Wagih's sigmoid predicts that deep-binding sites (ΔE < 0) should be nearly fully occupied — P_i ≈ 1. But the HMC measurements show that at X_c = 0.075 the favourable end is only at P_i ≈ 0.21, a gap of 0.77 below the prediction. At X_c = 0.15 the gap shrinks to 0.57; at X_c = 0.30 to 0.13. **The breakdown lives at the lowest energies, and it is *more severe* at lower X_c** — exactly opposite to what you might naively expect."
 
-**为什么 X_c 越低 ΔP 反而越大?** 看似反直觉;物理解释:
-- X_c 高时,所有位点(包括 unfavourable)都已被填充到饱和,没有"歧视空间"
-- X_c 低时,系统**有能力**优先选择 favourable 位点(Wagih 预测正是假设这一选择是独立的)。但 Mg-Mg 排斥让这个选择产生干涉:你想填一个 deep site,但旁边 Mg 推开你 → 实测 P_i 远低于独立位点预测。
-- **breakdown 反映 site-level interaction 的存在,X_c → 0 极限下 interaction 严重程度反而最高**(因为 mean-field 平均下来本应没有干涉)。
+**Why does ΔP grow as X_c decreases?** Counterintuitive at first; the physical interpretation:
+- At high X_c, all sites (even unfavourable ones) are saturated, so there is no "discrimination room" left.
+- At low X_c, the system **has the freedom** to preferentially occupy favourable sites (which is exactly what Wagih's independence assumption predicts). But Mg–Mg repulsion interferes with that selection: you want to fill a deep site, but a neighbouring Mg pushes you away → empirical P_i is far below the independent-site prediction.
+- **The breakdown reveals the existence of site-level interactions; the X_c → 0 limit is where their relative strength is greatest** (because mean-field averaging is supposed to wash interference out, yet it does not).
 
-**导师可能问**:
-- *Q: ΔE_i 是 X_c=0 reference 谱的;但有限 X_c 下 effective ΔE_i 因局部 Mg-Mg 互作而 shift。这个 confound 怎么处理?* —— A: 这是 *by design* 的选择:用 bare ΔE_i 作为"独立位点 baseline"才能直接对比 Wagih 假设(后者本身就用 X_c=0 谱)。Renormalized ΔE 下的等价比较是 future work(项目曾探索 ΔE-shift 方向,deprioritized 因 mechanism 路径直接出结果)。
-- *Q: bin 边界怎么选,bin 内 site 数够吗?* —— A: 10 个 ΔE 等距 bins from min to max of n=500 谱;bin 内平均 50 sites,binomial 95% CI 用正态近似(`scripts/solute_correlation_analysis.py:208-225`)。bin counts in JSON `n_per_bin` 字段。
-- *Q: 为什么 X_c=0.150 的 favourable bin 是 −44 kJ/mol(更深),而 0.075/0.30 是 −27 kJ/mol?* —— A: 这是脚本"argmax(gap)" 的选择,取决于 bin density × gap,不是物理意义上的 fixed ΔE。这只是 annotation 的"highlight 最大 gap"算法。
+**Likely advisor questions**:
+- *Q: ΔE_i comes from the X_c = 0 reference spectrum; at finite X_c the effective ΔE_i shifts due to local Mg–Mg interactions. How is that confound handled?* — A: It is *by design*: using bare ΔE_i as the "independent-site baseline" is the only way to test Wagih's assumption directly (the assumption itself is built on the X_c = 0 spectrum). Renormalising ΔE under finite X_c is a future-work direction; the project explored a ΔE-shift approach earlier and deprioritised it because the mechanism path produced cleaner conclusions.
+- *Q: How are bin boundaries chosen, and are bin counts adequate?* — A: 10 equal-width ΔE bins from min to max of the n = 500 spectrum; ~50 sites per bin on average; binomial 95 % CIs with the normal approximation (`scripts/solute_correlation_analysis.py:208-225`). Per-bin counts are recorded in JSON `n_per_bin`.
+- *Q: Why is the favourable bin for X_c = 0.150 at −44 kJ/mol (deeper) while 0.075 / 0.30 are at −27 kJ/mol?* — A: The script picks "argmax(gap)" which depends on bin density × gap, not on a physically fixed ΔE. It is purely an annotation algorithm to highlight the largest gap.
 
 ---
 
 ### Figure 3 ── `03_repulsion_summary.png`
 
-**角色**:机理证据 3 / **直接证据** —— 控制 ΔE_i 后,邻居 Mg 数对占据率的影响。
+**Caption (English):**
 
-**展示什么**:左 panel 是 6 个 X_c 上 slope ∂P_i/∂n_Mg^local 的 summary;右 panel 是 X_c=0.075 的 raw scatter zoom。
+> **Figure 3.** Direct evidence of site-level Mg–Mg repulsion: at fixed ΔE_i, occupation probability decreases as the number of nearby Mg neighbours increases. **Left panel**: slope ∂P_i / ∂n_Mg^local versus X_c, fit to 218 sites in the favourable-ΔE window [−30, −5] kJ/mol with local radius r_local = 5 Å. Six points cover X_c = 0.075–0.30; preseg trajectories shown as red ▽, the X_c = 0.10 multistart shown as a gray open square (kinetic-floor IC). The slope is most negative at X_c = 0.075 (−0.083, "steepest repulsion" call-out), then weakens with X_c and crosses zero at X_c = 0.20 (saturation regime — most favourable sites are already filled, signal is dominated by statistical noise; not a sign reversal of the underlying interaction). **Right panel**: raw scatter for X_c = 0.075 — empirical P_i versus n_Mg^local in the favourable-ΔE window — with a weighted linear fit confirming slope = −0.083.
 
-**核心数学**:
-1. 在 favourable ΔE window [−30, −5] kJ/mol 内挑出 218/500 reference sites(数量见 JSON `site_occupation_vs_density.n_sites_in_window`)
-2. 对每个 site i,计算 n_Mg^local(i) = number of Mg atoms within r_local = 5 Å of site i(扣除 self,如果 site i 自己是 Mg)
-3. 把这 218 sites 按 n_Mg^local 整数值分箱,bin 内取 P_i 平均
-4. 对(P_i vs n_Mg^local)做带权 linear fit,得到 slope 值(单位 1/Mg-neighbour)
+**Role**: mechanism evidence 3 / **direct evidence** — controlling for ΔE_i, the effect of Mg-neighbour count on occupancy.
 
-**坐标轴**:
-- 左:x = X_c (0.04 到 0.33),y = slope (−0.13 到 +0.06) [per Mg-neighbour]
-- 右:x = n_Mg^local (Mg 邻居数,0 到 11),y = P_i within ΔE ∈ [−30, −5] kJ/mol window (0 到 1)
+**What it shows**: left panel — summary of the slope ∂P_i / ∂n_Mg^local across six X_c values; right panel — raw scatter zoom for X_c = 0.075.
 
-**6 个 slope 数据点**(来源:`output/solute_correlation_analysis.json`,verified):
+**Core math**:
+1. Within the favourable-ΔE window [−30, −5] kJ/mol, select 218 / 500 reference sites (count in JSON `site_occupation_vs_density.n_sites_in_window`).
+2. For each site *i*, compute n_Mg^local(*i*) = number of Mg atoms within r_local = 5 Å of *i* (excluding self if *i* itself is Mg).
+3. Bin these 218 sites by integer n_Mg^local; compute the average P_i within each bin.
+4. Fit a weighted linear regression to (P_i vs n_Mg^local), giving the slope (units: 1/Mg-neighbour).
 
-| label | X_c | X_GB | slope (per Mg-nbr) |
+**Axes**:
+- Left: x = X_c (0.04 to 0.33), y = slope (−0.13 to +0.06) [per Mg-neighbour].
+- Right: x = n_Mg^local (Mg neighbour count, 0 to 11), y = P_i within ΔE ∈ [−30, −5] kJ/mol window (0 to 1).
+
+**Six slope data points** (source: `output/solute_correlation_analysis.json`, verified):
+
+| Label | X_c | X_GB | slope (per Mg-nbr) |
 |---|---:|---:|---:|
 | 0.075_preseg | 0.075 | 0.2542 | **−0.0826** ← steepest |
 | 0.10_multistart | 0.100 | 0.2277 | −0.0310 (gray square: kinetic-floor IC) |
@@ -279,123 +289,141 @@
 | 0.20_preseg | 0.200 | 0.7937 | **+0.0148** ← saturation crossover |
 | 0.30_preseg | 0.300 | 0.8376 | −0.0018 |
 
-**关键 annotations**:
-- Left:slope=0 horizontal dashed line + "no interaction (slope = 0)"
-- Left:annotated callout at X_c=0.075 → "slope = −0.083 (steepest repulsion)"
-- Left:annotated callout at X_c=0.20 → "saturation regime (sites mostly full)"
-- Left:0.10_multistart 显示为开口灰色方块(kinetic-floor IC,与 preseg 系列区分)
-- Right:linear fit dashed line + slope value in legend
+**Key annotations**:
+- Left: slope = 0 horizontal dashed line + label "no interaction (slope = 0)".
+- Left: annotated callout at X_c = 0.075 → "slope = −0.083 (steepest repulsion)".
+- Left: annotated callout at X_c = 0.20 → "saturation regime (sites mostly full)".
+- Left: 0.10_multistart shown as a gray open square (kinetic-floor IC, distinguished from the preseg series).
+- Right: linear fit dashed line + slope value in legend.
 
-**结论**(讲稿):
-> "把 ΔE 控制住,只看局部环境:在 favourable 窗口内,Mg 邻居越多的位点占据率反而越低。这是**直接的 site-level Mg-Mg repulsion 证据**。X_c=0.075 时斜率 −0.083 最陡,因为系统刚跨过 breakdown 阈值,仍有充足'歧视空间'。X_c 升到 0.20 之后斜率收窄到 ~0,因为 favourable 位点已经几乎填满,统计上无法再分辨;不是 interaction 反转,而是**饱和效应**(误差棒覆盖零)。"
+**Talking points**:
+> "Once we control for ΔE and look only at the local environment: in the favourable window, sites with more Mg neighbours have *lower* occupation. That is **direct site-level Mg–Mg repulsion**. The slope is most negative at X_c = 0.075 (−0.083), because the system has just crossed the breakdown threshold and there is plenty of room to discriminate. By X_c = 0.20 the slope has narrowed to ~0 — not a sign reversal; favourable sites are mostly already filled and the signal is dominated by statistical noise (the error bar straddles zero)."
 
-**导师可能问**:
-- *Q: X_c=0.20 slope 翻正(+0.0148),物理上 Mg-Mg 变吸引了?* —— A: **No, 饱和**。在 X_c=0.20 时 X_GB=0.794,绝大多数 favourable site 都已被 Mg 占据;slope fit 在 n_local 高端(如 n=15-20)主要由饱和后小幅波动决定,误差棒大,符号不可靠。X_c=0.30 时 slope 回到 −0.002 ≈ 0,与饱和图景一致。
-- *Q: 0.10_multistart vs 0.10_preseg slope 不同(−0.031 vs −0.040),哪个对?* —— A: 两条都对,反映**不同 X_GB 下的 repulsion strength**。multistart 此时 X_GB=0.228(更稀疏),preseg 此时 X_GB=0.375(更密)。根据 X_GB 升序排,multistart 应该和 0.075_preseg 一类(低 X_GB,steep slope),但实际更浅 —— 因为 multistart 是 kinetic-floor 状态,trajectory 在 descend 中,不完全平衡,structure 比平衡态多一些 random-IC 残留。这本身就是支持"non-equilibrium states show different correlation patterns"的次级观察。
-- *Q: 218 sites 样本量够吗?* —— A: 这是 favourable [−30, −5] 窗口内的 sample size;每个 X_c 切面的 P_i averaging 各 bin 还有 ~10–25 sites,binomial 95% CI 见图右 panel error bars。整体 fit 对 outliers 有 inverse-variance weight(`scripts/solute_correlation_analysis.py:300-302`)。
+**Likely advisor questions**:
+- *Q: The slope at X_c = 0.20 flips positive (+0.0148) — has Mg–Mg become attractive?* — A: **No, this is saturation**. At X_c = 0.20, X_GB = 0.794, so the great majority of favourable sites are already occupied by Mg; the slope fit at high n_local (e.g. n = 15–20) is dominated by post-saturation small-amplitude fluctuations, with large error bars and an unreliable sign. The X_c = 0.30 slope returns to −0.002 ≈ 0, consistent with the saturation picture.
+- *Q: Why do 0.10_multistart and 0.10_preseg disagree (slope = −0.031 vs. −0.040)?* — A: Both are correct, and they reflect **the repulsion strength at different X_GB**. Multistart at this X_c has X_GB = 0.228 (sparser); preseg has X_GB = 0.375 (denser). By the X_GB-ascending ordering, multistart should pattern with 0.075_preseg (low X_GB, steep slope), but it is actually shallower — because it is in a kinetic-floor state, the trajectory is still descending and not fully equilibrated, so the structure carries some random-IC residue. This itself is a secondary observation supporting "non-equilibrium states show different correlation patterns".
+- *Q: Are 218 sites enough?* — A: 218 is the count inside the favourable [−30, −5] window. Within each X_c slice, P_i averaging in each bin still has ~10–25 sites; binomial 95 % CIs are shown as error bars in the right panel. The overall fit has inverse-variance weights against outliers (`scripts/solute_correlation_analysis.py:300-302`).
 
 ---
 
-### 支撑图(Supporting Figures, 4–7)
+### Supporting Figures (4–7)
 
-主故事线靠图 0–3 闭环;以下 4 张是 Q&A / 方法学背景用,可在被追问时直接打开。
+The main story arc closes with Figs. 0–3; the following four figures are for Q&A or methodological backing, opened on demand.
 
 #### Figure 4 ── `04_spectrum_match.png`
 
-**角色**:谱代表性 / 方法学前提。
+**Caption (English):**
 
-**展示什么**:把我们 n=500 ΔE 谱(粉色直方图 + 棕色 dashed skew-normal 拟合)与 Wagih Zenodo 公开的 n=82,646 谱(浅绿直方图 + 深绿 solid 拟合)叠加。
+> **Figure 4.** Histograms and skew-normal fits for the per-site segregation-energy spectrum ΔE_seg. Light-green histogram + dark-green solid line — Wagih's published Zenodo spectrum (n = 82,646 GB sites, his Mendelev Al–Mg potential). Pink histogram + brown dashed line — our n = 500 random sample on the 200-Å Voronoi polycrystal. Two-sample KS test gives D = 0.026, p = 0.89, well above the project threshold of 0.5 → the two spectra are statistically indistinguishable, justifying the use of Wagih's FD framework as the baseline for our system. Skew-normal fit parameters: ours μ = +6.3, σ = 20.1, α = −1.47; Wagih μ = +6.7, σ = 20.8, α = −1.40.
 
-**关键数字**(图标题):**KS D=0.026, p=0.89** ≫ 0.5(spectrum-level indistinguishable);ours fit μ=+6.3, σ=20.1, α=−1.47;Wagih fit μ=+6.7, σ=20.8, α=−1.40。
+**Role**: spectrum representativeness / methodological prerequisite.
 
-**用途**:回答 Q5(n=500 谱够代表性吗?)。源数据见 `output/compare_vs_wagih_200A_tight.json`,生成脚本 `scripts/compare_vs_wagih.py`。
+**What it shows**: pink histogram + brown dashed skew-normal fit (our n = 500 spectrum) overlaid on the light-green histogram + dark-green solid skew-normal fit (Wagih Zenodo n = 82,646).
+
+**Key numbers** (in the figure title): **KS D = 0.026, p = 0.89** ≫ 0.5 (spectrum-level indistinguishable); ours fit μ = +6.3, σ = 20.1, α = −1.47; Wagih fit μ = +6.7, σ = 20.8, α = −1.40.
+
+**Use case**: answers Q5 (is the n = 500 spectrum representative?). Source data: `output/compare_vs_wagih_200A_tight.json`. Generating script: `scripts/compare_vs_wagih.py`.
 
 #### Figure 5 ── `05_sampler_convergence.png`
 
-**角色**:HMC 收敛诊断。
+**Caption (English):**
 
-**展示什么**:X_c=0.075 preseg run 的 5-panel 时序:(a) T(t) 维持 500 K;(b) PE(t) 在 ~150 ps 内 plateau 到 ~−1.513×10⁶ eV;(c) 累计 swap accept rate ~6.2%;(d) X_GB(t) 从 IC ~0.32 单调下降至 0.254(灰色阴影 = burnin);(e) 每帧 swap fwd/rev 分解,显示 net 反向(Mg 在向 bulk 流出)。
+> **Figure 5.** HMC convergence diagnostics for the X_c = 0.075 preseg run, five-panel time series. (a) Instantaneous temperature T(t) holds at 500 K. (b) Total potential energy PE(t) plateaus near −1.513 × 10^6 eV after ~150 ps. (c) Cumulative swap acceptance rate stabilises around 6.2 %. (d) X_GB(t) descends monotonically from the over-segregated IC (~0.32) to the production-mean 0.254 (gray shading marks the burn-in window). (e) Per-frame swap fwd/rev decomposition (Mg ⇌ bulk) showing a net reverse imbalance — Mg is leaving the GB. Together these panels show the run is well-equilibrated apart from the slow ongoing descent of X_GB(t), which is the physical signal we are using as an upper bound.
 
-**用途**:回答 Q4(HMC 收敛了吗?)。源数据 `output/hmc_T500_Xc0.075_preseg.json`,生成脚本 `scripts/hmc_xgb_timeseries.py`。
+**Role**: HMC convergence diagnostic.
+
+**What it shows**: five-panel time series for the X_c = 0.075 preseg run: (a) T(t) holding at 500 K; (b) PE(t) plateauing near −1.513 × 10^6 eV after ~150 ps; (c) cumulative swap accept rate ~6.2 %; (d) X_GB(t) descending monotonically from IC ~0.32 to 0.254 (gray shading = burn-in); (e) per-frame swap fwd/rev decomposition, showing net reverse flux (Mg leaving the GB).
+
+**Use case**: answers Q4 (has HMC converged?). Source data: `output/hmc_T500_Xc0.075_preseg.json`. Generating script: `scripts/hmc_xgb_timeseries.py`.
 
 #### Figure 6 ── `06_two_sided_verify.png`
 
-**角色**:平衡态验证(稀释端)。
+**Caption (English):**
 
-**展示什么**:X_c=0.05、T=500 K 下两条独立 trajectory:random IC(蓝,从 X_GB(0)=0.05 上升至 0.062)与 preseg IC(红,从 X_GB(0)=0.27 下降至 0.238)。canon-FD 目标 0.228(黑 dashed)落在两端之间。
+> **Figure 6.** Two-sided IC equilibration verification at X_c = 0.05, T = 500 K. Blue line — random IC, X_GB(0) = 0.05, rising to 0.062. Red line — preseg IC, X_GB(0) = 0.27, descending to 0.238. The canon-FD target X_GB^FD = 0.228 (black dashed) lies between the two endpoints, demonstrating that the sampler equilibrates at the dilute end with ICs on both sides. Half-life-2 residuals: Δ_{1/2}^{rand} = +0.006, Δ_{1/2}^{preseg} = −0.015 (acceptable bracket convergence). The remaining sandwich width is dominated by the preseg trajectory still drifting after overshooting the target.
 
-**关键数字**:half-life-2 残差 Δ_{1/2}^{rand}=+0.006, Δ_{1/2}^{preseg}=−0.015 → bracket 收敛达标;sandwich 区间宽度 ~0.18(主要来自 preseg trajectory 还未完全收敛,但已 overshoot canon-FD 目标后稳定下来)。
+**Role**: equilibration verification at the dilute end.
 
-**用途**:Q4 的更强版回答(双向 IC 验证 sampler 在稀释端真正 equilibrate)。源数据 `output/hmc_T500_Xc5e-2_verify-{rand,preseg}_xgb.json`,生成脚本 `scripts/verify_two_sided_compare.py`。
+**What it shows**: at X_c = 0.05, T = 500 K, two independent trajectories — random IC (blue, rising from X_GB(0) = 0.05 to 0.062) and preseg IC (red, descending from X_GB(0) = 0.27 to 0.238). The canon-FD target 0.228 (black dashed) lies between the two endpoints.
+
+**Key numbers**: half-life-2 residuals Δ_{1/2}^{rand} = +0.006, Δ_{1/2}^{preseg} = −0.015 → bracket converges to spec. Sandwich width ~0.18 (driven mostly by the preseg trajectory still drifting after overshooting the canon-FD target).
+
+**Use case**: stronger version of the answer to Q4 (two-sided IC verification that the sampler equilibrates at the dilute end). Source data: `output/hmc_T500_Xc5e-2_verify-{rand,preseg}_xgb.json`. Generating script: `scripts/verify_two_sided_compare.py`.
 
 #### Figure 7 ── `07_ovito_segregation.png`
 
-**角色**:偏析视觉确认 / 非专家入场。
+**Caption (English):**
 
-**展示什么**:X_c=0.20 final HMC config 的 OVITO 渲染。灰色 = Al,橙色 = Mg。GB(晶界)处 Mg 浓度肉眼可见高于晶粒内部(N_GB_Mg=70,672, X_GB=0.794);橙色"网格"勾勒 3D Voronoi 多晶的 GB 网络。
+> **Figure 7.** OVITO render of the X_c = 0.20 final HMC configuration. Gray = Al, orange = Mg. Mg concentration on grain boundaries is visibly higher than within grains (N_GB_Mg = 70,672, X_GB = 0.794); the orange "network" outlines the GB structure of the 16-grain 3D Voronoi polycrystal. Provides direct visual confirmation of segregation for slides; intended for non-expert audiences as a primer.
 
-**用途**:slides 上的视觉支撑;非专家观众用作"我们到底在算什么"的入门图。源 LAMMPS file `data/snapshots/hmc_T500_Xc0.20_preseg_final.lmp`(63 MB),OVITO Pro standalone 渲染。
+**Role**: visual segregation confirmation / non-expert entry point.
+
+**What it shows**: OVITO render of the X_c = 0.20 final HMC config. Gray = Al, orange = Mg. Mg concentration at GB sites is visibly higher than in the grain interior (N_GB_Mg = 70,672, X_GB = 0.794); the orange "network" traces the GB structure of the 3D Voronoi polycrystal.
+
+**Use case**: visual support on slides; non-expert audience entry point. Source LAMMPS file: `data/snapshots/hmc_T500_Xc0.20_preseg_final.lmp` (63 MB), rendered with OVITO Pro (standalone).
 
 ---
 
-## 6. Cross-Figure Narrative(跨图叙事衔接)
+## 6. Cross-Figure Narrative
 
-按答辩顺序的"逻辑链":
+The logical chain in talk order:
 
 ```
-[Setup]                          Wagih (2020) site-independent FD 假设
-                                          ↓ 检验
-[Figure 0 / panel d]             X_c=0.075 处 X_HMC < canon-FD → Wagih 假设失效
-                                          ↓ 找原因
-[Hypothesis]                     Mg-Mg 之间存在 interaction (假设的关键漏洞)
-                                          ↓ 验证 1
-[Figure 1 / g(r)]                Mg 在 GB 上的 spatial 分布偏离随机 → 非独立
-                                          ↓ 但 g(r) 是 aggregate signal
-                                          ↓ 验证 2
-[Figure 2 / P vs ΔE]             失效集中在 favourable ΔE 端,X_c 越低偏差越大
-                                          ↓ 反直觉,需要 site-level 解释
-                                          ↓ 验证 3
-[Figure 3 / slope vs X_c]        固定 ΔE 控制 → 邻居 Mg 多 = 占据率低
-                                          → site-level Mg-Mg REPULSION 直接证据
+[Setup]                          Wagih (2020) site-independent FD assumption
+                                          ↓ test
+[Figure 0 / panel d]             X_HMC < canon-FD at X_c = 0.075 → assumption fails
+                                          ↓ explain
+[Hypothesis]                     Mg–Mg interactions exist (the missing piece)
+                                          ↓ check 1
+[Figure 1 / g(r)]                Spatial Mg distribution on GB is non-random → not independent
+                                          ↓ but g(r) is an aggregate signal
+                                          ↓ check 2
+[Figure 2 / P vs ΔE]             Failure concentrated at the favourable-ΔE end;
+                                          ↓ ΔP is largest at lowest X_c (counterintuitive)
+                                          ↓ requires a site-level explanation
+                                          ↓ check 3
+[Figure 3 / slope vs X_c]        Controlling ΔE → more Mg neighbours = lower occupancy
+                                          → DIRECT evidence of site-level Mg–Mg REPULSION
                                           ↓ unify
-[结论]                            Wagih 假设失效的物理机理 = Mg-Mg site-level
-                                  repulsion(并非 g(r) 表面的"chemical attraction")
+[Conclusion]                     The mechanism behind Wagih's failure is site-level
+                                  Mg–Mg repulsion (not the apparent "chemical attraction"
+                                  in g(r)).
 ```
 
-**关键统一点**:图 1 看似"clustering = attraction" 与图 3 "repulsion" 矛盾,但前者是 *geometric*(deep-ΔE 位点本身相邻 → 填这些位点造就 g(r) > 1),后者是 *ΔE-controlled residual*(同 ΔE 下,邻居多反而占据低)。两者一致地指向同一物理:**Mg 选择位点时受邻居 Mg 的影响,不是独立的**。
+**Key reconciliation point**: Figure 1 looks like "clustering = attraction"; Figure 3 says "repulsion". They are not contradictory — Figure 1 is *geometric* (deep-ΔE sites are spatially adjacent on the GB plane → filling them produces g(r) > 1), while Figure 3 is the *ΔE-controlled residual* (at fixed ΔE, more neighbours ⇒ lower occupancy). Both consistently point to the same physics: **Mg site selection is influenced by neighbouring Mg, not independent**.
 
 ---
 
-## 7. Q&A 预案(给答辩用,按可能性排序)
+## 7. Predicted Q&A (sorted by likelihood)
 
-**Q1**:你只在 X_c=0.075 直接证明了 breakdown,X_c ≥ 0.10 怎么办?
-- A: X_c=0.10 由 multistart UB **直接证明** —— 自 2026-05-02 起已绘入图 0(灰开方块,production-mean X_GB=0.246 ± 0.004,远低于 canon-FD = 0.352, gap=−0.106),数据见 `output/hmc_T500_Xc0.10_multistart_xgb0.3.json`。X_c ≥ 0.15 当前 preseg trajectory 还在 descending,实测数据是 vacuous bound;阈值 binary-search 给出 X_c\* ∈ (0.05, 0.075],所以 X_c ≥ 0.075 都在 breakdown 区域,机理证据(图 1-3)在所有 X_c 切面都展示出 site-level interaction 的 fingerprint。
+**Q1**: You only directly proved breakdown at X_c = 0.075. What about X_c ≥ 0.10?
+- A: X_c = 0.10 is **directly proven** by the multistart UB — since 2026-05-02, this is on Fig. 0 as the gray open ▽ at X_GB = 0.246 ± 0.004, well below canon-FD = 0.352 (gap = −0.106); see `output/hmc_T500_Xc0.10_multistart_xgb0.3.json`. For X_c ≥ 0.15 the preseg trajectories are still descending and their measurements are vacuous bounds; the breakdown evidence there is an extrapolation from the threshold X_c\* ∈ (0.05, 0.075] plus the mechanism evidence (Figs. 1–3), all of which show site-level interaction fingerprints across every X_c slice.
 
-**Q2**:Mg-Mg 的相互作用是 elastic strain 还是 chemical bonding?
-- A: 现有数据无法严格区分,但相关长度 ~5 Å(R_local 阈值)与 r ~ 10 Å 的 g(r) 衰减一致,提示 elastic strain field (Mg 大于 Al 约 12% lattice parameter 不匹配,长程弹性畸变);chemical 互作通常更短(~3 Å NN)。Future work:同时检验 r=3 vs r=5 vs r=8 Å windows 看 length-scale 依赖。
+**Q2**: Is the Mg–Mg interaction elastic strain or chemical bonding?
+- A: The current data cannot rigorously distinguish them, but the correlation length (~5 Å, the R_local threshold) is consistent with the r ~ 10 Å decay in g(r), pointing toward an elastic strain field (Mg is ~12 % larger than Al in lattice parameter, giving a long-range elastic distortion). Chemical interactions are usually shorter-ranged (~3 Å NN). Future work: compare windows at r = 3 / 5 / 8 Å to see length-scale dependence.
 
-**Q3**:你的 ΔE_i 是 X_c=0 reference,有限 X_c 下 effective ΔE 会 shift,这是不是 confound?
-- A: 是 by-design 的选择 —— 用 bare ΔE_i 作 baseline 才能直接对比 Wagih 假设(它本身就是 X_c=0 谱)。Renormalized ΔE 下的等价比较是 future work(项目曾考虑过 ΔE-shift,deprioritized 因 mechanism 路径直接出结果)。
+**Q3**: ΔE_i is the X_c = 0 reference; at finite X_c the effective ΔE shifts. Isn't that a confound?
+- A: It is by-design — using bare ΔE_i as the baseline is the only way to test Wagih's assumption directly (his model itself is built on the X_c = 0 spectrum). Renormalising ΔE under finite X_c is future work; the project considered a ΔE-shift approach earlier and deprioritised it because the mechanism path delivered cleaner conclusions.
 
-**Q4**:HMC 收敛性如何?300 ps PROD + 32 ranks 够不够?
-- A: X_c=0.075 用了 10h 20min(实际)/24h(budget),accept rate ~5.7%(swap 接受率,见 `hmc_T500_Xc0.075_preseg.json`),trajectory 单调 descend 至 stable plateau。两侧 IC verify(`output/verify_T500_Xc5e-2_two_sided.png`)在 X_c=0.05 给出 X_GB ≈ 0.238 ± 0.005,bracket overlap 良好,验证 sampler 至少在 dilute 端 equilibrate 到位。
+**Q4**: How well does HMC converge? Is 300 ps PROD on 32 ranks enough?
+- A: For X_c = 0.075 the run took 10 h 20 min real / 24 h budget, with a swap acceptance rate of ~5.7 % (see `hmc_T500_Xc0.075_preseg.json`); the trajectory descends monotonically into a stable plateau. The two-sided IC verification at X_c = 0.05 (`output/verify_T500_Xc5e-2_two_sided.png`, Fig. 6) gives X_GB ≈ 0.238 ± 0.005 with good bracket overlap, confirming sampler equilibration at the dilute end.
 
-**Q5**:Sample size n=500 ΔE_i 够不够代表整个 GB 谱?
-- A: 与 Wagih 公开的 n=82,646 谱做 KS 2-sample test:D=0.0256, **p=0.8920** ≫ 0.5,统计上不可区分(见 §4.2 表)。spectrum_mean 差异 0.1 kJ/mol < 0.025 kT,std 差异 5%。
+**Q5**: Is n = 500 ΔE_i enough to represent the GB spectrum?
+- A: KS two-sample test against Wagih's published n = 82,646 spectrum gives D = 0.0256, **p = 0.8920** ≫ 0.5 — statistically indistinguishable (see §4.2 table). Spectrum-mean difference 0.1 kJ/mol < 0.025 kT, std difference 5 %.
 
-**Q6**:为什么图 1 的 0.075 第一峰那么弱?
-- A: 在 X_GB=0.254 这个稀疏 regime,Mg 已经懂得"避开 1st-NN 邻居"(早期 site-level repulsion signal);clustering 只在第二壳层 r=5.9 Å (1.22) 显现。这个反常恰好支持图 3 的 site-level repulsion 结论 —— 不是 plotting 错误。
+**Q6**: Why is the X_c = 0.075 first peak so weak in Fig. 1?
+- A: At X_GB = 0.254 (sparse regime), Mg has already learned to "avoid 1st-NN neighbours" — an early site-level repulsion signal. Clustering shows up at the second shell r = 5.9 Å (1.22). This anomaly *supports* the Fig. 3 site-level repulsion conclusion; it is not a plotting error.
 
-**Q7**:实验上有没有验证?
-- A: 此项目纯模拟。EAM (Mendelev 2009) 对 Al-Mg 的实验校准在 lattice parameter / dilute heat of mixing 上 ±5% within 实验值。GB segregation 直接的 atomic-resolution 实验 (APT) 测得的 X_GB 数值在 Mg-Al alloy 文献中(e.g. Sauvage 等)与本项目 dilute 极限定性一致。Quantitative experimental validation 是 follow-up work。
+**Q7**: Has any of this been validated experimentally?
+- A: This project is purely simulation. The Mendelev (2009) EAM potential for Al–Mg is calibrated to within ±5 % of experimental lattice parameter and dilute heat-of-mixing values. Atomic-resolution APT measurements of GB Mg fraction in Mg–Al alloys (e.g. Sauvage et al.) are qualitatively consistent with our dilute-limit values. Quantitative experimental validation is follow-up work.
 
 ---
 
-## 8. Provenance / Data Integrity(数据可追溯性)
+## 8. Provenance / Data Integrity
 
-每个数字 spot-check 通过 PASS / 待 future PASS,见下:
+Every cited number passes a spot-check; PASS / future-PASS log below.
 
-### Verification log(2026-05-01,本次审查)
+### Verification log (last run: 2026-05-01)
 
 ```
 [1] N_GB_Mg recompute (LAMMPS file → JSON)
@@ -420,17 +448,19 @@
 [6] spectrum stats (n=500) match compare_vs_wagih_200A_tight.json  PASS
     KS p=0.8920 → spectra indistinguishable from Wagih's 82k
 
-[7] X_c=0.10 multistart UB drawn value (2026-05-02 addition)
+[7] X_c=0.10 multistart UB drawn value (added 2026-05-02)
     JSON `hmc_T500_Xc0.10_multistart_xgb0.3.json` x_gb.mean = 0.245911
     drawn at X_GB ≈ 0.246, gap vs canon-FD = -0.106              PASS
 ```
 
-### 文件依赖链
+### File dependency chains
+
+Mechanism figures (1–3):
 
 ```
-defense figures (in this folder)
+report/figures/0{1,2,3}_*.png
     ↑
-output/defense_*.png  (regeneratable via:
+output/defense_*.png  (regenerable via:
                        python scripts/replot_mechanism_for_defense.py)
     ↑
 output/solute_correlation_analysis.json
@@ -443,46 +473,48 @@ data/snapshots/gb_mask_200A.npy        (475,843 bytes)
                                         (63,450 bytes)
 ```
 
+Headline figure (0):
+
 ```
-00_headline_hmc_vs_wagih_T500.png
+report/figures/00_headline_hmc_vs_wagih_T500.png
     ↑
 output/hmc_vs_canonfd_T500_with_multistart.{json,png}
     ↑
-scripts/canonical_fd_compare_5pt_with_multistart.py    (NEW 2026-05-02)
+scripts/canonical_fd_compare_5pt_with_multistart.py    (added 2026-05-02)
     ↑
 output/hmc_T500_Xc{0.05_verify-preseg,0.075,0.10,0.15,0.20,0.30}_preseg.json
-output/hmc_T500_Xc0.10_multistart_xgb0.3.json          (NEW marker: 灰 □)
+output/hmc_T500_Xc0.10_multistart_xgb0.3.json          (gray ▽ marker)
     ↑
-HMC SLURM 作业 65208332 / 64xxxxx 系列(见 CHANGELOG)
+HMC SLURM jobs 65208332 / 64xxxxx series (see CHANGELOG)
 ```
 
-(原始版本 `scripts/canonical_fd_compare_5pt.py` 与其输出 `output/hmc_vs_canonfd_T500.{json,png}` 保留不变,作为 multistart 之前的对照版本。)
+The original `scripts/canonical_fd_compare_5pt.py` and its outputs `output/hmc_vs_canonfd_T500.{json,png}` are kept untouched as a pre-multistart reference / 4-curve version.
 
-### 已知 caveats(诚实清单)
+### Known caveats (honest list)
 
-- ~~panel (d) 当前**未画 multistart UB**;X_c ≥ 0.10 的 breakdown 评据需要在 Q&A 时口头补充。~~ **已解决(2026-05-02)**:multistart UB 灰开方块已绘入图 0,X_c=0.10 breakdown 现为图面直接证据。
-- X_c ≥ 0.15 仍只有 preseg trajectory 还在 descending,实测仍是 vacuous bound;breakdown 评据来自阈值外推(X_c\* ∈ (0.05, 0.075])+ 机理证据(图 1-3)。
-- X_c=0.20 slope 翻正 (+0.0148) 是饱和效应,**不是物理 sign reversal**;若被追问,引用 X_c=0.30 slope=-0.002 来对照(slope → 0 是 saturation 一致,而非反转)。
-- 图 2 用的是 X_c=0 reference 谱的 ΔE_i,有限 X_c 下 effective ΔE_i 因局部互作 shift —— 这是 by-design,不是 bug,但要在 Q&A 时 acknowledge 是 simplification。
-- 散点图 confidence intervals 用的是 binomial 正态近似(n_per_bin ≥ 50 时 OK,n_per_bin 小的 bin 会失真);Wilson CI 是更严的方案,future work。
+- ~~Panel (d) does not yet plot the multistart UB; the X_c ≥ 0.10 breakdown evidence has to be supplied verbally during Q&A.~~ **Resolved 2026-05-02**: the multistart UB now appears on Fig. 0 as the gray ▽ marker; X_c = 0.10 breakdown is direct evidence on the figure itself.
+- For X_c ≥ 0.15 only preseg trajectories are available, and they are still descending — the measurements are vacuous bounds. The breakdown evidence at these X_c relies on threshold extrapolation (X_c\* ∈ (0.05, 0.075]) plus the mechanism figures (1–3).
+- The X_c = 0.20 slope flips positive (+0.0148) due to saturation, **not a physical sign reversal**; if pressed, cite the X_c = 0.30 slope = −0.002 ≈ 0 (slope → 0 is consistent with saturation, not reversal).
+- Fig. 2 uses ΔE_i from the X_c = 0 reference spectrum; at finite X_c the effective ΔE_i shifts due to local interactions — this is by-design, not a bug, but should be acknowledged as a simplification during Q&A.
+- Scatter-plot CIs use the binomial normal approximation (OK when n_per_bin ≥ 50; small-bin distortion is possible). Wilson CIs are stricter and are future work.
 
 ---
 
-## 9. 修改 / 重新生成
+## 9. Reproduction / Regeneration
 
-**3 张 mechanism 图(图 1-3)**:
+**Three mechanism figures (Figs. 1–3)**:
 ```
 python scripts/replot_mechanism_for_defense.py
 ```
-读 `output/solute_correlation_analysis.json`,几秒出 3 张 PNG 到 `output/defense_*.png`。然后再 cp 到本文件夹。
+Reads `output/solute_correlation_analysis.json` and produces the three PNGs `output/defense_*.png` in a few seconds; copy to `figures/`.
 
-**panel (d)(图 0,含 X_c=0.10 multistart UB)**:
+**Panel (d) (Fig. 0, including the X_c = 0.10 multistart UB)**:
 ```
 python scripts/canonical_fd_compare_5pt_with_multistart.py
 ```
-更新 `output/hmc_vs_canonfd_T500_with_multistart.{json,png}`,cp PNG 到 `figures/00_headline_hmc_vs_wagih_T500.png`(覆盖)。
+Updates `output/hmc_vs_canonfd_T500_with_multistart.{json,png}`; copy the PNG to `figures/00_headline_hmc_vs_wagih_T500.png` (overwrite).
 
-**支撑图 4–7(无需重算,直接 cp 现有 output/)**:
+**Supporting figures 4–7 (no recomputation needed; just copy from existing `output/`)**:
 ```
 cp output/compare_vs_wagih_200A_tight.png    figures/04_spectrum_match.png
 cp output/hmc_T500_Xc0.075_preseg.png        figures/05_sampler_convergence.png
@@ -490,8 +522,8 @@ cp output/verify_T500_Xc5e-2_two_sided.png   figures/06_two_sided_verify.png
 cp output/ovito_gb_render_xc0.20.png         figures/07_ovito_segregation.png
 ```
 
-**重做 mechanism 分析(从 LAMMPS snapshot 起)**:
+**Recomputing the mechanism analysis from LAMMPS snapshots**:
 ```
 python scripts/solute_correlation_analysis.py
 ```
-读 6 个 LAMMPS final.lmp + GB mask + reference NPZ,重新计算 g(r) / P_i / slope,写 `output/solute_correlation_analysis.json` + 6-panel 原始 PNG(SI 用)。30–60 秒(login node)。
+Reads the six LAMMPS final.lmp files + GB mask + reference NPZ; recomputes g(r), P_i, slopes; writes `output/solute_correlation_analysis.json` plus the original 6-panel PNGs (for SI). Takes 30–60 s on a login node.

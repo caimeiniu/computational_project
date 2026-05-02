@@ -2,6 +2,230 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-05-02 (late evening) — Fig 0 legend collapsed to 3 rows via two-color ▽; README rewritten in English with explicit per-figure captions
+
+### Trigger
+
+User asked: 我觉得是否random,或者是从seg开始其实不用写在legend里面,显得
+legend非常字多 → 把对应的图的caption写在README里面,里面应该用英文写,
+现在是中文。Then clarified: 灰方块改成灰色三角(和红色一样,只是颜色不同),
+然后在caption说明都在下降就行了,也不用在legend写了,另外更新README为英文。
+
+### Fig 0: marker shape unified, legend collapsed via HandlerTuple
+
+The previous iteration's legend had four lines, two of which were
+"HMC upper bound (over-segregated start, still descending)" and
+"HMC upper bound (random start, still descending)". User judgement:
+"过于字多" — the IC qualifier and descent state belong in the
+caption, not the legend. The two upper-bound roles are conceptually
+the same; visual distinction by *colour* is enough.
+
+Changes in `scripts/canonical_fd_compare_5pt_with_multistart.py`:
+- Multistart marker: open gray square `s` → open gray down-triangle
+  `v` (same shape as preseg, only colour differs). Communicates
+  "this is also a descending upper bound" via shape.
+- Legend: collapsed two ▽ rows into one via `HandlerTuple` (red ▽
+  and gray ▽ shown side-by-side under a single label
+  "HMC upper bound"). Final legend: 3 rows.
+  - "Wagih FD prediction" (green line)
+  - "HMC equilibrium" (red ●)
+  - "HMC upper bound" (red ▽ + gray ▽ via `HandlerTuple(ndivide=None,
+    pad=0.5)`)
+- Removed the explicit reorder helper that the previous iteration
+  needed; with the tuple-handler legend the order is fully controlled
+  by the `legend_handles` list passed in.
+- New imports: `from matplotlib.legend_handler import HandlerTuple`.
+
+### README rewritten in English
+
+The Chinese walkthrough has been replaced with an English equivalent,
+faithful to all numbers, file paths, and structure. Each main and
+supporting figure now has an explicit **English figure caption**
+(formatted as a `> Figure X. ...` blockquote), suitable for use as a
+slide / paper figure caption without further editing — and where the
+legend is intentionally minimal, the caption picks up the slack:
+- Fig 0 caption explicitly maps "red ▽ = preseg / over-segregated
+  start" and "gray ▽ = multistart / random start" (the IC distinction
+  removed from the legend).
+- Caption also states "both still descending" → resolves the
+  "is it descending or not, has it equilibrated" question that the
+  previous iteration had handled by stuffing it into the legend.
+
+The walkthroughs (`Role`, `What it shows`, `Core math`, `Key
+numbers`, `Conclusions`, `Talking points`, `Likely advisor questions`)
+are translated section-for-section. Internal terms (preseg,
+multistart, kinetic-floor IC) are kept where they help the speaker;
+the legend-facing labels are plain English.
+
+### File dependency chain in §8 updated
+
+The Fig 0 chain now refers to "gray ▽ marker" (was "灰 □"). All other
+sections updated: §2 talk-order tables in English, §3 definitions
+table English with same content, §5 walkthroughs translated, §6 cross-
+figure narrative diagram English, §7 Q&A predictions English, §8
+provenance and caveats list English (the resolved caveat about
+multistart UB stays struck through).
+
+### Files this entry
+
+- `scripts/canonical_fd_compare_5pt_with_multistart.py` — plot section
+  rewritten (`s` → `v` marker for kf_pts; HandlerTuple-based legend;
+  no explicit reorder)
+- `output/hmc_vs_canonfd_T500_with_multistart.{json,png}` — regenerated
+- `report/figures/00_headline_hmc_vs_wagih_T500.png` — overwritten
+- `report/README.md` — full Chinese → English rewrite (~500 lines);
+  added explicit per-figure English captions for Figs 0–7;
+  updated Fig 0 marker description ("gray ▽" replaces "gray □");
+  no factual changes
+- this CHANGELOG entry
+
+## 2026-05-02 (evening) — Fig 0 simplified: 9-item legend → 4; reversed arrow at X_c=0.075 removed
+
+### Trigger
+
+User read the freshly-committed Fig 0 and flagged two issues:
+- "00,break 的点 0.075 的箭头标反了" — at X_c=0.075 the preseg ▽ sits at
+  X_GB=0.254, BELOW canon-FD = 0.301; the descending-arrow code drew the
+  arrowhead from ▽ UPWARD toward FD (xytext=triangle, xy=FD), which
+  visually contradicts "trajectory still descending" at the only point
+  where breakdown is already on display.
+- "10 个 legend,非常的杂乱,这个图只是要证明 break 了就行了" — the
+  defense headline should carry one message (Wagih FD broken at low X_c),
+  not 4 different reference-curve concepts at once.
+
+### What changed in `scripts/canonical_fd_compare_5pt_with_multistart.py`
+
+In-place edit (the with-multistart script is itself already a copy of
+the canonical; previous version preserved in commit `a98c1de`). Plot
+section streamlined:
+
+**Removed**:
+- canon-FD (Wagih, n=82,646) line + ours/Wagih band fill (KS p=0.89
+  per figure 4 establishes statistical equivalence; one curve suffices)
+- GC-FD (Grand-Canonical FD) blue curve
+- closed-box ceiling dotted line
+- X_GB = X_c "no segregation" gray dashed
+- All five descending arrows from preseg ▽ markers to canon-FD line —
+  these were visually reversed at X_c=0.075 and added clutter at the
+  others without changing the visible message (▽ above/below FD line is
+  enough)
+
+**Kept**:
+- canon-FD (ours, n=500) — single solid green line, label updated to
+  "Wagih FD prediction (canon-FD)"
+- ● equilibrated bracket (X_c=0.05)
+- ▽ preseg upper bound (still descending) — 5 markers
+- □ multistart UB (kinetic-floor IC) — 1 marker at X_c=0.10
+
+**Cosmetic**:
+- title gained subtitle r"Wagih FD broken at $X_c \geq 0.075$:
+  $X_{GB}^{HMC} < X_{GB}^{FD}$" (the conclusion stated up front)
+- xlim 0.40 → 0.35 (markers go to 0.30, tighter)
+- ylim 1.02 → 0.95 (markers max ≈ 0.84, no need for 1.0)
+- figsize 7.8x5.6 → 7.0x5.0 (more compact for slides)
+- legend fontsize 8.0 → 10 (legend has 4 items now, can afford larger)
+- equilibrated label "equilibrated bracket" → "equilibrated (Wagih
+  holds)" — call out that the dilute end agrees with FD
+- multistart marker ms 9 → 10, mew 1.6 → 1.8 (better visual weight)
+
+### Result
+
+Legend went from 9 items to 4. Visual story reads in one glance:
+- ● on the green line at X_c=0.05 → Wagih holds (dilute limit ✓)
+- ▽ below the green line at X_c=0.075 → breakdown direct
+- ▽ above the green line at X_c=0.10–0.30 → upper bound, IC-dependence
+  (these don't disprove FD by themselves; story relies on multistart)
+- □ below the green line at X_c=0.10 → second breakdown direct, gap=−0.106
+
+### Follow-up (same evening, after first review of simplified figure)
+
+User flagged: "UB 是什么意思" — the abbreviation "UB" (= upper bound)
+appeared in the legend without being defined; legend reads as cryptic
+to anyone without our README on hand. Also: "字号调小一些" + "legend
+的描述建议采用看了能明白的,现在的比较打哑谜". Same root cause —
+internal shorthand was leaking into the user-facing artifact.
+
+Re-labels (figure now 65,703 bytes):
+
+| was                                     | now                                          |
+|-----------------------------------------|----------------------------------------------|
+| `Wagih FD prediction (canon-FD)`        | `Wagih FD prediction`                        |
+| `X^HMC_GB equilibrated (Wagih holds)`   | `HMC equilibrium`                            |
+| `X^HMC_GB preseg UB (still descending)` | `HMC upper bound (over-segregated start)`    |
+| `X^HMC_GB multistart UB (kinetic-floor IC)` | `HMC upper bound (random start)`         |
+
+Removals: "UB" abbreviation, "canon-FD" parenthetical, "preseg",
+"multistart", "kinetic-floor IC", "Wagih holds" conclusion-in-legend,
+LaTeX `X^{HMC}_{GB}` superscripts. Each was either a project-internal
+shorthand or a conclusion that belongs in the title/subtitle.
+
+Other tweaks:
+- legend fontsize 10 → 8.5 (per "字号调小一些")
+- explicit legend-handle reordering: matplotlib was putting ▽ above ●
+  because errorbar Containers and plot Line2D mix unpredictably in
+  `get_legend_handles_labels()`; now order is fixed as
+  FD line → ● equilibrium → ▽ over-segregated → □ random
+  (theory → measurement that agrees → measurement from one IC that
+  disagrees → measurement from another IC that disagrees)
+
+README §5 Figure 0 marker bullets updated to dual-label format
+(legend plain-language label as header + internal technical term in
+parens) so the speaker reading the README sees both names side by
+side.
+
+### Second pass (after re-review): descent state + title spacing
+
+User flagged: "random start 的没有标明是下降还是上升,也没有说平衡没有"
++ "上面的两行标题可以宽一点.距离图也远一点".
+
+The first issue is real — the new "random start" label said nothing
+about whether the trajectory is descending/ascending or whether it
+has equilibrated. Symmetry: the "over-segregated start" label had the
+same gap. Both trajectories are descending and neither has
+equilibrated; "still descending" makes that explicit. Both UB labels
+extended to:
+
+- `HMC upper bound (over-segregated start, still descending)`
+- `HMC upper bound (random start, still descending)`
+
+Used `\n` to wrap the parenthetical onto a second legend line so each
+entry stays compact horizontally.
+
+Title spacing: fontsize 11 → 12.5, pad 6 (default) → 20, linespacing
+default → 1.5. Two-line title now reads taller and further from the
+plot frame.
+
+**Bug squashed**: first iteration broke the legend — went from 4
+entries to 2 — because the explicit-reorder logic does
+`labels.index(name)` on a hard-coded `_desired` list, and adding
+`\n` to the actual labels caused name-mismatch with the desired list,
+silently filtering out both UB entries. Fix: keep the `\n`-version of
+the labels in `_desired` so the lookup matches. Lesson logged so
+future label edits remember to update both spots.
+
+README §5 Figure 0 bullets updated to use the new "still descending"
+labels.
+
+### Docstring update
+
+Top-of-file docstring rewritten to record the two iterative changes
+(2026-05-02 afternoon + evening) and to point to the canonical 4-curve
+version (`scripts/canonical_fd_compare_5pt.py`,
+`output/hmc_vs_canonfd_T500.png`) for cases where the full reference
+context is needed (e.g. methods section, paper SI).
+
+### Files this entry
+
+- `scripts/canonical_fd_compare_5pt_with_multistart.py` — plot section
+  + docstring rewritten (~80 lines changed)
+- `output/hmc_vs_canonfd_T500_with_multistart.{json,png}` — regenerated
+- `report/figures/00_headline_hmc_vs_wagih_T500.png` — overwritten with
+  simplified version (108,585 → 70,446 bytes — fewer curves)
+- `report/README.md` — §5 Figure 0 baseline-curve list (4 → 1) +
+  讲稿要点 "canon-FD band" → "canon-FD 曲线"; rationale note added
+  pointing to the still-available original 4-curve plot
+- this CHANGELOG entry
+
 ## 2026-05-02 (afternoon) — Defense report figure set expanded to 8; Fig 0 refreshed with X_c=0.10 multistart UB
 
 ### Trigger

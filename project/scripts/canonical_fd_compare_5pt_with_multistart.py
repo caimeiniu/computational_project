@@ -1,30 +1,41 @@
 #!/usr/bin/env python3
-"""Headline figure (refresh of canonical_fd_compare_5pt) — adds X_c=0.10
-multistart upper bound to the panel-d marker set so the breakdown
-evidence at X_c >= 0.10 is no longer a verbal-only Q&A point.
+"""Headline figure (defense report main panel) — simplified version of
+canonical_fd_compare_5pt.
 
-Plots HMC X_GB measurements against four reference curves and a shaded
-canon-FD reference band:
-  - canon-FD (ours)  — mass-conserving Wagih eq. 2 on our n=500 spectrum
-  - canon-FD (Wagih) — same eq. on Wagih's n=82,646 LAMMPS-truth spectrum
-    The ours/Wagih band visualises *reference uncertainty* — at low X_c
-    the band is wide (~0.013 in X_GB) because the deep-tail reference
-    differs; at high X_c it collapses (~0.002).
-  - GC-FD    — textbook Wagih eq. 2 (thermodynamic-limit target)
-  - ceiling  = min(1, X_c · N_total / N_GB)
+Two iterative changes vs canonical:
+  1. (2026-05-02 afternoon) Added X_c=0.10 multistart upper bound so
+     the breakdown evidence at X_c >= 0.10 is no longer a verbal-only
+     Q&A point.
+  2. (2026-05-02 evening) Stripped auxiliary reference curves (GC-FD,
+     closed-box ceiling, X_GB=X_c diagonal, Wagih duplicate line, the
+     ours-vs-Wagih band) and removed the "descending arrows" that were
+     visually reversed at X_c=0.075 (where ▽ already sits below FD).
+     The defense main panel needs ONE story (Wagih FD broken at low X_c)
+     and one curve to make it.
+
+Plots HMC X_GB measurements against a single canon-FD reference line:
+  - canon-FD (ours, n=500) — mass-conserving Wagih eq. 2 on our spectrum.
+    KS test vs Wagih Zenodo n=82,646 gives p=0.89 (figure 4), so a single
+    "ours" line is statistically equivalent to "Wagih's" line within the
+    noise of either spectrum.
 
 HMC measurements are drawn in three classes:
   ● equilibrated bracket               — solid red circle + CI bar
-  ▽ preseg upper bound (descending)    — open red down-triangle
+                                         (Wagih holds at X_c=0.05)
+  ▽ preseg upper bound (still descending) — open red down-triangle
+                                         (▽ < FD line ⇒ breakdown direct)
   □ multistart UB (kinetic-floor IC)   — open gray square + CI bar
     (matches Fig 3 / 03_repulsion_summary.png convention: gray-square
     means random-IC trajectory descended to kinetic floor — provides a
     second, IC-independent upper bound; at X_c=0.10 it sits well below
     canon-FD, directly supporting the X_c >= 0.10 breakdown claim.)
 
-Output (linear-x, linear-y, X_c ∈ [0, 0.4]):
+Output (linear-x, linear-y, X_c ∈ [0, 0.35]):
   output/hmc_vs_canonfd_T500_with_multistart.png
   output/hmc_vs_canonfd_T500_with_multistart.json
+
+(Original 4-baseline-curve version still available via the canonical
+ script: scripts/canonical_fd_compare_5pt.py → output/hmc_vs_canonfd_T500.png)
 """
 from __future__ import annotations
 import argparse
@@ -34,6 +45,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.legend_handler import HandlerTuple
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -193,77 +205,85 @@ def main():
     out_json.write_text(json.dumps(summary, indent=2))
     print(f"wrote {out_json}")
 
-    # ---- plot ----
-    fig, ax = plt.subplots(figsize=(7.8, 5.6))
+    # ---- plot (simplified for defense report: focus on breakdown signal) ----
+    # Story-only deletions vs canonical_fd_compare_5pt.py: Wagih band, GC-FD,
+    # ceiling, no-segregation diagonal, descending arrows. Both upper-bound
+    # IC choices share a single ▽ marker shape (red = preseg / over-seg start,
+    # gray = multistart / random start) to convey "this is an upper bound,
+    # still descending" visually; legend collapses the two into one entry
+    # via HandlerTuple. Per-IC details live in the figure caption (README).
+    fig, ax = plt.subplots(figsize=(7.0, 5.0))
 
-    # Reference band: shaded between canon-ours and canon-Wagih.
-    if x_gb_canon_wagih is not None:
-        lo_band = np.minimum(x_gb_canon_ours, x_gb_canon_wagih)
-        hi_band = np.maximum(x_gb_canon_ours, x_gb_canon_wagih)
-        ax.fill_between(xc_grid, lo_band, hi_band, color="C2", alpha=0.18,
-                        zorder=1, label=r"canon-FD reference band "
-                                         r"(ours $\leftrightarrow$ Wagih)")
-        ax.plot(xc_grid, x_gb_canon_wagih, "-", color="C2", lw=1.2,
-                alpha=0.9, label=r"canon-FD (Wagih, $n=82{,}646$)")
-    ax.plot(xc_grid, x_gb_canon_ours, "-", color="C2", lw=2,
-            label=r"canon-FD (ours, $n=500$)")
-    ax.plot(xc_grid, x_gb_gc, "-", color="C0", lw=1.5,
-            label=r"GC-FD  $X_{\mathrm{GB}}^{\mathrm{FD}}$")
-    ax.plot(xc_grid, ceiling, ":", color="k", lw=1.0,
-            label=r"closed-box ceiling")
-    ax.plot(xc_grid, xc_grid, "--", color="gray", lw=0.9,
-            label=r"$X_{\mathrm{GB}} = X_c$ (no segregation)")
+    # Single reference line: canon-FD on our n=500 spectrum
+    fd_line, = ax.plot(xc_grid, x_gb_canon_ours, "-", color="C2", lw=1.5)
 
     # equilibrated HMC: filled red circles + errorbars
+    eq_container = None
     if eq_pts:
         x_eq = np.array([p["Xc"] for p in eq_pts])
         y_eq = np.array([p["X_HMC"] for p in eq_pts])
         lo_eq = np.array([p["lo"] for p in eq_pts])
         hi_eq = np.array([p["hi"] for p in eq_pts])
-        ax.errorbar(x_eq, y_eq,
-                    yerr=[y_eq - lo_eq, hi_eq - y_eq],
-                    fmt="o", color="C3", ms=10, capsize=4, zorder=6,
-                    label=r"$X_{\mathrm{GB}}^{\mathrm{HMC}}$ "
-                          r"equilibrated bracket")
+        eq_container = ax.errorbar(x_eq, y_eq,
+                                    yerr=[y_eq - lo_eq, hi_eq - y_eq],
+                                    fmt="o", color="C3", ms=8, capsize=3,
+                                    elinewidth=1.0, zorder=6)
 
-    # upper-bound HMC: open red down-triangles, descending arrows
+    # preseg upper bound: open RED down-triangles
+    ub_handle = None
     if ub_pts:
         x_ub = np.array([p["Xc"] for p in ub_pts])
-        y_ub = np.array([p["X_HMC"] for p in ub_pts])  # = trajectory last
-        ax.plot(x_ub, y_ub, "v", color="C3", mfc="white", mew=1.8, ms=11,
-                zorder=5,
-                label=r"$X_{\mathrm{GB}}^{\mathrm{HMC}}$ "
-                      r"preseg upper bound (still descending)")
-        # descent arrows from upper-bound to its canon-ours target — visual hint
-        for p in ub_pts:
-            ax.annotate("", xy=(p["Xc"], p["X_FD_canon_ours"]),
-                        xytext=(p["Xc"], p["X_HMC"]),
-                        arrowprops=dict(arrowstyle="->", color="C3",
-                                        alpha=0.4, lw=1.2),
-                        zorder=4)
+        y_ub = np.array([p["X_HMC"] for p in ub_pts])
+        ub_handle, = ax.plot(x_ub, y_ub, "v", color="C3",
+                              mfc="white", mew=1.2, ms=9, zorder=5)
 
-    # multistart UB: open gray squares (random-IC trajectory descended to
-    # kinetic floor; IC-independent upper bound on equilibrium X_GB)
+    # multistart upper bound: open GRAY down-triangles (same shape as preseg,
+    # color is the only distinction; per-IC text stays in the caption)
+    kf_container = None
     if kf_pts:
         x_kf = np.array([p["Xc"] for p in kf_pts])
         y_kf = np.array([p["X_HMC"] for p in kf_pts])
         lo_kf = np.array([p["lo"] for p in kf_pts])
         hi_kf = np.array([p["hi"] for p in kf_pts])
-        ax.errorbar(x_kf, y_kf,
-                    yerr=[y_kf - lo_kf, hi_kf - y_kf],
-                    fmt="s", mfc="white", color="0.35", ecolor="0.35",
-                    ms=9, capsize=4, mew=1.6, zorder=5,
-                    label=r"$X_{\mathrm{GB}}^{\mathrm{HMC}}$ "
-                          r"multistart UB (kinetic-floor IC)")
+        kf_container = ax.errorbar(x_kf, y_kf,
+                                    yerr=[y_kf - lo_kf, hi_kf - y_kf],
+                                    fmt="v", mfc="white", color="0.35",
+                                    ecolor="0.35", ms=9, capsize=3,
+                                    elinewidth=1.0, mew=1.2, zorder=5)
 
     ax.set_xlabel(r"total Mg fraction  $X_c$")
-    ax.set_ylabel(r"$X_{\mathrm{GB}}$")
-    ax.set_title(f"Al(Mg) GB occupancy at T={T:g} K  "
-                 fr"($N_\mathrm{{GB}}/N_\mathrm{{tot}} = {GB_FRAC:.3f}$)")
-    ax.set_xlim(0, args.xc_max)
-    ax.set_ylim(0, 1.02)
-    ax.grid(True, alpha=0.3)
-    ax.legend(loc="upper left", fontsize=8.0, framealpha=0.95)
+    ax.set_ylabel(r"GB Mg fraction  $X_{\mathrm{GB}}$")
+    title_obj = ax.set_title(
+        f"Al(Mg) GB occupancy at T={T:g} K  "
+        fr"($N_\mathrm{{GB}}/N_\mathrm{{tot}} = {GB_FRAC:.3f}$)"
+        + "\n"
+        + r"Wagih FD broken at $X_c \geq 0.075$:  "
+          r"$X_{\mathrm{GB}}^{\mathrm{HMC}} < X_{\mathrm{GB}}^{\mathrm{FD}}$",
+        fontsize=12.5, pad=20)
+    title_obj.set_linespacing(1.5)
+    ax.set_xlim(0, 0.35)
+    ax.set_ylim(0, 0.95)
+    ax.grid(True, alpha=0.25, lw=0.5)
+
+    # Three legend rows: FD line, ● equilibrium, ▽ ▽ (red+gray) upper bound.
+    # The two ▽ markers share one row via HandlerTuple → reads as
+    # "either ▽ shape = HMC upper bound" without IC text in the legend.
+    legend_handles = [fd_line]
+    legend_labels = ["Wagih FD prediction"]
+    if eq_container is not None:
+        legend_handles.append(eq_container[0])  # markerline
+        legend_labels.append("HMC equilibrium")
+    ub_tuple = []
+    if ub_handle is not None:
+        ub_tuple.append(ub_handle)
+    if kf_container is not None:
+        ub_tuple.append(kf_container[0])
+    if ub_tuple:
+        legend_handles.append(tuple(ub_tuple))
+        legend_labels.append("HMC upper bound")
+    ax.legend(legend_handles, legend_labels,
+              handler_map={tuple: HandlerTuple(ndivide=None, pad=0.5)},
+              loc="upper left", fontsize=10, framealpha=0.95)
 
     fig.tight_layout()
     out_png = OUT / f"{args.out_prefix}.png"
