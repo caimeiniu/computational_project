@@ -253,14 +253,14 @@ def main():
 
     ax.set_xlabel(r"total Mg fraction  $X_c$")
     ax.set_ylabel(r"GB Mg fraction  $X_{\mathrm{GB}}$")
-    title_obj = ax.set_title(
+    # Single-line descriptive title only; the breakdown conclusion is
+    # carried by the caption + the visible HMC < FD placement, not the
+    # figure title (per-user judgement: title should describe what the
+    # plot is, not pre-state the conclusion).
+    ax.set_title(
         f"Al(Mg) GB occupancy at T={T:g} K  "
-        fr"($N_\mathrm{{GB}}/N_\mathrm{{tot}} = {GB_FRAC:.3f}$)"
-        + "\n"
-        + r"Wagih FD broken at $X_c \geq 0.075$:  "
-          r"$X_{\mathrm{GB}}^{\mathrm{HMC}} < X_{\mathrm{GB}}^{\mathrm{FD}}$",
-        fontsize=12.5, pad=20)
-    title_obj.set_linespacing(1.5)
+        fr"($N_\mathrm{{GB}}/N_\mathrm{{tot}} = {GB_FRAC:.3f}$)",
+        fontsize=12.5, pad=22)
     ax.set_xlim(0, 0.35)
     ax.set_ylim(0, 0.95)
     ax.grid(True, alpha=0.25, lw=0.5)

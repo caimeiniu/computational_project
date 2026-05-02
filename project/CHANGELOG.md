@@ -2,6 +2,53 @@
 
 Entries in reverse chronological order (newest first).
 
+## TODO (carried to next session)
+
+- **[2026-05-02] Re-explain Fig 2 red dots + CI to user.** User said
+  "还是没有搞的很清楚" after my first attempt. Full Q&A + worked example
+  + per-bin table + caveat saved to
+  `report/explainer_fig2_red_dots_CI.md`. Strategy for next attempt is
+  documented at the top of that file (start with one bin + 38 boxes
+  visual, coin-flip analogy, formula last). Do not re-derive — read
+  that file first, then re-deliver.
+
+## 2026-05-02 (night) — Fig 2 split into single-panel headline + 3xc companion
+
+### Trigger
+
+User asked: 这个图的作用必须要三个panel拼一起才能说明吗,还是一个图就可以呢?
+After discussion, decided 1 panel for slides headline (most dramatic
+case X_c=0.075) and keep 3-panel as supplementary X_c-sweep figure.
+Subsequent question on green region + line/dot meaning + CI calculation
+led to caption expansion.
+
+### Fig 2: single-panel + 3xc companion
+
+`scripts/replot_mechanism_for_defense.py`:
+- Added `fig2_occupation_breakdown_single()` — 7.5×5.0 figsize, only
+  X_c=0.075 (red), title pad=16, legend upper-right, output
+  `defense_occupation_breakdown_single.png`.
+- 3-panel `fig2_occupation_breakdown()` retained; tightened
+  suptitle-to-panel gap (rect[3] 0.94 → 0.97).
+- Both panels: dropped ΔP_i annotation boxes from inside the figure;
+  dropped "(X_c=0 reference)" qualifier from x-axis label (moved to
+  caption); legends moved to upper-right.
+
+`report/figures/`:
+- `02_occupation_breakdown.png` is now the single-panel headline.
+- `02_occupation_breakdown_3xc.png` (new) holds the 3-panel companion.
+
+`report/README.md` §5 Figure 2 walkthrough rewritten:
+- Caption now explicitly identifies "black solid curve = Wagih FD
+  prediction" / "red points + error bars = HMC measurement", states
+  Wald 95 % CI formula `p̂ ± 1.96 √[p̂(1−p̂)/n]`, names the
+  most-favourable bin (n=38, p̂=0.21, CI [0.08, 0.34]), defines
+  favourable-binding region in physics terms (Mg substitution lowers
+  system energy), and references the 3xc companion for the X_c-sweep.
+- "Plot elements", "Single panel", and "Key numbers" updated; key-numbers
+  table marks the 0.075 row as the main-panel reference.
+- §8 verification log #3 updated: "drawn 0.77" → "rounded 0.77".
+
 ## 2026-05-02 (late evening) — Fig 0 legend collapsed to 3 rows via two-color ▽; README rewritten in English with explicit per-figure captions
 
 ### Trigger

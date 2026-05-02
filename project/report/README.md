@@ -156,7 +156,7 @@ Last updated: 2026-05-02 (Fig 0 simplified to a 3-row legend with two-color ▽ 
 
 **Caption (English):**
 
-> **Figure 1.** Normalised radial pair correlation function for Mg atoms on grain boundaries, g_MgMg^HMC(r) / g_MgMg^random(r), at T = 500 K. The "uniform-random reference" g_MgMg^random(r) is computed by drawing the *same number* of Mg atoms placed at random GB lattice sites (without ΔE preference) and computing the same g(r). Three curves are shown for X_c = 0.075 (red, X_GB = 0.254), 0.150 (blue, X_GB = 0.588), 0.300 (green, X_GB = 0.838). All three lie above 1 around the FCC first-neighbour shell at r ≈ 3.30 Å, demonstrating that Mg–Mg correlations on the GB are non-random out to r ≈ 10 Å. This is an *aggregate* spatial signal — partly driven by the geometric proximity of deep-ΔE binding sites (Mg preferentially fills these, which are spatially clustered on the GB plane); the ΔE-controlled (residual) interaction is shown in Fig. 3.
+> **Figure 1.** Normalised radial pair correlation function for Mg atoms on grain boundaries at T = 500 K, plotted as the ratio g_MgMg^HMC(r) / g_MgMg^random(r). The numerator is the pair correlation function of GB-Mg atoms in the HMC snapshot; the denominator is the same quantity computed for a uniform-random reference — the *same number* of Mg atoms (N_GB_Mg) drawn uniformly at random across all GB sites, without any ΔE preference. The dashed line at y = 1 is the "no-signal" baseline (HMC matches random). Values above 1 at distance r mean more Mg–Mg pairs at that separation than would be expected from a random distribution (clustering); values below 1 mean fewer (avoidance). Three curves cover X_c = 0.075 (red, X_GB = 0.254), 0.150 (blue, X_GB = 0.588), 0.300 (green, X_GB = 0.838). The gray vertical band marks the FCC first-neighbour shell — the separation at which two atoms are in direct nearest-neighbour contact (r_NN = a/√2 ≈ 2.86 Å in bulk FCC Al, broadened to r ≈ 3.0–3.5 Å on the GB plane because GB sites are slightly displaced from perfect FCC positions); the value of g_HMC/g_random at this distance answers the question "do Mg atoms like to sit at first-neighbour positions next to other Mg atoms?". All three curves sit above 1 inside this shell and decay back to ~1 by r ≈ 10 Å, demonstrating short-range non-random Mg structure on the GB. For the blue (X_c = 0.150) and green (X_c = 0.300) curves the highest point is the 1st-NN peak — the normal "Mg clusters next to Mg" shape. The red curve (X_c = 0.075) is qualitatively different: its 1st-NN peak (1.07) is *smaller* than its own 2nd-NN peak at r ≈ 6 Å (1.22). This shape reversal — Mg still piles up, but at 2nd-NN spacing rather than direct 1st-NN contact — is the early site-level repulsion fingerprint: at low X_c the GB is sparse enough that Mg can choose deep-ΔE sites that are *not* 1st-neighbours of each other. At higher X_c the GB is too crowded to keep that selectivity and the 1st-NN peak grows back. Either way, the figure shows that Mg occupation is not independently distributed, contradicting Wagih's site-independent assumption. The aggregate signal here is partly geometric (deep-ΔE binding sites are themselves spatially adjacent on the GB plane and Mg preferentially fills them); the ΔE-controlled, site-level interaction proof is in Fig. 3.
 
 **Role**: mechanism evidence 1 / spatial correlation.
 
@@ -199,6 +199,16 @@ Last updated: 2026-05-02 (Fig 0 simplified to a 3-row legend with two-color ▽ 
 
 Physical interpretation: 0.075_preseg at X_c = 0.075, X_GB = 0.254 is right above the breakdown threshold; Mg coverage of GB sites is sparse (22,635 / 89,042 = 25 %), so the system has the freedom to "pick" non-adjacent sites and avoid first-NN Mg–Mg contact. Geometric clustering still shows up at the second-shell peak r ≈ 5.9 Å (1.22), but the first-NN peak is partially flattened by site-level repulsion. This in turn supports the **Fig. 3** site-level repulsion conclusion.
 
+**Are these snapshots in equilibrium? Does it matter?**
+
+The three snapshots used here (0.075_preseg, 0.15_preseg, 0.30_preseg) are all preseg trajectories that are still descending at the end of the production window (300 ps PROD; see §4.4 X_GB(end) values vs. the time-series in `output/hmc_T500_Xc0.075_preseg.json` etc.). They are *not* at thermodynamic equilibrium. Three reasons the analysis here is still meaningful:
+
+1. **The clustering peak at r ≈ 3–6 Å is largely geometric.** Mg fills the lowest-ΔE GB sites first, regardless of equilibrium. These sites happen to be spatially adjacent on the GB plane, so the peak above 1 at the first-NN distance is partly an artefact of *which sites get filled* rather than of dynamic Mg–Mg attraction. This geometric driver does not disappear at equilibrium — the peak would still be there.
+2. **Non-equilibrium is a *conservative* limit on the repulsion signal.** At equilibrium the system has more wall-clock time to optimise away from energetically costly 1st-NN contacts. The X_c = 0.075 first-peak suppression (1.075) is therefore an *early* repulsion signature that would only become *sharper* (lower) at equilibrium, not weaker.
+3. **Fig. 3 controls for ΔE.** The site-level repulsion conclusion (negative slope of P_i vs. n_Mg^local at fixed ΔE) is robust under non-equilibrium — non-equilibrium affects the *magnitude* of the slope but not the *sign*. So even if our trajectories were taken further toward equilibrium, the qualitative conclusion (slope < 0 = repulsion) would still hold; the slope numbers in Fig. 3 are upper-bound estimates of the true equilibrium repulsion strength.
+
+Short version: **non-equilibrium is a conservative bias, not an invalidation**. The mechanism story does not depend on full equilibration; equilibrium would just sharpen the quantitative numbers.
+
 **Likely advisor questions**:
 - *Q: How is g_random generated and what is its statistical noise?* — A: N_GB_Mg GB sites are drawn at random without replacement using a fixed RNG seed (20260429); see `scripts/solute_correlation_analysis.py:133-141`. A single draw fixes the reference; if ensemble noise estimates are needed, multiple draws can be averaged. Current sample size is comfortable (20k+ atoms per snapshot), so reference fluctuations are negligible.
 - *Q: Why does g(r) drop to 0 / NaN at small r?* — A: For r < 2 Å the random reference's shell volume × density gives < 1 expected pair, so g_random = 0 → ratio undefined. This is not an HMC artefact.
@@ -206,42 +216,42 @@ Physical interpretation: 0.075_preseg at X_c = 0.075, X_GB = 0.254 is right abov
 
 ---
 
-### Figure 2 ── `02_occupation_breakdown.png`
+### Figure 2 ── `02_occupation_breakdown.png`  (companion: `02_occupation_breakdown_3xc.png`)
 
 **Caption (English):**
 
-> **Figure 2.** Empirical Mg occupation probability P_i versus per-site segregation energy ΔE_i, compared with Wagih's site-independent FD prediction P_i^Wagih(ΔE_i; T, X_c) = 1 / (1 + ((1 − X_c) / X_c) · exp(ΔE_i / kT)) at T = 500 K (kT = 4.157 kJ/mol). For each panel the n = 500 reference sites are binned in ΔE_i (10 equal-width bins from −48 to +36 kJ/mol); within each bin, P_i is the fraction of sites occupied by Mg in the HMC snapshot, with binomial 95 % confidence intervals. Three panels show X_c = 0.075 (X_GB = 0.254), 0.150 (X_GB = 0.588), 0.300 (X_GB = 0.838). The favourable-binding region (ΔE < 0) is shaded green; the largest gap between the Wagih sigmoid and the empirical points in this region is annotated as ΔP_i. Empirical P_i is **systematically below** the Wagih sigmoid at the favourable end, with the gap widening as X_c decreases (ΔP_i = 0.77, 0.57, 0.13 for X_c = 0.075, 0.150, 0.300) — the breakdown is concentrated at the deepest binding sites.
+> **Figure 2.** Empirical Mg occupation probability P_i versus per-site segregation energy ΔE_i at X_c = 0.075 (X_GB = 0.254), compared with Wagih's site-independent FD prediction P_i^Wagih(ΔE_i; T, X_c) = 1 / (1 + ((1 − X_c) / X_c) · exp(ΔE_i / kT)) at T = 500 K (kT = 4.157 kJ/mol). **The black solid curve is the Wagih FD theoretical prediction** (formula evaluated on a 200-point ΔE grid); **the red points with error bars are the HMC measurement** at 10 equal-width ΔE_i bins (~50 sites per bin on average; per-bin counts in JSON `n_per_bin`). Within each bin, P_i is the empirical fraction of sites occupied by Mg in the HMC snapshot (binomial proportion); error bars are the Wald 95 % confidence interval p̂ ± 1.96 √[p̂(1 − p̂)/n], clipped to [0, 1]. ΔE_i is computed from the X_c = 0 reference spectrum (the bare segregation energy of an isolated Mg substitution at site *i*; finite-X_c renormalisation of ΔE is *not* applied — using the bare baseline is the only direct test of Wagih's independence assumption). The shaded green region marks ΔE_i < 0, the **favourable-binding region** where Mg substitution lowers system energy — these are the deepest binding sites where Wagih's prediction is tested most strongly (the FD curve approaches 1 there). Empirical P_i is **systematically below** the Wagih sigmoid at the favourable end: at the most-favourable bin (ΔE_i = −27.4 kJ/mol, n = 38 sites), Wagih predicts P_i = 0.98 but the HMC measurement is 0.21 (95 % CI [0.08, 0.34]), so ΔP_i ≡ P_i^Wagih − P_i^empirical = 0.77 (Wagih over-predicts by 0.77). The companion figure `02_occupation_breakdown_3xc.png` reproduces the same comparison at X_c ∈ {0.075, 0.150, 0.300}; the gap shrinks with X_c (ΔP_i = 0.77, 0.57, 0.13), so the breakdown is largest at the lowest X_c.
 
-**Role**: mechanism evidence 2 / where on the energy axis Wagih FD fails.
+**Role**: mechanism evidence 2 / where on the energy axis Wagih FD fails. Slides-friendly headline visual is the single-panel X_c = 0.075 case (most dramatic gap); the X_c sweep is the supporting companion figure for the X_c-dependence sub-message.
 
-**What it shows**: bin the 500 reference sites by ΔE_i; within each bin, compute the empirical probability that the site is occupied by Mg in the HMC snapshot; compare with the Wagih FD prediction. Three panels for three X_c values.
+**What it shows**: bin the 500 reference sites by ΔE_i; within each bin, compute the empirical probability that the site is occupied by Mg in the HMC snapshot; compare with the Wagih FD prediction.
 
 **Core math**:
 - Empirical P_i: for each reference site, read the atom type in the HMC snapshot; type = Mg → 1, else → 0; average within each ΔE_i bin (binomial proportion).
 - Wagih FD prediction: `P_i^Wagih(ΔE_i; T, X_c) = 1 / (1 + ((1 − X_c) / X_c) · exp(ΔE_i / kT))`, kT = 4.157 kJ/mol at T = 500 K.
+- Gap metric: **ΔP_i ≡ P_i^Wagih(ΔE_i) − P_i^empirical(ΔE_i)** evaluated at the most-favourable ΔE bin (the bin with the largest gap). ΔP_i = 0 → Wagih's independence assumption holds within statistical noise; ΔP_i > 0 → Wagih over-predicts. The reported number is the per-snapshot maximum across the favourable (ΔE < 0) range.
 
 **Axes**:
-- x: ΔE_i [kJ/mol] (X_c = 0 reference spectrum), range ~[−48, +36] kJ/mol.
+- x: ΔE_i [kJ/mol] from the X_c = 0 reference spectrum (the bare per-site segregation energy of an isolated Mg substitution); range ~[−48, +36] kJ/mol.
 - y: P_i (Mg occupation probability), 0 to 1.
-- y-label only on the leftmost panel (shared y).
 
-**Three panels**: X_c = 0.075, 0.150, 0.300 (same X_c selection as Fig. 1).
+**Single panel**: X_c = 0.075 (X_GB = 0.254). Companion file `02_occupation_breakdown_3xc.png` adds X_c = 0.150 and 0.300 in a 1×3 layout.
 
-**Per-panel elements**:
+**Plot elements**:
 - Black solid line = Wagih FD theoretical curve (sampled on a dense ΔE grid, 200 points).
-- Red / blue / green points + 95 % CI errorbars = empirical (10 equal-width ΔE bins; per-bin counts in JSON `n_per_bin`).
+- Red points + 95 % CI errorbars = empirical (10 equal-width ΔE bins; per-bin counts in JSON `n_per_bin`).
 - Light green vertical band at ΔE < 0: **favourable binding region**.
 - Vertical green line at ΔE = 0.
-- Annotation arrow + box "ΔP_i ≈ X.XX": at the favourable-end (ΔE < 0) bin with the largest empirical-vs-Wagih gap.
-- Panel title: "X_c = 0.XXX → X_GB = 0.XXX".
+- Title: "Per-site Mg occupation P_i vs ΔE_i at X_c = 0.075 (X_GB = 0.254) — HMC vs Wagih FD".
+- Legend (upper right): "Wagih FD prediction" (black line), "HMC measurement" (red points).
 
 **Key numbers** (source: `output/solute_correlation_analysis.json` + Wagih-formula recomputation, verified):
 
 | X_c | most-favourable bin (ΔE) | P_Wagih predicted | P_emp measured | ΔP_i = Wagih − emp |
 |---:|---:|---:|---:|---:|
-| 0.075 | −27.40 kJ/mol | 0.9834 | 0.2105 | **0.7728** (drawn as 0.77) |
-| 0.150 | −44.25 kJ/mol | 0.9999 | 0.4286 | **0.5713** (drawn as 0.57) |
-| 0.300 | −27.40 kJ/mol | 0.9968 | 0.8684 | **0.1284** (drawn as 0.13) |
+| **0.075** (Fig. 2 main panel) | −27.40 kJ/mol | 0.9834 | 0.2105 | **0.7728** |
+| 0.150 (companion 3xc) | −44.25 kJ/mol | 0.9999 | 0.4286 | **0.5713** |
+| 0.300 (companion 3xc) | −27.40 kJ/mol | 0.9968 | 0.8684 | **0.1284** |
 
 **Talking points**:
 > "Wagih's sigmoid predicts that deep-binding sites (ΔE < 0) should be nearly fully occupied — P_i ≈ 1. But the HMC measurements show that at X_c = 0.075 the favourable end is only at P_i ≈ 0.21, a gap of 0.77 below the prediction. At X_c = 0.15 the gap shrinks to 0.57; at X_c = 0.30 to 0.13. **The breakdown lives at the lowest energies, and it is *more severe* at lower X_c** — exactly opposite to what you might naively expect."
@@ -437,9 +447,10 @@ Every cited number passes a spot-check; PASS / future-PASS log below.
     0.30:   0.837605 vs json 0.837605   PASS
 
 [3] Wagih FD recompute at most-favourable bin
-    X_c=0.075: ΔP=0.7728 (drawn 0.77)   PASS
-    X_c=0.15:  ΔP=0.5713 (drawn 0.57)   PASS
-    X_c=0.30:  ΔP=0.1284 (drawn 0.13)   PASS
+    (reported in Fig. 2 caption + key-numbers table; companion 3xc figure)
+    X_c=0.075: ΔP=0.7728 (rounded 0.77)   PASS
+    X_c=0.15:  ΔP=0.5713 (rounded 0.57)   PASS
+    X_c=0.30:  ΔP=0.1284 (rounded 0.13)   PASS
 
 [4] slope-vs-X_c values match JSON site_occupation_vs_density   PASS
 

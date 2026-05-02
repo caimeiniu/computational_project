@@ -50,41 +50,39 @@ def fig1_clustering(d: dict) -> None:
     for label in REPRESENTATIVE:
         c = d["g_MgMg_pair_correlation"]["curves"][label]
         ratio = np.array(c["ratio"], dtype=float)
-        ax.plot(r, ratio, color=COLORS[label], lw=2.2,
+        ax.plot(r, ratio, color=COLORS[label], lw=1.5,
                 label=_label(label, c["x_gb"]))
 
-    ax.axhline(1.0, color="k", lw=0.8, ls="--", alpha=0.5)
-    ax.text(24.5, 1.02, "uniform-random reference  ($g_{HMC}=g_{random}$)",
-            fontsize=9, color="k", alpha=0.7, ha="right", va="bottom")
+    # y=1 reference line; the inline "uniform-random reference" text was
+    # removed (the dashed line + the y-axis label make the meaning clear,
+    # and the user judged the wording opaque).
+    ax.axhline(1.0, color="k", lw=0.7, ls="--", alpha=0.5)
 
     ax.axvspan(3.0, 3.5, color="0.85", alpha=0.45, zorder=0)
-    ax.text(3.25, 0.08, "1st NN shell\n(FCC Al)", fontsize=8.5,
-            ha="center", va="bottom", alpha=0.8)
+    # Annotation moved to the top of the band (above the curves) — the
+    # bottom-left was crowding the y-axis tick labels.
+    ax.text(3.25, 1.46, "1st NN shell (FCC Al)", fontsize=8.5,
+            ha="center", va="top", alpha=0.75)
 
     ax.set_xlim(0, 25)
     ax.set_ylim(0, 1.55)
     ax.set_xlabel("pair separation  $r$  [Å]", fontsize=12)
-    ax.set_ylabel(r"$g_{Mg-Mg}^{HMC}(r)\ /\ g_{Mg-Mg}^{random}(r)$",
+    # Single y-label, plain English. The math definition + the >1 / <1
+    # interpretation both live in the caption now (user feedback: one
+    # title is enough on the y-axis, the two lines were saying the
+    # same thing).
+    ax.set_ylabel("Mg–Mg pair density  (HMC / random reference)",
                   fontsize=12)
     ax.set_title(
-        "Mg–Mg spatial clustering on the GB (HMC vs uniform-random reference)\n"
-        r"$> 1$: clustered    $< 1$: avoidant    "
-        r"(non-random structure out to $r \sim 10$ Å)",
-        fontsize=12.5,
+        "Mg–Mg spatial clustering on the GB (HMC vs uniform-random reference)",
+        fontsize=12.5, pad=22,
     )
-    ax.legend(loc="upper right", framealpha=0.92,
-              title="HMC at $T=500$ K", title_fontsize=10, fontsize=10)
-    ax.grid(alpha=0.3)
+    # T=500 K dropped from the legend title and pushed to the caption
+    # per user request.
+    ax.legend(loc="upper right", framealpha=0.92, fontsize=10)
+    ax.grid(alpha=0.25, lw=0.5)
 
-    fig.text(
-        0.5, 0.005,
-        "Aggregate spatial signal. The peak above $1$ is partly driven by "
-        "the geometric proximity of deep-$\\Delta E$ binding sites; the "
-        "$\\Delta E$-controlled (residual) interaction is in Fig. 3.",
-        ha="center", fontsize=9, style="italic", color="0.4", wrap=True,
-    )
-
-    fig.tight_layout(rect=[0, 0.04, 1, 1])
+    fig.tight_layout()
     fig.savefig(OUT_DIR / "defense_MgMg_clustering.png", dpi=200,
                 bbox_inches="tight")
     plt.close(fig)
@@ -108,11 +106,11 @@ def fig2_occupation_breakdown(d: dict) -> None:
         x_gb = s["x_gb"]
 
         ax.axvspan(de.min() - 5, 0, color="#a8d5a8", alpha=0.22, zorder=0)
-        ax.axvline(0, color="#2a662a", lw=0.8, ls="-", alpha=0.5)
+        ax.axvline(0, color="#2a662a", lw=0.7, ls="-", alpha=0.5)
 
         de_grid = np.linspace(de.min(), de.max(), 200)
         p_wagih = wagih_fd(de_grid, x_c, kT)
-        ax.plot(de_grid, p_wagih, "k-", lw=1.8,
+        ax.plot(de_grid, p_wagih, "k-", lw=1.5,
                 label="Wagih FD prediction")
 
         valid = ~np.isnan(p)
@@ -120,52 +118,89 @@ def fig2_occupation_breakdown(d: dict) -> None:
             de[valid], p[valid],
             yerr=[p[valid] - lo[valid], hi[valid] - p[valid]],
             fmt="o", color=COLORS[label], capsize=3,
-            markersize=7, lw=1.2, label="HMC empirical",
+            markersize=7, elinewidth=1.0, label="HMC measurement",
         )
 
-        favourable_mask = (de < 0) & valid
-        if favourable_mask.any():
-            gap = wagih_fd(de[favourable_mask], x_c, kT) - p[favourable_mask]
-            i = int(np.argmax(gap))
-            de_a = de[favourable_mask][i]
-            p_a = p[favourable_mask][i]
-            p_w_a = wagih_fd(de_a, x_c, kT)
-            if p_w_a - p_a > 0.08:
-                ax.annotate(
-                    f"$\\Delta P_i \\approx {p_w_a - p_a:.2f}$",
-                    xy=(de_a, p_a),
-                    xytext=(de_a + 5, p_a - 0.20),
-                    arrowprops=dict(arrowstyle="->", color="0.25", lw=1.2),
-                    fontsize=10.5, color="0.15",
-                    bbox=dict(boxstyle="round,pad=0.25",
-                              fc="white", ec="0.6", lw=0.6),
-                )
+        # ΔP_i annotation removed per user request — the gap value belongs
+        # in the README caption / §5 Figure 2 key-numbers table, not on
+        # the figure.
 
-        ax.set_xlabel(r"$\Delta E_i$  [kJ/mol]   ($X_c=0$ reference)",
-                      fontsize=11)
+        # x-axis label: dropped the "(X_c=0 reference)" qualifier — moved
+        # to the figure caption.
+        ax.set_xlabel(r"$\Delta E_i$  [kJ/mol]", fontsize=11)
         ax.set_title(rf"$X_c={x_c:.3f}$  $\rightarrow$  "
                      rf"$X_{{GB}}={x_gb:.3f}$", fontsize=12.5)
         ax.set_ylim(-0.05, 1.08)
-        ax.grid(alpha=0.25)
-        ax.legend(loc="lower right", fontsize=9.5, framealpha=0.92)
+        ax.grid(alpha=0.25, lw=0.5)
+        # Legend moved to upper right (per user request); upper-right area
+        # is empty since both Wagih curve and empirical points drop to
+        # near zero at high ΔE.
+        ax.legend(loc="upper right", fontsize=9.5, framealpha=0.92)
 
     axes[0].set_ylabel(r"$P_i$ — probability site $i$ is Mg",
                        fontsize=11.5)
+    # Single-line descriptive suptitle; sit closer to panel titles
+    # (previous y=1.04 was too far away from the panels per user feedback).
     fig.suptitle(
-        "Where Wagih's site-independent FD breaks: empirical $P_i$ "
-        "below sigmoid at favourable $\\Delta E_i$",
-        y=1.02, fontsize=13,
+        r"Per-site Mg occupation $P_i$ vs segregation energy $\Delta E_i$  "
+        r"— HMC measurement vs Wagih FD prediction",
+        y=1.0, fontsize=12.5,
     )
-    fig.text(
-        0.5, -0.02,
-        "Black curve: Wagih FD  $P_i = 1\\,/\\,(1 + ((1-X_c)/X_c)\\exp(\\Delta E_i/kT))$  "
-        "(independent-site prediction).   Coloured points: HMC equilibrium occupancy "
-        "binned by $\\Delta E_i$, 95% CIs.   Green band:  $\\Delta E < 0$  "
-        "(favourable binding).",
-        ha="center", fontsize=9, style="italic", color="0.4",
-    )
-    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.tight_layout(rect=[0, 0, 1, 0.97])
     fig.savefig(OUT_DIR / "defense_occupation_breakdown.png", dpi=200,
+                bbox_inches="tight")
+    plt.close(fig)
+
+
+def fig2_occupation_breakdown_single(d: dict) -> None:
+    """Single-panel companion — most dramatic case ($X_c=0.075$).
+
+    The 3-panel version shows how the gap shrinks with $X_c$; this
+    single-panel version is the slides-friendly headline visual where
+    one clear example carries the message.
+    """
+    kT = d["kT_kjmol"]
+    label = "0.075_preseg"
+    s = d["site_occupation_vs_energy"]["snapshots"][label]
+    de = np.array(s["bin_centers_kjmol"])
+    p = np.array(s["p_empirical"])
+    lo = np.array(s["p_low95"])
+    hi = np.array(s["p_high95"])
+    x_c = s["x_c"]
+    x_gb = s["x_gb"]
+
+    fig, ax = plt.subplots(figsize=(7.5, 5.0))
+
+    ax.axvspan(de.min() - 5, 0, color="#a8d5a8", alpha=0.22, zorder=0)
+    ax.axvline(0, color="#2a662a", lw=0.7, ls="-", alpha=0.5)
+
+    de_grid = np.linspace(de.min(), de.max(), 200)
+    p_wagih = wagih_fd(de_grid, x_c, kT)
+    ax.plot(de_grid, p_wagih, "k-", lw=1.5,
+            label="Wagih FD prediction")
+
+    valid = ~np.isnan(p)
+    ax.errorbar(
+        de[valid], p[valid],
+        yerr=[p[valid] - lo[valid], hi[valid] - p[valid]],
+        fmt="o", color=COLORS[label], capsize=3,
+        markersize=7, elinewidth=1.0, label="HMC measurement",
+    )
+
+    ax.set_xlabel(r"$\Delta E_i$  [kJ/mol]", fontsize=12)
+    ax.set_ylabel(r"$P_i$ — probability site $i$ is Mg", fontsize=12)
+    ax.set_title(
+        rf"Per-site Mg occupation $P_i$ vs $\Delta E_i$ at "
+        rf"$X_c={x_c:.3f}$  ($X_{{GB}}={x_gb:.3f}$)  "
+        r"—  HMC vs Wagih FD",
+        fontsize=12.5, pad=16,
+    )
+    ax.set_ylim(-0.05, 1.08)
+    ax.grid(alpha=0.25, lw=0.5)
+    ax.legend(loc="upper right", fontsize=10, framealpha=0.92)
+
+    fig.tight_layout()
+    fig.savefig(OUT_DIR / "defense_occupation_breakdown_single.png", dpi=200,
                 bbox_inches="tight")
     plt.close(fig)
 
@@ -282,11 +317,13 @@ def main() -> None:
 
     fig1_clustering(d)
     fig2_occupation_breakdown(d)
+    fig2_occupation_breakdown_single(d)
     fig3_repulsion_summary(d)
 
-    print(f"Wrote 3 PNGs to {OUT_DIR}/:")
+    print(f"Wrote 4 PNGs to {OUT_DIR}/:")
     print("    defense_MgMg_clustering.png")
-    print("    defense_occupation_breakdown.png")
+    print("    defense_occupation_breakdown.png  (3-panel X_c sweep)")
+    print("    defense_occupation_breakdown_single.png  (X_c=0.075 only)")
     print("    defense_repulsion_summary.png")
 
 
