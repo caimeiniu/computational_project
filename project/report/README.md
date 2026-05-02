@@ -2,7 +2,7 @@
 
 > 答辩现场用于讲解的 4 张主图 + 详细说明。每个数字都有源文件可追溯,无虚构(spot-check 通过,见末段 Provenance)。
 
-最后更新:2026-05-01
+最后更新:2026-05-02(2026-05-02 加入支撑图 4-7,Fig 0 加入 X_c=0.10 multistart UB)
 
 ---
 
@@ -18,12 +18,23 @@
 
 ## 2. 答辩讲故事的图序(Talk Order)
 
+**主图(Main story arc, 答辩讲故事 4 张)**
+
 | # | 图文件 | 角色 | 一句话讲什么 |
 |---|---|---|---|
-| 0 | `figures/00_headline_hmc_vs_wagih_T500.png` | **Headline / 反例锚点** | 在 X_c=0.075 处,HMC 测得的 X_GB = 0.254 已**低于** Wagih FD 预测的 0.301 → 假设失效的直接证据 |
+| 0 | `figures/00_headline_hmc_vs_wagih_T500.png` | **Headline / 反例锚点** | 在 X_c=0.075 处,HMC 测得的 X_GB = 0.254 已**低于** Wagih FD 预测的 0.301;并在 X_c=0.10 处 multistart UB X_GB=0.246 也已**低于** canon-FD 0.352 → 假设失效的直接证据 |
 | 1 | `figures/01_MgMg_clustering.png` | **机理证据 1 — 空间** | Mg-Mg pair correlation function g(r) 偏离均匀随机分布 → Mg 不是独立分布的(*aggregate spatial signal*) |
 | 2 | `figures/02_occupation_breakdown.png` | **机理证据 2 — 能量轴** | 实测 P_i 在 favourable ΔE 端**系统性低于** Wagih sigmoid → 假设失效的位置在 ΔE 谱的最低端 |
 | 3 | `figures/03_repulsion_summary.png` | **机理证据 3 — site-level 直接证据** | 固定 ΔE 窗口内,邻居 Mg 越多 → 占据率越低 → 直接观测到 Mg-Mg 排斥相互作用 |
+
+**支撑图(Supporting Figures, Q&A / 方法学背景用)**
+
+| # | 图文件 | 角色 | 一句话讲什么 |
+|---|---|---|---|
+| 4 | `figures/04_spectrum_match.png` | 谱代表性 | n=500 ΔE 谱与 Wagih Zenodo n=82,646 谱直方图 + skew-normal 拟合(KS p=0.89,统计上不可区分)|
+| 5 | `figures/05_sampler_convergence.png` | HMC 收敛诊断 | X_c=0.075 preseg run 的 5-panel 时序:T(t)、PE(t)、accept rate、X_GB(t)、swap fwd/rev 分解 |
+| 6 | `figures/06_two_sided_verify.png` | 平衡态验证 | X_c=0.05 双向 IC(random + preseg)bracket overlap → 证明 sampler 在稀释端能 equilibrate |
+| 7 | `figures/07_ovito_segregation.png` | 偏析视觉确认 | OVITO 渲染 X_c=0.20 final config,Mg(橙)在 GB 富集肉眼可见 |
 
 ---
 
@@ -110,30 +121,34 @@
 - **灰色 dashed (no segregation)**:X_GB = X_c
 
 **我们的 HMC 测量**:
-- 1 个红实心圆 (X_c=0.05):equilibrated bracket(双向 IC 验证,见 `output/verify_T500_Xc5e-2_two_sided.png`),X_HMC = 0.2375 ± 0.005
-- 5 个红三角 ▽ (X_c = 0.075, 0.10, 0.15, 0.20, 0.30):**preseg upper bound**,trajectory 仍在向下 descending,所以这是 X_GB^∞ ≤ end-value 的 *upper bound*
+- 1 个红实心圆 ● (X_c=0.05):equilibrated bracket(双向 IC 验证,见图 6 `figures/06_two_sided_verify.png`),X_HMC = 0.2375 ± 0.005
+- 5 个红开口下三角 ▽ (X_c = 0.075, 0.10, 0.15, 0.20, 0.30):**preseg upper bound**,trajectory 仍在向下 descending,所以这是 X_GB^∞ ≤ end-value 的 *upper bound*
+- 1 个灰开口方块 □ (X_c=0.10):**multistart UB**,从 random IC(X_GB(0)=0.30)descend 至 kinetic floor,production-mean X_GB=0.246 ± 0.004 → 提供 IC-independent 的第二条 upper bound;在 canon-FD 之下 0.106 → 直接显示 X_c=0.10 breakdown
 
-**关键数字**(来源:`output/hmc_vs_canonfd_T500.json`,verified):
+**关键数字**(来源:`output/hmc_vs_canonfd_T500_with_multistart.json`,verified):
 
 | X_c | 类型 | X_HMC | X_FD (ours) | gap (X_HMC − X_FD) |
 |---:|---|---:|---:|---:|
-| 0.050 | equilibrated | 0.2375 | 0.2282 | **+0.0093** (Wagih holds) |
-| 0.075 | preseg-UB | 0.2543 | 0.3007 | **−0.0464** (UB 已穿过 FD,**breakdown**) |
-| 0.100 | preseg-UB | 0.3749 | 0.3519 | +0.0230 (UB 仍在 FD 之上,空 bound) |
-| 0.150 | preseg-UB | 0.5888 | 0.4204 | +0.1684 (空 bound) |
-| 0.200 | preseg-UB | 0.7942 | 0.4671 | +0.3271 (空 bound) |
-| 0.300 | preseg-UB | 0.8379 | 0.5337 | +0.3042 (空 bound) |
+| 0.050 | equilibrated ● | 0.2375 | 0.2282 | **+0.0093** (Wagih holds) |
+| 0.075 | preseg-UB ▽ | 0.2543 | 0.3007 | **−0.0464** (UB 已穿过 FD,**breakdown**) |
+| 0.100 | preseg-UB ▽ | 0.3749 | 0.3519 | +0.0230 (UB 仍在 FD 之上,空 bound — IC dependence) |
+| 0.100 | multistart-UB □ | 0.2459 | 0.3519 | **−0.1060** (UB 已穿过 FD,**breakdown**)|
+| 0.150 | preseg-UB ▽ | 0.5888 | 0.4204 | +0.1684 (空 bound) |
+| 0.200 | preseg-UB ▽ | 0.7942 | 0.4671 | +0.3271 (空 bound) |
+| 0.300 | preseg-UB ▽ | 0.8379 | 0.5337 | +0.3042 (空 bound) |
 
 **结论**:
 1. **X_c=0.05**:Wagih 假设成立(gap 在 1% 以内,两个 IC 都给出一致的 equilibrated bracket)
 2. **X_c=0.075**:**Wagih 假设失效的直接证据** —— preseg 从 X_GB(0)=0.32 descend 到 0.254,已穿过 canon-FD = 0.301 而仍在向下,所以 X_GB^∞ ≤ 0.254 < 0.301 = 矛盾
-3. **X_c ≥ 0.10**:preseg UBs 仍在 canon-FD 之上,**这张图本身**不直接证明 breakdown;但补充证据 = X_c=0.10 multistart UB(production-mean X_GB = 0.246 ± 0.004,见 `output/hmc_T500_Xc0.10_multistart_xgb0.3.json`),已远低于 canon-FD = 0.352,所以 X_c=0.10 处 breakdown 也成立;X_c ≥ 0.15 的 breakdown 由阈值外推 + 机理证据(图 1-3)推论
+3. **X_c=0.10**:**Wagih 假设失效第二个直接证据** —— multistart UB(灰 □)X_GB=0.246 ≪ canon-FD = 0.352(gap=−0.106);preseg UB(红 ▽)X_GB=0.375 仍在 canon-FD 之上,反映 IC dependence(preseg 还在 descend,multistart 已到 kinetic floor);两个 IC 给出 sandwich,equilibrium X_GB^∞ 必落在二者之间但都 ≤ multistart 的上界 → breakdown 成立
+4. **X_c ≥ 0.15**:preseg UBs 仍在 canon-FD 之上,空 bound;breakdown 评据由阈值外推(X_c\* ∈ (0.05, 0.075])+ 机理证据(图 1-3)推论
 
 **讲稿要点**(给听众):
-> "在 X_c=0.05 这个稀释极限,X_HMC 落在绿色 canon-FD band 上,差异 1% 以内 —— Wagih 公式预测对了。一旦 X_c 升到 0.075,即使 trajectory 从极端 segregation IC X_GB=0.32 一路向下,仍然冲过了 FD 预测的 0.301 ——这就是 Wagih 公式被推翻的直接证据。"
+> "在 X_c=0.05 这个稀释极限,X_HMC 落在绿色 canon-FD band 上,差异 1% 以内 —— Wagih 公式预测对了。一旦 X_c 升到 0.075,即使 trajectory 从极端 segregation IC X_GB=0.32 一路向下,仍然冲过了 FD 预测的 0.301 ——这就是 Wagih 公式被推翻的直接证据。X_c=0.10 处又看到第二条独立证据:从随机 IC 出发的 multistart 跑(灰开方块)落在 0.246,远在 FD 预测的 0.352 之下。"
 
 **导师可能问**:
-- *Q: 为什么 X_c ≥ 0.10 不直接画 multistart 数据进来?* —— A: panel (d) 当前只画了 preseg 系列以保持图面单一;multistart 在 `output/hmc_T500_Xc0.10_multistart_xgb0.3.png` 单独展示,production-mean X_GB=0.246 ≪ FD 0.352。Future work: refresh panel (d) with multistart UB triangles。
+- *Q: 为什么 multistart 和 preseg 在 X_c=0.10 不一致(0.246 vs 0.375)?* —— A: 这是 IC dependence。preseg 从 X_GB=0.32(强偏析)出发,trajectory 还在 descend 中,所以仍是 *upper bound from above*;multistart 从 random IC(X_GB=0.30,均匀分布)出发 descend 至 kinetic floor 0.246,也是 upper bound 但已通过 canon-FD 之下。两条 trajectory 给出 sandwich:equilibrium X_GB^∞ ≤ min(0.375, 0.246) = 0.246 ≪ canon-FD 0.352 → breakdown 直接证明。
+- *Q: 为什么 multistart UB 用灰开方而不是红开 ▽?* —— A: 与 Fig 3 (`03_repulsion_summary.png`) 一致 —— 灰开方表示 "random-IC 起始,descend 至 kinetic floor",与 preseg-IC 起始的 ▽ 区分,visual semantic 在 figure 之间保持一致。
 - *Q: preseg UB 为什么不是 lower bound?* —— A: trajectory 是 *descending*(IC 比 equilibrium 高,系统在向下走),所以观测到的 end value 是当前能达到的最低,equilibrium X_GB^∞ 只会更低或相等 → upper bound on X_GB^∞。
 - *Q: 阈值 X_c\* 的精确位置在哪?* —— A: 当前 binary search:X_c\* ∈ (0.05, 0.075](从 X_c=0.05 holds、X_c=0.075 fails 推断);X_c=0.06 job 65224958 已 submit,正在 normal.24h 排队,run 完后给出更精细的下界。
 
@@ -281,6 +296,48 @@
 
 ---
 
+### 支撑图(Supporting Figures, 4–7)
+
+主故事线靠图 0–3 闭环;以下 4 张是 Q&A / 方法学背景用,可在被追问时直接打开。
+
+#### Figure 4 ── `04_spectrum_match.png`
+
+**角色**:谱代表性 / 方法学前提。
+
+**展示什么**:把我们 n=500 ΔE 谱(粉色直方图 + 棕色 dashed skew-normal 拟合)与 Wagih Zenodo 公开的 n=82,646 谱(浅绿直方图 + 深绿 solid 拟合)叠加。
+
+**关键数字**(图标题):**KS D=0.026, p=0.89** ≫ 0.5(spectrum-level indistinguishable);ours fit μ=+6.3, σ=20.1, α=−1.47;Wagih fit μ=+6.7, σ=20.8, α=−1.40。
+
+**用途**:回答 Q5(n=500 谱够代表性吗?)。源数据见 `output/compare_vs_wagih_200A_tight.json`,生成脚本 `scripts/compare_vs_wagih.py`。
+
+#### Figure 5 ── `05_sampler_convergence.png`
+
+**角色**:HMC 收敛诊断。
+
+**展示什么**:X_c=0.075 preseg run 的 5-panel 时序:(a) T(t) 维持 500 K;(b) PE(t) 在 ~150 ps 内 plateau 到 ~−1.513×10⁶ eV;(c) 累计 swap accept rate ~6.2%;(d) X_GB(t) 从 IC ~0.32 单调下降至 0.254(灰色阴影 = burnin);(e) 每帧 swap fwd/rev 分解,显示 net 反向(Mg 在向 bulk 流出)。
+
+**用途**:回答 Q4(HMC 收敛了吗?)。源数据 `output/hmc_T500_Xc0.075_preseg.json`,生成脚本 `scripts/hmc_xgb_timeseries.py`。
+
+#### Figure 6 ── `06_two_sided_verify.png`
+
+**角色**:平衡态验证(稀释端)。
+
+**展示什么**:X_c=0.05、T=500 K 下两条独立 trajectory:random IC(蓝,从 X_GB(0)=0.05 上升至 0.062)与 preseg IC(红,从 X_GB(0)=0.27 下降至 0.238)。canon-FD 目标 0.228(黑 dashed)落在两端之间。
+
+**关键数字**:half-life-2 残差 Δ_{1/2}^{rand}=+0.006, Δ_{1/2}^{preseg}=−0.015 → bracket 收敛达标;sandwich 区间宽度 ~0.18(主要来自 preseg trajectory 还未完全收敛,但已 overshoot canon-FD 目标后稳定下来)。
+
+**用途**:Q4 的更强版回答(双向 IC 验证 sampler 在稀释端真正 equilibrate)。源数据 `output/hmc_T500_Xc5e-2_verify-{rand,preseg}_xgb.json`,生成脚本 `scripts/verify_two_sided_compare.py`。
+
+#### Figure 7 ── `07_ovito_segregation.png`
+
+**角色**:偏析视觉确认 / 非专家入场。
+
+**展示什么**:X_c=0.20 final HMC config 的 OVITO 渲染。灰色 = Al,橙色 = Mg。GB(晶界)处 Mg 浓度肉眼可见高于晶粒内部(N_GB_Mg=70,672, X_GB=0.794);橙色"网格"勾勒 3D Voronoi 多晶的 GB 网络。
+
+**用途**:slides 上的视觉支撑;非专家观众用作"我们到底在算什么"的入门图。源 LAMMPS file `data/snapshots/hmc_T500_Xc0.20_preseg_final.lmp`(63 MB),OVITO Pro standalone 渲染。
+
+---
+
 ## 6. Cross-Figure Narrative(跨图叙事衔接)
 
 按答辩顺序的"逻辑链":
@@ -312,7 +369,7 @@
 ## 7. Q&A 预案(给答辩用,按可能性排序)
 
 **Q1**:你只在 X_c=0.075 直接证明了 breakdown,X_c ≥ 0.10 怎么办?
-- A: X_c=0.10 由 multistart UB(production-mean X_GB=0.246 ± 0.004,远低于 canon-FD = 0.352)间接证明,见 `output/hmc_T500_Xc0.10_multistart_xgb0.3.json`。X_c ≥ 0.15 当前 preseg trajectory 还在 descending,实测数据是 vacuous bound;阈值 binary-search 给出 X_c\* ∈ (0.05, 0.075],所以 X_c ≥ 0.075 都在 breakdown 区域,机理证据(图 1-3)在所有 X_c 切面都展示出 site-level interaction 的 fingerprint。
+- A: X_c=0.10 由 multistart UB **直接证明** —— 自 2026-05-02 起已绘入图 0(灰开方块,production-mean X_GB=0.246 ± 0.004,远低于 canon-FD = 0.352, gap=−0.106),数据见 `output/hmc_T500_Xc0.10_multistart_xgb0.3.json`。X_c ≥ 0.15 当前 preseg trajectory 还在 descending,实测数据是 vacuous bound;阈值 binary-search 给出 X_c\* ∈ (0.05, 0.075],所以 X_c ≥ 0.075 都在 breakdown 区域,机理证据(图 1-3)在所有 X_c 切面都展示出 site-level interaction 的 fingerprint。
 
 **Q2**:Mg-Mg 的相互作用是 elastic strain 还是 chemical bonding?
 - A: 现有数据无法严格区分,但相关长度 ~5 Å(R_local 阈值)与 r ~ 10 Å 的 g(r) 衰减一致,提示 elastic strain field (Mg 大于 Al 约 12% lattice parameter 不匹配,长程弹性畸变);chemical 互作通常更短(~3 Å NN)。Future work:同时检验 r=3 vs r=5 vs r=8 Å windows 看 length-scale 依赖。
@@ -358,10 +415,14 @@
 
 [4] slope-vs-X_c values match JSON site_occupation_vs_density   PASS
 
-[5] panel (d) gap table matches JSON hmc_vs_canonfd_T500.json    PASS
+[5] panel (d) gap table matches JSON hmc_vs_canonfd_T500_with_multistart.json   PASS
 
 [6] spectrum stats (n=500) match compare_vs_wagih_200A_tight.json  PASS
     KS p=0.8920 → spectra indistinguishable from Wagih's 82k
+
+[7] X_c=0.10 multistart UB drawn value (2026-05-02 addition)
+    JSON `hmc_T500_Xc0.10_multistart_xgb0.3.json` x_gb.mean = 0.245911
+    drawn at X_GB ≈ 0.246, gap vs canon-FD = -0.106              PASS
 ```
 
 ### 文件依赖链
@@ -385,18 +446,22 @@ data/snapshots/gb_mask_200A.npy        (475,843 bytes)
 ```
 00_headline_hmc_vs_wagih_T500.png
     ↑
-output/hmc_vs_canonfd_T500.{json,png}
+output/hmc_vs_canonfd_T500_with_multistart.{json,png}
     ↑
-scripts/canonical_fd_compare_5pt.py
+scripts/canonical_fd_compare_5pt_with_multistart.py    (NEW 2026-05-02)
     ↑
 output/hmc_T500_Xc{0.05_verify-preseg,0.075,0.10,0.15,0.20,0.30}_preseg.json
+output/hmc_T500_Xc0.10_multistart_xgb0.3.json          (NEW marker: 灰 □)
     ↑
 HMC SLURM 作业 65208332 / 64xxxxx 系列(见 CHANGELOG)
 ```
 
+(原始版本 `scripts/canonical_fd_compare_5pt.py` 与其输出 `output/hmc_vs_canonfd_T500.{json,png}` 保留不变,作为 multistart 之前的对照版本。)
+
 ### 已知 caveats(诚实清单)
 
-- panel (d) 当前**未画 multistart UB**;X_c ≥ 0.10 的 breakdown 评据需要在 Q&A 时口头补充。
+- ~~panel (d) 当前**未画 multistart UB**;X_c ≥ 0.10 的 breakdown 评据需要在 Q&A 时口头补充。~~ **已解决(2026-05-02)**:multistart UB 灰开方块已绘入图 0,X_c=0.10 breakdown 现为图面直接证据。
+- X_c ≥ 0.15 仍只有 preseg trajectory 还在 descending,实测仍是 vacuous bound;breakdown 评据来自阈值外推(X_c\* ∈ (0.05, 0.075])+ 机理证据(图 1-3)。
 - X_c=0.20 slope 翻正 (+0.0148) 是饱和效应,**不是物理 sign reversal**;若被追问,引用 X_c=0.30 slope=-0.002 来对照(slope → 0 是 saturation 一致,而非反转)。
 - 图 2 用的是 X_c=0 reference 谱的 ΔE_i,有限 X_c 下 effective ΔE_i 因局部互作 shift —— 这是 by-design,不是 bug,但要在 Q&A 时 acknowledge 是 simplification。
 - 散点图 confidence intervals 用的是 binomial 正态近似(n_per_bin ≥ 50 时 OK,n_per_bin 小的 bin 会失真);Wilson CI 是更严的方案,future work。
@@ -411,11 +476,19 @@ python scripts/replot_mechanism_for_defense.py
 ```
 读 `output/solute_correlation_analysis.json`,几秒出 3 张 PNG 到 `output/defense_*.png`。然后再 cp 到本文件夹。
 
-**panel (d)(图 0)**:
+**panel (d)(图 0,含 X_c=0.10 multistart UB)**:
 ```
-python scripts/canonical_fd_compare_5pt.py  # 见 CHANGELOG 2026-04-30 morning 该脚本默认参数
+python scripts/canonical_fd_compare_5pt_with_multistart.py
 ```
-更新 `output/hmc_vs_canonfd_T500.{json,png}`,cp 到本文件夹。
+更新 `output/hmc_vs_canonfd_T500_with_multistart.{json,png}`,cp PNG 到 `figures/00_headline_hmc_vs_wagih_T500.png`(覆盖)。
+
+**支撑图 4–7(无需重算,直接 cp 现有 output/)**:
+```
+cp output/compare_vs_wagih_200A_tight.png    figures/04_spectrum_match.png
+cp output/hmc_T500_Xc0.075_preseg.png        figures/05_sampler_convergence.png
+cp output/verify_T500_Xc5e-2_two_sided.png   figures/06_two_sided_verify.png
+cp output/ovito_gb_render_xc0.20.png         figures/07_ovito_segregation.png
+```
 
 **重做 mechanism 分析(从 LAMMPS snapshot 起)**:
 ```

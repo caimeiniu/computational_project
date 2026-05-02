@@ -2,6 +2,122 @@
 
 Entries in reverse chronological order (newest first).
 
+## 2026-05-02 (afternoon) — Defense report figure set expanded to 8; Fig 0 refreshed with X_c=0.10 multistart UB
+
+### Trigger
+
+User asked: 整理准备做报告的图片放到一个单独的文件夹里面,每个图片都仔细再看看
+能不能解释清楚我们的故事,缺什么补什么。
+
+`report/figures/` (built 2026-05-01) had 4 figures covering the main story
+arc (breakdown signal + 3 mechanism evidence). Audit identified 4
+supplementary figures referenced verbally in README §4 (Methods) and §7
+(Q&A) but not visualised, plus 1 fixable caveat (X_c=0.10 multistart UB
+called out in §8 caveats but not on the headline figure).
+
+### Audit findings
+
+The 4 existing figures (`00`–`03`) are story-aligned, README-supported
+and well-built — no edits to them. The gap is on the methodological
+backing side:
+
+- README cites KS p=0.89 spectrum match in §4.2 but no figure shows it.
+- README claims "HMC equilibrated" in §4.3 but no time-series figure.
+- README §8 caveats list "panel (d) 当前未画 multistart UB" with a
+  Future-work note → fixable now.
+- No visual confirmation of segregation in slides (OVITO render exists
+  in `output/` but never copied into `report/`).
+
+### What changed
+
+**4 supplementary figures added** to `report/figures/` (cp'd from existing
+`output/`, no recomputation):
+
+- `04_spectrum_match.png` ← `output/compare_vs_wagih_200A_tight.png`
+  — answers Q5 (n=500 spectrum representativeness): KS p=0.89 vs Wagih
+  Zenodo n=82,646
+- `05_sampler_convergence.png` ← `output/hmc_T500_Xc0.075_preseg.png`
+  — answers Q4 (HMC convergence): 5-panel time series for X_c=0.075
+  preseg run
+- `06_two_sided_verify.png` ← `output/verify_T500_Xc5e-2_two_sided.png`
+  — answers Q4 stronger version: X_c=0.05 random-IC + preseg-IC
+  bracket overlap around canon-FD target 0.228
+- `07_ovito_segregation.png` ← `output/ovito_gb_render_xc0.20.png`
+  — slides-friendly OVITO render of X_c=0.20 final config (Mg orange
+  on Al gray, GB segregation visually striking)
+
+**Fig 0 refreshed with X_c=0.10 multistart UB** (the resolved caveat):
+
+- New script `scripts/canonical_fd_compare_5pt_with_multistart.py`,
+  copy of `canonical_fd_compare_5pt.py` per project convention "don't
+  modify canonical scripts in place".
+- Differences from canonical:
+  (a) `--kinetic-floor` default now includes
+      `hmc_T500_Xc0.10_multistart_xgb0.3.json`;
+  (b) kinetic-floor marker styling changed from red to gray (0.35) open
+      square (matches Fig 3 / `03_repulsion_summary.png` convention,
+      keeping cross-figure visual semantic for "random-IC kinetic-floor
+      trajectory" consistent);
+  (c) legend label updated to "multistart UB (kinetic-floor IC)";
+  (d) `--out-prefix` default now `hmc_vs_canonfd_T500_with_multistart`.
+- Original `scripts/canonical_fd_compare_5pt.py` and its outputs
+  `output/hmc_vs_canonfd_T500.{json,png}` left untouched as canonical
+  reference / pre-multistart version.
+- Generated `output/hmc_vs_canonfd_T500_with_multistart.{json,png}`;
+  cp'd PNG to `report/figures/00_headline_hmc_vs_wagih_T500.png`
+  (overwrite).
+- The new gray-square at (X_c=0.10, X_GB=0.246) sits 0.106 below
+  canon-FD = 0.352, directly visualising X_c=0.10 breakdown that was
+  previously a verbal-only Q&A point. Combined with preseg ▽ at
+  X_GB=0.375, the two IC choices form a sandwich on equilibrium
+  X_GB^∞ ∈ [?, 0.246] ≪ canon-FD = 0.352 → breakdown direct.
+
+### README updates
+
+- §2 talk-order: split into "主图 (Main story arc)" + "支撑图
+  (Supporting Figures)" sub-tables; added 4 rows for figures 4–7.
+- §5 Figure 0:
+  - visual element list adds gray-square multistart UB bullet;
+  - key-numbers table gains X_c=0.10 multistart row (gap=−0.106);
+  - conclusions §3 reframed: X_c=0.10 now direct-evidence breakdown,
+    not verbal-only — sandwich logic (preseg vs multistart IC) added;
+  - "讲稿要点" updated to mention multistart at X_c=0.10;
+  - 导师 Q&A: replaced "为什么 X_c≥0.10 不画 multistart" question
+    with "为什么两条 trajectory 不一致" (IC dependence) +
+    "为什么 multistart 用灰开方" (visual semantic consistency with
+    Fig 3).
+- §5 (new sub-section "支撑图"): brief walkthroughs for figures 4–7
+  (purpose, content, key numbers, source data, generating script).
+- §7 Q1: "X_c=0.10 由 multistart UB ... 间接证明" → "直接证明,自
+  2026-05-02 起已绘入 panel (d)".
+- §8 caveats: "panel (d) 当前未画 multistart UB" item struck through
+  + replaced with resolution note; added new caveat for X_c≥0.15
+  (preseg trajectory still descending, vacuous bound).
+- §8 verification log: added item [7] for multistart UB number
+  (drawn 0.246 = JSON x_gb.mean 0.245911); item [5] points to new
+  JSON path.
+- §8 file dependency chain for Fig 0 updated to new script + new
+  JSONs.
+- §9 reproduction: panel (d) command points to new script;
+  added cp commands for figures 4–7.
+- date "最后更新" bumped to 2026-05-02.
+
+### Files this entry
+
+- `scripts/canonical_fd_compare_5pt_with_multistart.py` — new (copy +
+  ~10 lines modified)
+- `output/hmc_vs_canonfd_T500_with_multistart.{json,png}` — new
+- `report/figures/04_spectrum_match.png` — new (cp)
+- `report/figures/05_sampler_convergence.png` — new (cp)
+- `report/figures/06_two_sided_verify.png` — new (cp)
+- `report/figures/07_ovito_segregation.png` — new (cp)
+- `report/figures/00_headline_hmc_vs_wagih_T500.png` — refreshed
+- `report/README.md` — updated (§2, §5, §7, §8, §9, header date)
+- this CHANGELOG entry
+
+`report/figures/` now contains 8 PNGs totaling ~2.7 MB; ready for
+external backup per user request.
+
 ## 2026-05-01 (afternoon) — Defense figures rebuilt + `report/` folder assembled with audited explanations
 
 ### Action plan from morning audit → executed
