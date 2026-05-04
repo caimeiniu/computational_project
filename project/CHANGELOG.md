@@ -4,6 +4,16 @@ Entries in reverse chronological order (newest first).
 
 ## TODO (carried to next session)
 
+- **[2026-05-04] Re-explain Fig 3 residual-vs-Wagih to user.** User said
+  "连我自己理解都费劲" after the X_c=0.075 single-panel residual figure.
+  Three-step talking points (10s each: axes → data → physics) and
+  pending decisions saved to `report/explainer_fig3_residual.md`.
+  Read that file first, then re-deliver the 3 steps slowly. Do NOT
+  copy PNG to `report/figures/` or rewrite README §5 Fig 3 yet —
+  user wants to confirm understanding before approving the swap.
+  Source: `scripts/residual_vs_wagih_test.py` →
+  `output/residual_vs_wagih_test_Xc0.075.{png,json}`.
+
 - **[2026-05-02] Re-explain Fig 2 red dots + CI to user.** User said
   "还是没有搞的很清楚" after my first attempt. Full Q&A + worked example
   + per-bin table + caveat saved to
