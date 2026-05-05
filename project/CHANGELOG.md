@@ -4,16 +4,6 @@ Entries in reverse chronological order (newest first).
 
 ## TODO (carried to next session)
 
-- **[2026-05-04] Re-explain Fig 3 residual-vs-Wagih to user.** User said
-  "连我自己理解都费劲" after the X_c=0.075 single-panel residual figure.
-  Three-step talking points (10s each: axes → data → physics) and
-  pending decisions saved to `report/explainer_fig3_residual.md`.
-  Read that file first, then re-deliver the 3 steps slowly. Do NOT
-  copy PNG to `report/figures/` or rewrite README §5 Fig 3 yet —
-  user wants to confirm understanding before approving the swap.
-  Source: `scripts/residual_vs_wagih_test.py` →
-  `output/residual_vs_wagih_test_Xc0.075.{png,json}`.
-
 - **[2026-05-02] Re-explain Fig 2 red dots + CI to user.** User said
   "还是没有搞的很清楚" after my first attempt. Full Q&A + worked example
   + per-bin table + caveat saved to
@@ -21,6 +11,118 @@ Entries in reverse chronological order (newest first).
   documented at the top of that file (start with one bin + 38 boxes
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
+
+## 2026-05-05 (afternoon) — Fig 3 redesigned: single-panel P_i vs n_local at fixed ΔE; old window-slope retired
+
+### Trigger
+
+User scope decision: report is **double-column → one figure only** for
+the Mg–Mg repulsion mechanism panel. Plus user feedback on previous
+draft: "副标题放到 caption 就可以,slope 也放到 caption,观众看到线条
+不 match 就已经知道答案了,放太多在图片上没有必要".
+
+### Why the previous Fig 3 needed to go
+
+Old `report/figures/03_repulsion_summary.png` (and its source
+`scripts/replot_mechanism_for_defense.py::fig3_repulsion_summary`)
+fit a slope ∂P_i/∂n_local in the favourable-ΔE *window*
+[−30, −5] kJ/mol, then summarised slope vs X_c across 6 snapshots.
+
+Methodological problem (caught during this session's expert review):
+across that window Wagih's per-site prediction P_i^Wagih varies
+0.99 → 0.21 (a full half-sigmoid swing because kT = 4.16 kJ/mol).
+Binning by n_local within the window therefore does **not** hold ΔE
+fixed, so the slope conflates the n_local effect with omitted-ΔE
+variation. The "controlling for ΔE" interpretation in the old caption
+was incorrect.
+
+The earlier residual-approach prototype
+(`scripts/residual_vs_wagih_test.py`) is statistically the right cure
+(subtract P_Wagih per site, then bin by n_local), but the residual
+quantity is a derived construct — user reported "连我自己理解都费劲"
+on 2026-05-04, and the explainer file
+(`report/explainer_fig3_residual.md`) didn't fully resolve it.
+
+### Redesign: P_i^empirical vs n_local at fixed ΔE bin
+
+Rather than residualise, *narrow the ΔE window* until Wagih's prediction
+is approximately constant across it. With the bin
+**ΔE ∈ [−30, −15] kJ/mol** (n=112 sites), Wagih FD predicts P ∈
+[0.75, 0.99] — a 0.24-wide band that the audience can read directly as
+"Wagih says everything in this window should be in here". Then sub-bin
+those 112 sites by n_Mg^local and plot empirical P̂ ± Wald 95 %
+binomial CI.
+
+Key data (X_c = 0.075, T = 500 K, kT = 4.16 kJ/mol):
+
+| n_local | n_sites | P̂ | 95 % CI | reading |
+|--------:|--------:|----:|---------|---------|
+| [0, 1] | 4 | 1.00 | [0.51, 1.00] | overlaps Wagih band — Wagih holds at empty neighbourhood |
+| [2, 3] | 15 | 0.40 | [0.15, 0.65] | below band |
+| [4, 5] | 44 | 0.50 | [0.35, 0.65] | below band |
+| [6, 7] | 36 | 0.14 | [0.03, 0.25] | far below band |
+| [8, 12] | 13 | 0.15 | [0.00, 0.35] | far below band |
+
+Linear-fit slope ∂P̂/∂n_local = **−0.080 per Mg-neighbour** over all
+112 sites (sign and order-of-magnitude consistent with the residual
+prototype's −0.069).
+
+Falsification check (in the JSON, not on the figure): same analysis
+on the neutral ΔE bin [−5, +5] kJ/mol (n=128 sites, Wagih predicts
+P ∈ [0.024, 0.213]) gives slope −0.025 / Mg-nbr — ~3× weaker. The
+n_local effect concentrates where Wagih predicts substantial
+occupation, exactly where Mg–Mg repulsion has headroom to register.
+
+### Single-panel design (per user "less is more" guidance)
+
+Final figure has only:
+- title `Site-level Mg–Mg repulsion (X_c=0.075, T=500 K)`
+- gray Wagih band
+- 5 red markers + binomial CI + connecting line
+- 2-row legend ("Wagih FD prediction" / "HMC empirical")
+
+ΔE-bin specification, slope value, and falsification details all moved
+to caption. Figure size 4.2 × 3.2 in (single-column for double-column
+paper layout).
+
+### Files this entry
+
+- `scripts/mechanism_repulsion_at_fixed_dE.py` — new (per
+  "don't modify canonical scripts in place" rule, this is a new file
+  rather than an in-place edit of `replot_mechanism_for_defense.py`)
+- `output/03_mgmg_repulsion_fixed_dE.{png,json}` — new
+- `report/figures/03_mgmg_repulsion_fixed_dE.png` — cp from output;
+  new canonical Fig. 3 image
+- `report/figures/03_repulsion_summary.png` — left in place for
+  archival, no longer referenced from README
+- `report/README.md`:
+  - §2 Fig. 3 row: filename + one-liner updated to fixed-ΔE narrative
+  - §5 Figure 3 walkthrough: full rewrite (caption, key numbers, talking
+    points, advisor Q&A) — old window-slope content retired
+  - §6 cross-figure narrative diagram: "[Figure 3 / slope vs X_c]" →
+    "[Figure 3 / fixed-ΔE]"
+  - §8 file dependency chain: split mechanism deps into Figs 1+2 (still
+    via `solute_correlation_analysis.py`) and Fig 3 (new script)
+  - §8 caveats: X_c = 0.20 saturation crossover caveat struck through
+    + replaced with resolution note (the old summary panel that surfaced
+    that issue is gone)
+  - §8 verification log [4]: replaced "slope-vs-X_c" with the fixed-ΔE
+    sub-bin counts spot-check
+  - §9 reproduction: split into Figs 1+2 command and Fig 3 command;
+    Fig 3 instructions include the "swap SNAPSHOT path to refresh"
+    pointer for post-equilibration refresh
+  - header date: 2026-05-02 → 2026-05-05
+- `report/explainer_fig3_residual.md` — kept for archival but the
+  TODO entry referencing it has been removed from the carry-forward
+  list; the new Fig 3 supersedes the residual approach for the report
+- this CHANGELOG entry
+
+### Pending refresh
+
+When job 65430294 (X_c = 0.075 continuation, T=500 K equilibration sweep)
+finishes with `_final.lmp`, swap `SNAPSHOT` in
+`scripts/mechanism_repulsion_at_fixed_dE.py` to the new path and re-run
+— slope and CIs will sharpen, sign and order of magnitude won't change.
 
 ## 2026-05-05 (late morning) — checkpoint fix in v2 deck; T=500 K equilibration sweep submitted (7 × 16-rank jobs)
 

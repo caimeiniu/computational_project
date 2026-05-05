@@ -1,0 +1,215 @@
+"""Mechanism Fig 3 (single panel, double-column paper figure):
+Site-level Mg-Mg repulsion via P_i^empirical vs n_local at fixed ΔE.
+
+At X_c=0.075, restrict to the favorable ΔE bin [-30, -15] kJ/mol
+(n=112 sites). Within that window the per-site Wagih FD prediction is
+held in [0.75, 0.99] (the gray band). Sites are then sub-binned by
+n_Mg^local (Mg neighbours within 5 Å); empirical Mg-occupation
+fractions (Wald 95 % binomial CI) are plotted vs n_local.
+
+Reading: at low n_local (≤1, n=4) the empirical fraction is consistent
+with the Wagih band — Wagih works when the neighbourhood is empty.
+At higher n_local empirical drops far below the band, reaching ~0.15
+by n_local≥6. ΔE is held within a narrow window so the n_local-
+dependence cannot be a confounded ΔE effect → direct site-level Mg-Mg
+repulsion.
+
+Falsification check: same analysis on the neutral ΔE bin [-5, +5]
+kJ/mol (n=128, Wagih predicts P ∈ [0.024, 0.213]) is computed and
+emitted in the JSON for the caption — slope much weaker, consistent
+with no signal where Wagih predicts little occupation.
+
+No LAMMPS, no recomputation of ΔE — uses cached n=500 spectrum.
+
+Re-running with the equilibrated snapshot (post-job 65430294): change
+SNAPSHOT path; everything else stays.
+"""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.spatial import cKDTree
+
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "scripts"))
+from solute_correlation_analysis import read_lmp, T_K, KT_KJMOL, R_LOCAL, wagih_p_fd  # noqa
+
+XC = 0.075
+SNAPSHOT = REPO / "data/snapshots/hmc_T500_Xc0.075_preseg_final.lmp"
+GB_MASK = REPO / "data/snapshots/gb_mask_200A.npy"
+REFERENCE_NPZ = REPO / "data/snapshots/delta_e_results_n500_200A_tight.npz"
+OUT_DIR = REPO / "output"
+OUT_PREFIX = "03_mgmg_repulsion_fixed_dE"
+
+# Favourable ΔE bin: narrow enough that Wagih FD prediction is roughly
+# constant across it (P ∈ [0.75, 0.99] = 0.24 wide), wide enough to
+# give ~22 sites per n_local sub-bin.
+DE_FAV = (-30.0, -15.0)
+# Neutral bin (control / falsification check); Mg-Mg repulsion has no
+# headroom to register because Wagih's P is small throughout.
+DE_NEU = (-5.0, +5.0)
+
+# n_local sub-bins: keep [0,1] as the "Wagih works at empty neighbourhood"
+# anchor even though the favorable bin only has n=4 there — its CI
+# happens to cover the Wagih band, which is itself the message.
+NLOCAL_SUBBINS = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 12)]
+
+
+def _wald_ci(p_hat: float, n: int) -> tuple[float, float]:
+    if n == 0:
+        return float("nan"), float("nan")
+    if 0 < p_hat < 1:
+        se = float(np.sqrt(p_hat * (1 - p_hat) / n))
+    else:
+        se = 1.0 / max(n, 1)
+    return max(0.0, p_hat - 1.96 * se), min(1.0, p_hat + 1.96 * se)
+
+
+def _bin_stats(p_arr: np.ndarray, nl_arr: np.ndarray, sel_de: np.ndarray):
+    """Per-sub-bin stats restricted to the ΔE selection."""
+    p_in = p_arr[sel_de]
+    nl_in = nl_arr[sel_de]
+    rows = []
+    for (a, b) in NLOCAL_SUBBINS:
+        sub = (nl_in >= a) & (nl_in <= b)
+        n_sub = int(sub.sum())
+        p_hat = float(p_in[sub].mean()) if n_sub > 0 else float("nan")
+        ci_lo, ci_hi = _wald_ci(p_hat, n_sub)
+        rows.append({
+            "n_local_lo": a, "n_local_hi": b,
+            "n_local_center": (a + b) / 2,
+            "n_sites": n_sub,
+            "p_hat": p_hat, "ci_lo": ci_lo, "ci_hi": ci_hi,
+        })
+    slope = float("nan")
+    intercept = float("nan")
+    if int(sel_de.sum()) > 5:
+        coeff = np.polyfit(nl_in.astype(float), p_in.astype(float), 1)
+        slope, intercept = float(coeff[0]), float(coeff[1])
+    return rows, slope, intercept
+
+
+def main() -> None:
+    print(f"--- Mechanism Fig 3:  X_c={XC}, T={T_K:.0f} K, kT={KT_KJMOL:.2f} kJ/mol ---")
+
+    ref = np.load(REFERENCE_NPZ)
+    ref_ids_1based = np.asarray(ref["gb_site_ids"], dtype=np.int64)
+    ref_de = np.asarray(ref["gb_delta_e"], dtype=float) * 96.485
+
+    positions, types, box = read_lmp(SNAPSHOT)
+    is_mg = (types == 2)
+    p_emp = is_mg[ref_ids_1based - 1].astype(int)
+    mg_tree = cKDTree(positions[is_mg], boxsize=box)
+    ref_pos = positions[ref_ids_1based - 1]
+    nbr_counts = np.array(
+        [len(n) for n in mg_tree.query_ball_point(ref_pos, R_LOCAL)]
+    )
+    n_local = nbr_counts - p_emp  # exclude self if Mg
+
+    sel_fav = (ref_de >= DE_FAV[0]) & (ref_de < DE_FAV[1])
+    sel_neu = (ref_de >= DE_NEU[0]) & (ref_de < DE_NEU[1])
+
+    # Wagih FD bands. wagih_p_fd is monotonically decreasing in ΔE.
+    pw_fav_min = float(wagih_p_fd(np.array([DE_FAV[1]]), XC)[0])  # ΔE upper edge
+    pw_fav_max = float(wagih_p_fd(np.array([DE_FAV[0]]), XC)[0])  # ΔE lower edge
+    pw_fav_mean = float(wagih_p_fd(ref_de[sel_fav], XC).mean())
+    pw_neu_min = float(wagih_p_fd(np.array([DE_NEU[1]]), XC)[0])
+    pw_neu_max = float(wagih_p_fd(np.array([DE_NEU[0]]), XC)[0])
+
+    rows_fav, slope_fav, intercept_fav = _bin_stats(p_emp, n_local, sel_fav)
+    rows_neu, slope_neu, intercept_neu = _bin_stats(p_emp, n_local, sel_neu)
+
+    n_fav = int(sel_fav.sum())
+    n_neu = int(sel_neu.sum())
+
+    print(f"  favorable ΔE [{DE_FAV[0]:+.0f}, {DE_FAV[1]:+.0f}] kJ/mol: "
+          f"n={n_fav},  Wagih FD ∈ [{pw_fav_min:.3f}, {pw_fav_max:.3f}],  "
+          f"slope={slope_fav:+.4f} per Mg-nbr")
+    print(f"  neutral   ΔE [{DE_NEU[0]:+.0f}, {DE_NEU[1]:+.0f}] kJ/mol: "
+          f"n={n_neu},  Wagih FD ∈ [{pw_neu_min:.3f}, {pw_neu_max:.3f}],  "
+          f"slope={slope_neu:+.4f} per Mg-nbr")
+    print()
+    for r in rows_fav:
+        print(f"    fav n_local∈[{r['n_local_lo']:2d},{r['n_local_hi']:2d}]: "
+              f"n={r['n_sites']:3d}  P̂={r['p_hat']:.3f}  "
+              f"CI=[{r['ci_lo']:.3f}, {r['ci_hi']:.3f}]")
+
+    # ---- single-panel plot, sized for double-column paper figure ----
+    fig, ax = plt.subplots(figsize=(4.2, 3.2))
+
+    # Wagih band (favorable ΔE) — shaded; the band is the prediction
+    # range, NOT a statistical confidence interval.
+    ax.axhspan(pw_fav_min, pw_fav_max, color="0.78", alpha=0.45,
+               zorder=0, label="Wagih FD prediction")
+    ax.axhline(pw_fav_min, color="0.55", lw=0.6, zorder=1)
+    ax.axhline(pw_fav_max, color="0.55", lw=0.6, zorder=1)
+
+    # Empirical points + binomial CI
+    nl_centers = np.array([r["n_local_center"] for r in rows_fav])
+    p_hats = np.array([r["p_hat"] for r in rows_fav])
+    ci_los = np.array([r["ci_lo"] for r in rows_fav])
+    ci_his = np.array([r["ci_hi"] for r in rows_fav])
+    valid = ~np.isnan(p_hats)
+    ax.errorbar(
+        nl_centers[valid], p_hats[valid],
+        yerr=[p_hats[valid] - ci_los[valid], ci_his[valid] - p_hats[valid]],
+        fmt="o-", color="#d62728", ms=6, capsize=3, lw=1.4,
+        label="HMC empirical",
+    )
+
+    ax.set_xlabel(
+        rf"$n_\mathrm{{Mg}}^\mathrm{{local}}$  (Mg neighbours within "
+        rf"$r \leq {R_LOCAL:.0f}$ Å)",
+        fontsize=10,
+    )
+    ax.set_ylabel(r"$P_i$  (probability site is Mg)", fontsize=10)
+    ax.set_title(
+        rf"Site-level Mg–Mg repulsion ($X_c={XC}$, $T={T_K:.0f}$ K)",
+        fontsize=10.5,
+    )
+    ax.set_xlim(-0.6, max(r["n_local_hi"] for r in rows_fav) + 0.6)
+    ax.set_ylim(-0.04, 1.06)
+    ax.tick_params(labelsize=9)
+    ax.grid(alpha=0.25, lw=0.5)
+    ax.legend(loc="lower left", fontsize=8.5, framealpha=0.92)
+
+    fig.tight_layout()
+    out_png = OUT_DIR / f"{OUT_PREFIX}.png"
+    fig.savefig(out_png, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+    print(f"\nSaved: {out_png}")
+
+    out_json = OUT_DIR / f"{OUT_PREFIX}.json"
+    out_json.write_text(json.dumps({
+        "x_c": XC, "T_K": T_K, "kT_kjmol": KT_KJMOL,
+        "r_local_angstrom": R_LOCAL,
+        "snapshot": str(SNAPSHOT.relative_to(REPO)),
+        "favorable_bin": {
+            "delta_e_kjmol": list(DE_FAV),
+            "n_sites": n_fav,
+            "wagih_p_min": pw_fav_min,
+            "wagih_p_max": pw_fav_max,
+            "wagih_p_mean": pw_fav_mean,
+            "linear_slope_per_neighbour": slope_fav,
+            "linear_intercept": intercept_fav,
+            "subbins": rows_fav,
+        },
+        "neutral_bin_falsification": {
+            "delta_e_kjmol": list(DE_NEU),
+            "n_sites": n_neu,
+            "wagih_p_min": pw_neu_min,
+            "wagih_p_max": pw_neu_max,
+            "linear_slope_per_neighbour": slope_neu,
+            "linear_intercept": intercept_neu,
+            "subbins": rows_neu,
+        },
+    }, indent=2, default=float))
+    print(f"Saved: {out_json}")
+
+
+if __name__ == "__main__":
+    main()

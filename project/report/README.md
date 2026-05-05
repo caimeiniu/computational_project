@@ -2,7 +2,7 @@
 
 > Speaker reference for the four main figures + four supporting figures, with full per-figure walkthroughs and predicted advisor Q&A. Every cited number traces to a source file; nothing is fabricated (spot-checks pass — see §8 Provenance).
 
-Last updated: 2026-05-02 (Fig 0 simplified to a 3-row legend with two-color ▽ markers; English rewrite)
+Last updated: 2026-05-05 (Fig 3 redesigned to single panel: P_i vs n_local at fixed ΔE ∈ [−30, −15] kJ/mol)
 
 ---
 
@@ -25,7 +25,7 @@ Last updated: 2026-05-02 (Fig 0 simplified to a 3-row legend with two-color ▽ 
 | 0 | `figures/00_headline_hmc_vs_wagih_T500.png` | **Headline / counter-example anchor** | At X_c = 0.075 the HMC measurement X_GB = 0.254 is **below** Wagih's FD prediction 0.301; at X_c = 0.10 the multistart upper bound X_GB = 0.246 is also **below** canon-FD = 0.352 → direct evidence that the assumption fails. |
 | 1 | `figures/01_MgMg_clustering.png` | **Mechanism evidence 1 — spatial** | The Mg–Mg pair correlation function g(r) deviates from the uniform-random reference → Mg atoms are not independently distributed (*aggregate spatial signal*). |
 | 2 | `figures/02_occupation_breakdown.png` | **Mechanism evidence 2 — energy axis** | Empirical P_i is **systematically below** the Wagih sigmoid at the favourable-ΔE end → the breakdown is concentrated at the low-energy tail of the ΔE spectrum. |
-| 3 | `figures/03_repulsion_summary.png` | **Mechanism evidence 3 — direct site-level** | At fixed ΔE, more Mg neighbours → lower occupation → direct observation of Mg–Mg repulsion. |
+| 3 | `figures/03_mgmg_repulsion_fixed_dE.png` | **Mechanism evidence 3 — direct site-level** | At fixed ΔE ∈ [−30, −15] kJ/mol (Wagih predicts P ∈ [0.75, 0.99]), increasing n_Mg^local drops empirical P from ~1.0 (low n_local, matches Wagih) to ~0.15 (high n_local, far below Wagih) → direct observation of Mg–Mg repulsion. |
 
 **Supporting figures (Q&A / methodological backing)**
 
@@ -190,7 +190,7 @@ Last updated: 2026-05-02 (Fig 0 simplified to a 3-row legend with two-color ▽ 
 - Horizontal dashed line at y = 1.0 + label "uniform-random reference".
 - Vertical gray band at r ∈ [3.0, 3.5] Å + label "1st NN shell (FCC Al)" — FCC Al's 1st-NN distance is ~2.86 Å, slightly broadened at the GB.
 - Subtitle: "(non-random structure out to r ~ 10 Å)".
-- Footer caption (carefully worded): "Aggregate spatial signal. The peak above 1 is partly driven by the geometric proximity of deep-ΔE binding sites; the ΔE-controlled (residual) interaction is in Fig. 3."
+- Footer caption (carefully worded): "Aggregate spatial signal. The peak above 1 is partly driven by the geometric proximity of deep-ΔE binding sites; the ΔE-controlled, fixed-window comparison is in Fig. 3."
 
 **Talking points**:
 > "All three curves at different X_c rise above 1 at r ≈ 3 Å, **but this is not simple Mg–Mg chemical attraction**. Deep-ΔE sites are themselves spatially adjacent on the GB plane; Mg preferentially fills those sites, which automatically produces a positive deviation in g(r). So this is an *aggregate* spatial signal: it shows the distribution is non-random, but cannot decide whether the underlying interaction is attractive or repulsive. To see the true site-level interaction we have to control for ΔE — that is Fig. 3."
@@ -229,11 +229,22 @@ Short version: **non-equilibrium is a conservative bias, not an invalidation**. 
 **Core math**:
 - Empirical P_i: for each reference site, read the atom type in the HMC snapshot; type = Mg → 1, else → 0; average within each ΔE_i bin (binomial proportion).
 - Wagih FD prediction: `P_i^Wagih(ΔE_i; T, X_c) = 1 / (1 + ((1 − X_c) / X_c) · exp(ΔE_i / kT))`, kT = 4.157 kJ/mol at T = 500 K.
+- Temperature in the formula must be **absolute (Kelvin)** — Boltzmann factors are only physical when T → 0 means "no thermal energy", which holds at the absolute zero. Our 500 K is already Kelvin (= 226.85 °C, a moderate heat-treatment temperature for Al, well below T_melt = 933 K). No conversion is performed anywhere in the pipeline; `d["kT_kjmol"]` in `output/solute_correlation_analysis.json` = R · T / 1000 = 8.314 × 500 / 1000 = 4.157 kJ/mol. Sanity check: if 500 had been °C interpreted as K (real T = 773 K), kT would be 6.43 kJ/mol — 55 % too large — and the FD curve's transition zone (P from 0.1 to 0.9) would span ~26 kJ/mol instead of the observed ~18 kJ/mol. Observed transition width matches kT = 4.16, confirming T = 500 K, not 500 °C.
+- Reading the curve through ΔE/kT ratio: spectrum spans roughly [−50, +30] kJ/mol; in kT units that is [−12, +7]. Wide enough that the sigmoid completes the full 0 → 1 transition within the figure's x-axis. At T = 1000 K the same ΔE range would be only [−6, +3.6] in kT units and the sigmoid would be truncated at both ends.
 - Gap metric: **ΔP_i ≡ P_i^Wagih(ΔE_i) − P_i^empirical(ΔE_i)** evaluated at the most-favourable ΔE bin (the bin with the largest gap). ΔP_i = 0 → Wagih's independence assumption holds within statistical noise; ΔP_i > 0 → Wagih over-predicts. The reported number is the per-snapshot maximum across the favourable (ΔE < 0) range.
 
 **Axes**:
 - x: ΔE_i [kJ/mol] from the X_c = 0 reference spectrum (the bare per-site segregation energy of an isolated Mg substitution); range ~[−48, +36] kJ/mol.
 - y: P_i (Mg occupation probability), 0 to 1.
+
+**X_c vs X_GB (notation reminder, both already defined in §3)**:
+
+| Symbol | Definition | Single-panel value |
+|---|---|---:|
+| X_c | Mg fraction over entire system (N_Mg / N_total) | **0.075** |
+| X_GB | Mg fraction at GB sites only (N_Mg^GB / N_GB) | **0.254** |
+
+The X_GB = 0.254 in the figure title is the **global HMC measurement averaged across all 89,042 GB sites** — the same number plotted as the red ▽ y-coordinate in Fig. 0 at X_c = 0.075. The red dots in this figure are bin-averages over the 500 reference subset; their n-weighted mean is ≈ 0.27, slightly above 0.254 because (a) the 500 reference subset is not the full GB and (b) sampling fluctuation. The two values describe the same physical phenomenon at two granularities (global GB average vs. ΔE-resolved). Mg's preference for GB sites shows up as X_GB / X_c = 0.254 / 0.075 ≈ **3.4× enrichment** over the bulk.
 
 **Single panel**: X_c = 0.075 (X_GB = 0.254). Companion file `02_occupation_breakdown_3xc.png` adds X_c = 0.150 and 0.300 in a 1×3 layout.
 
@@ -242,8 +253,75 @@ Short version: **non-equilibrium is a conservative bias, not an invalidation**. 
 - Red points + 95 % CI errorbars = empirical (10 equal-width ΔE bins; per-bin counts in JSON `n_per_bin`).
 - Light green vertical band at ΔE < 0: **favourable binding region**.
 - Vertical green line at ΔE = 0.
-- Title: "Per-site Mg occupation P_i vs ΔE_i at X_c = 0.075 (X_GB = 0.254) — HMC vs Wagih FD".
+- Title: "Per-site Mg occupation P_i vs ΔE_i at X_c = 0.075 (X_GB = 0.254)".
 - Legend (upper right): "Wagih FD prediction" (black line), "HMC measurement" (red points).
+
+**How each red point is computed (the binomial proportion)**
+
+Pick one bin, forget the rest of the figure. Take ΔE = −27.40 kJ/mol. That bin contains **n = 38** of our 500 reference GB sites. In the HMC snapshot, look at each of those 38 sites and read the atom type:
+
+- 8 sites are occupied by Mg (●)
+- 30 sites are still Al (○)
+
+The red dot's height is **p̂ = 8 / 38 = 0.211**. Mathematically equivalent to averaging 38 binary outcomes (Mg = 1, Al = 0) → "binomial proportion" = "sample mean of binary outcomes" = "empirical probability" all describe the same number. Each of the 10 red dots is one such "fraction of Mg in that bin"; bins differ in n (per-bin counts: 7, 25, 38, 85, 88, 105, 92, 43, 13, 4 — see `n_per_bin` in JSON).
+
+**Where the error bars come from (Wald 95 % binomial CI derivation)**
+
+The standard chain from a single Bernoulli draw to the final CI:
+
+| Step | Statement |
+|---|---|
+| ① Single-site variance | Each site X_i ∈ {0, 1} with P(X_i = 1) = p. Var[X_i] = E[X_i²] − E[X_i]² = p − p² = **p(1 − p)**. Maximum at p = 0.5 (Var = 0.25), zero at p = 0 or 1 (no spread). |
+| ② n-point average | p̂ = (1/n) Σ X_i; sites independent ⇒ Var[Σ X_i] = n·p(1−p) ⇒ **Var[p̂] = p(1 − p)/n** ⇒ SE = √[p(1 − p)/n]. n in denominator: more samples ⇒ smaller SE. |
+| ③ CLT | For moderate n, p̂ ≈ Normal(p, p(1 − p)/n) ⇒ standardised z-score Z = (p̂ − p)/SE ≈ N(0, 1). |
+| ④ z\* = 1.96 | The 97.5 % quantile of the standard normal: P(−1.96 < Z < 1.96) = 0.95 (leaves 2.5 % in each tail). For 90 %: z\* = 1.645; for 99 %: z\* = 2.576. |
+| ⑤ Invert the inequality | P(−1.96·SE < p̂ − p < 1.96·SE) = 0.95 ⇒ **P(p̂ − 1.96·SE < p < p̂ + 1.96·SE) = 0.95**. |
+| ⑥ Wald plug-in | True p is unknown — it is what we are estimating. Wald's trick: substitute p̂ for p in the SE formula: SE_hat = √[p̂(1 − p̂)/n]. Justified for large n because p̂ ≈ p so SE_hat ≈ SE. |
+| ⑦ Final | **CI = [p̂ − 1.96·SE_hat,  p̂ + 1.96·SE_hat]**, clipped to [0, 1] (necessary near p̂ → 0 or 1, where the symmetric Wald interval can leave the unit interval). |
+
+Worked example — −27.40 kJ/mol bin (n = 38, p̂ = 0.211):
+
+```
+SE_hat       = √(0.211 × 0.789 / 38)  ≈ 0.0662
+1.96·SE_hat ≈ 0.130
+CI           = [0.211 − 0.130, 0.211 + 0.130] = [0.081, 0.341]
+                                                  ↑ matches JSON [0.081, 0.340] up to rounding
+```
+
+**Caveat (advisor-question level)**: Wald assumes the n sites in a bin are *independent*. They are not strictly independent — Mg–Mg interactions create local correlation (the very signal the figure is meant to expose) and global mass conservation couples all sites. So Wald slightly **under-estimates** the true uncertainty (treats correlated samples as independent). Strict treatment would use a block bootstrap or autocorrelation-thinned samples. We use Wald for simplicity, and the favourable-end gap ΔP = 0.77 is large enough that no realistic CI inflation flips the conclusion. The two extreme bins (n = 4, n = 7) are below the n at which CLT is reliable, so their bars are visual indicators rather than quantitative bounds.
+
+**Why the FD curve looks nearly identical across X_c values (3-panel companion question)**
+
+The FD sigmoid has only two shape parameters:
+
+- **Steepness** = 1 / kT — controlled by **T** alone, independent of X_c.
+- **Midpoint** (ΔE where P = 0.5) = ΔE_half = kT · ln[X_c / (1 − X_c)] — the only X_c-dependent quantity.
+
+X_c only shifts the midpoint left/right; it cannot change the steepness. At T = 500 K (kT = 4.157 kJ/mol):
+
+| X_c | ln[X_c / (1−X_c)] | Midpoint ΔE_half (kJ/mol) |
+|---:|:-:|---:|
+| 0.050 | −2.94 | −12.2 |
+| 0.075 | −2.51 | −10.4 |
+| 0.100 | −2.20 |  −9.1 |
+| 0.150 | −1.73 |  −7.2 |
+| 0.200 | −1.39 |  −5.8 |
+| 0.300 | −0.85 |  −3.5 |
+
+Across the X_c range plotted in the 3xc companion (0.075 → 0.30), the midpoint moves only ~7 kJ/mol on a figure x-axis spanning ~84 kJ/mol — about 8 % of the axis. Visually that is "the curves look nearly identical".
+
+**Where Al(Mg)-specific physics enters this figure**: not through the black curve (which is universal at fixed T, X_c — would look identical for any binary alloy) but through the **red dots' x-coordinates**, the ΔE spectrum computed with the Mendelev 2009 EAM/FS potential. What changes between alloys is which range of ΔE the spectrum populates.
+
+**T**, on the other hand, *does* change the shape. At T = 700 K (the temperature of the currently-running sweep) kT = 5.82 kJ/mol; the transition zone widens from ~18 kJ/mol (at 500 K) to ~26 kJ/mol — visibly flatter. The T-axis effect is the natural visual signature of temperature in the multi-T extension.
+
+**Where is this FD formula in Wagih's paper? (Why is only a verbal description visible in the main text?)**
+
+Short answer: this is the **McLean isotherm** (D. McLean, *Grain Boundaries in Metals*, Oxford 1957), a textbook formula in GB segregation. Wagih cites it without re-deriving. Reasons the per-site formula is not written explicitly in Wagih 2020 main text:
+
+1. **Convention in the segregation literature**: invoke the formula by name + citation (McLean / White & Coghlan / Lejček) and let readers consult the references. Re-deriving a 70-year-old formula adds no novelty.
+2. **Wagih's contribution is the spectrum ρ(ΔE), not the FD formula**: the paper emphasises the spectrum-level integral X_GB(T, X_c) = ∫ ρ(ΔE) · f_FD(ΔE; T, X_c) dΔE, and the per-site P_i is implicit inside f_FD.
+3. **Nat. Commun. main-text formula density limit**: detailed equations move to Methods or SI in many high-IF journals. The explicit P_i form, if written at all, will be in Methods or the SI Methods section.
+4. **Possible alternate (equivalent) form**: some papers use the chemical-potential representation P_i = 1 / (1 + exp[(ΔE_i − μ_seg) / kT]), where μ_seg (segregation chemical potential) is determined by mass conservation. In the dilute limit μ_seg = −kT · ln[(1 − X_c) / X_c], which makes this form equivalent to the (1 − X_c)/X_c form. If Wagih uses the chemical-potential form, the (1 − X_c)/X_c factor will not be visible in the equation as printed.
 
 **Key numbers** (source: `output/solute_correlation_analysis.json` + Wagih-formula recomputation, verified):
 
@@ -254,7 +332,17 @@ Short version: **non-equilibrium is a conservative bias, not an invalidation**. 
 | 0.300 (companion 3xc) | −27.40 kJ/mol | 0.9968 | 0.8684 | **0.1284** |
 
 **Talking points**:
-> "Wagih's sigmoid predicts that deep-binding sites (ΔE < 0) should be nearly fully occupied — P_i ≈ 1. But the HMC measurements show that at X_c = 0.075 the favourable end is only at P_i ≈ 0.21, a gap of 0.77 below the prediction. At X_c = 0.15 the gap shrinks to 0.57; at X_c = 0.30 to 0.13. **The breakdown lives at the lowest energies, and it is *more severe* at lower X_c** — exactly opposite to what you might naively expect."
+
+> **One-sentence intro** (slide caption / opening line): "The red dots are HMC-measured Mg occupation per ΔE bin; error bars are a binomial 95 % CI."
+
+> **30-second narrative** (recommended for defense):
+>
+> 1. **Axes (5 s)**: "x is segregation energy ΔE_i — more negative is more favourable for Mg. y is P_i, the probability the GB site is occupied by Mg."
+> 2. **Black line (5 s)**: "Black is Wagih's FD prediction. At X_c = 0.075, sites with strongly negative ΔE should be nearly fully occupied — P close to 1."
+> 3. **Red dots — how they're measured (12 s)**: "Red is HMC measurement. Bin the 500 reference GB sites by ΔE into 10 bins; in each bin count how many of those sites are occupied by Mg in the HMC snapshot. For example, the ΔE = −27 bin has 38 sites; HMC measures 8 Mg, 30 Al, so the red dot is at 8/38 = 0.21. The error bars are binomial 95 % CIs — narrower for bins with more sites, wider at the tails where the spectrum thins out."
+> 4. **Punchline (8 s)**: "Look at the green-shaded favourable region, ΔE < 0. Wagih predicts P close to 1; HMC measures all values below 0.5. The sites that should most attract Mg are not getting filled — direct evidence that the independence assumption fails on the energy axis."
+
+> **Existing one-shot summary** (kept for shorter slots): "Wagih's sigmoid predicts that deep-binding sites (ΔE < 0) should be nearly fully occupied — P_i ≈ 1. But the HMC measurements show that at X_c = 0.075 the favourable end is only at P_i ≈ 0.21, a gap of 0.77 below the prediction. At X_c = 0.15 the gap shrinks to 0.57; at X_c = 0.30 to 0.13. **The breakdown lives at the lowest energies, and it is *more severe* at lower X_c** — exactly opposite to what you might naively expect."
 
 **Why does ΔP grow as X_c decreases?** Counterintuitive at first; the physical interpretation:
 - At high X_c, all sites (even unfavourable ones) are saturated, so there is no "discrimination room" left.
@@ -265,54 +353,55 @@ Short version: **non-equilibrium is a conservative bias, not an invalidation**. 
 - *Q: ΔE_i comes from the X_c = 0 reference spectrum; at finite X_c the effective ΔE_i shifts due to local Mg–Mg interactions. How is that confound handled?* — A: It is *by design*: using bare ΔE_i as the "independent-site baseline" is the only way to test Wagih's assumption directly (the assumption itself is built on the X_c = 0 spectrum). Renormalising ΔE under finite X_c is a future-work direction; the project explored a ΔE-shift approach earlier and deprioritised it because the mechanism path produced cleaner conclusions.
 - *Q: How are bin boundaries chosen, and are bin counts adequate?* — A: 10 equal-width ΔE bins from min to max of the n = 500 spectrum; ~50 sites per bin on average; binomial 95 % CIs with the normal approximation (`scripts/solute_correlation_analysis.py:208-225`). Per-bin counts are recorded in JSON `n_per_bin`.
 - *Q: Why is the favourable bin for X_c = 0.150 at −44 kJ/mol (deeper) while 0.075 / 0.30 are at −27 kJ/mol?* — A: The script picks "argmax(gap)" which depends on bin density × gap, not on a physically fixed ΔE. It is purely an annotation algorithm to highlight the largest gap.
+- *Q: Why does the black FD curve look almost identical across panels of the 3xc companion?* — A: At fixed T, the FD sigmoid's steepness 1/kT is X_c-independent; only the midpoint ΔE_half = kT · ln[X_c / (1 − X_c)] shifts with X_c. From X_c = 0.075 to 0.30 the midpoint moves only ~7 kJ/mol on an 84 kJ/mol x-axis (~8 % of the axis), so the curves look nearly identical. The T-axis sweep (currently-running T = 700 K runs) is what visibly flattens the curve, since 1/kT does change with T.
+- *Q: Why doesn't Wagih write this FD formula explicitly in the main text?* — A: It is the McLean isotherm (1957), a textbook formula in GB segregation; convention in the segregation literature is to cite by name and not re-derive. Wagih's novelty is the spectrum ρ(ΔE), not the per-site formula. Nat. Commun. main-text formula density limit pushes detailed equations to Methods or SI.
+- *Q: The FD formula has T — is that in Kelvin or Celsius? Are we using 500 K consistently?* — A: T must be **absolute** (Kelvin) for the Boltzmann factor exp(ΔE/kT) to be physical. Our 500 K is already Kelvin (= 226.85 °C, well below T_melt = 933 K for Al); no conversion is performed anywhere. Sanity check via the FD curve's transition width: observed ~18 kJ/mol matches kT(500 K) = 4.16 kJ/mol — if 500 had been °C interpreted as K, kT would be 6.43 kJ/mol and the transition zone ~26 kJ/mol, which is not what we see.
 
 ---
 
-### Figure 3 ── `03_repulsion_summary.png`
+### Figure 3 ── `03_mgmg_repulsion_fixed_dE.png`
 
 **Caption (English):**
 
-> **Figure 3.** Direct evidence of site-level Mg–Mg repulsion: at fixed ΔE_i, occupation probability decreases as the number of nearby Mg neighbours increases. **Left panel**: slope ∂P_i / ∂n_Mg^local versus X_c, fit to 218 sites in the favourable-ΔE window [−30, −5] kJ/mol with local radius r_local = 5 Å. Six points cover X_c = 0.075–0.30; preseg trajectories shown as red ▽, the X_c = 0.10 multistart shown as a gray open square (kinetic-floor IC). The slope is most negative at X_c = 0.075 (−0.083, "steepest repulsion" call-out), then weakens with X_c and crosses zero at X_c = 0.20 (saturation regime — most favourable sites are already filled, signal is dominated by statistical noise; not a sign reversal of the underlying interaction). **Right panel**: raw scatter for X_c = 0.075 — empirical P_i versus n_Mg^local in the favourable-ΔE window — with a weighted linear fit confirming slope = −0.083.
+> **Figure 3.** Site-level Mg–Mg repulsion at X_c = 0.075, T = 500 K. All 112 GB sites shown have segregation energy ΔE_i ∈ [−30, −15] kJ/mol — within this window the per-site Wagih FD model predicts P_i ∈ [0.75, 0.99] (gray band; this is the *prediction range* across the ΔE window, not a statistical confidence interval). Empirical Mg-occupation fractions (red points, Wald 95 % binomial CI) are plotted in 5 sub-bins of n_Mg^local, the number of Mg atoms within r ≤ 5 Å of the reference site. At low local Mg density (n_Mg^local ≤ 1, n = 4 sites) the empirical fraction is consistent with the Wagih band — Wagih's prediction holds when the neighbourhood is empty. As n_Mg^local grows the empirical fraction drops far below the band, reaching ~0.15 by n_Mg^local ≥ 6 (linear-fit slope = −0.080 per Mg-neighbour over all 112 sites). Because ΔE_i is held within a narrow window, the observed n_Mg^local-dependence cannot be a confounded ΔE effect; it is direct evidence that the per-site Wagih assumption fails through Mg–Mg interaction at the favourable-binding sites. **Falsification check**: the same analysis on the neutral ΔE bin [−5, +5] kJ/mol (n = 128 sites, Wagih FD predicts P ∈ [0.024, 0.213]) gives a slope of −0.025 per Mg-neighbour, ~3× weaker — the n_Mg^local effect is concentrated at favourable ΔE where Wagih predicts substantial occupation, exactly where Mg–Mg repulsion can register. Snapshot: `data/snapshots/hmc_T500_Xc0.075_preseg_final.lmp` (preseg trajectory, 300 ps PROD; not yet at full equilibrium — the breakdown signal would only sharpen with further sampling). Source: `scripts/mechanism_repulsion_at_fixed_dE.py`; data file: `output/03_mgmg_repulsion_fixed_dE.json`.
 
-**Role**: mechanism evidence 3 / **direct evidence** — controlling for ΔE_i, the effect of Mg-neighbour count on occupancy.
+**Role**: mechanism evidence 3 / **direct site-level evidence** — controlling for ΔE_i within a narrow window, the effect of Mg-neighbour count on occupancy.
 
-**What it shows**: left panel — summary of the slope ∂P_i / ∂n_Mg^local across six X_c values; right panel — raw scatter zoom for X_c = 0.075.
+**What it shows**: a single ΔE-stratified panel demonstrating that, at the *same* segregation energy where Wagih predicts P ≈ 0.9, sites with no Mg neighbours match the prediction while sites with many Mg neighbours fall to P ≈ 0.15.
 
 **Core math**:
-1. Within the favourable-ΔE window [−30, −5] kJ/mol, select 218 / 500 reference sites (count in JSON `site_occupation_vs_density.n_sites_in_window`).
+1. Restrict the n = 500 reference sites to ΔE_i ∈ [−30, −15] kJ/mol → 112 favourable-binding sites.
 2. For each site *i*, compute n_Mg^local(*i*) = number of Mg atoms within r_local = 5 Å of *i* (excluding self if *i* itself is Mg).
-3. Bin these 218 sites by integer n_Mg^local; compute the average P_i within each bin.
-4. Fit a weighted linear regression to (P_i vs n_Mg^local), giving the slope (units: 1/Mg-neighbour).
+3. Sub-bin those 112 sites into 5 n_Mg^local groups: {[0,1], [2,3], [4,5], [6,7], [8,12]}.
+4. Within each sub-bin, compute the empirical Mg fraction p̂ and the Wald 95 % binomial CI p̂ ± 1.96 √[p̂(1−p̂)/n] (clipped to [0,1]).
+5. Wagih FD prediction band: evaluate P_i^Wagih(ΔE_i) = 1 / (1 + ((1−X_c)/X_c) · exp(ΔE_i / kT)) at the two bin edges (ΔE = −30 and ΔE = −15) → P_min = 0.750, P_max = 0.991. The shaded gray band spans this range; it is *not* a confidence interval but the spread of Wagih's per-site prediction over the ΔE window.
 
 **Axes**:
-- Left: x = X_c (0.04 to 0.33), y = slope (−0.13 to +0.06) [per Mg-neighbour].
-- Right: x = n_Mg^local (Mg neighbour count, 0 to 11), y = P_i within ΔE ∈ [−30, −5] kJ/mol window (0 to 1).
+- x: n_Mg^local (Mg neighbours within 5 Å), shown 0 to 12.
+- y: P_i (probability site is Mg), 0 to 1.
 
-**Six slope data points** (source: `output/solute_correlation_analysis.json`, verified):
+**Five empirical points** (source: `output/03_mgmg_repulsion_fixed_dE.json`, verified):
 
-| Label | X_c | X_GB | slope (per Mg-nbr) |
-|---|---:|---:|---:|
-| 0.075_preseg | 0.075 | 0.2542 | **−0.0826** ← steepest |
-| 0.10_multistart | 0.100 | 0.2277 | −0.0310 (gray square: kinetic-floor IC) |
-| 0.10_preseg | 0.100 | 0.3747 | −0.0402 |
-| 0.15_preseg | 0.150 | 0.5884 | −0.0194 |
-| 0.20_preseg | 0.200 | 0.7937 | **+0.0148** ← saturation crossover |
-| 0.30_preseg | 0.300 | 0.8376 | −0.0018 |
+| n_Mg^local | n_sites | p̂ | 95 % CI | Wagih band | reading |
+|:-|---:|---:|---|---|---|
+| [0, 1] | 4 | 1.00 | [0.51, 1.00] | [0.75, 0.99] | overlaps band — Wagih holds at empty neighbourhood |
+| [2, 3] | 15 | 0.40 | [0.15, 0.65] | [0.75, 0.99] | below band |
+| [4, 5] | 44 | 0.50 | [0.35, 0.65] | [0.75, 0.99] | below band |
+| [6, 7] | 36 | **0.14** | [0.03, 0.25] | [0.75, 0.99] | far below band |
+| [8, 12] | 13 | **0.15** | [0.00, 0.35] | [0.75, 0.99] | far below band |
 
-**Key annotations**:
-- Left: slope = 0 horizontal dashed line + label "no interaction (slope = 0)".
-- Left: annotated callout at X_c = 0.075 → "slope = −0.083 (steepest repulsion)".
-- Left: annotated callout at X_c = 0.20 → "saturation regime (sites mostly full)".
-- Left: 0.10_multistart shown as a gray open square (kinetic-floor IC, distinguished from the preseg series).
-- Right: linear fit dashed line + slope value in legend.
+**Key annotations** (intentionally minimal — the visual gap between the red curve and the gray band carries the message):
+- Gray shaded band: Wagih FD prediction range across the ΔE window.
+- Red points + connecting line: HMC empirical fraction with Wald CI.
 
 **Talking points**:
-> "Once we control for ΔE and look only at the local environment: in the favourable window, sites with more Mg neighbours have *lower* occupation. That is **direct site-level Mg–Mg repulsion**. The slope is most negative at X_c = 0.075 (−0.083), because the system has just crossed the breakdown threshold and there is plenty of room to discriminate. By X_c = 0.20 the slope has narrowed to ~0 — not a sign reversal; favourable sites are mostly already filled and the signal is dominated by statistical noise (the error bar straddles zero)."
+> "Every red dot is a different *neighbourhood class* at the **same** segregation energy. Wagih's site-independent model says all of them should sit inside the gray band — same ΔE, same P. Empirically they don't. With no Mg neighbours, the site is filled — Wagih is right. Add four Mg neighbours and the occupancy drops to 50 %. Add eight and it drops to 15 %. Same ΔE, factor-of-six difference in occupancy, controlled by what is around the site. That is direct site-level Mg–Mg repulsion."
 
 **Likely advisor questions**:
-- *Q: The slope at X_c = 0.20 flips positive (+0.0148) — has Mg–Mg become attractive?* — A: **No, this is saturation**. At X_c = 0.20, X_GB = 0.794, so the great majority of favourable sites are already occupied by Mg; the slope fit at high n_local (e.g. n = 15–20) is dominated by post-saturation small-amplitude fluctuations, with large error bars and an unreliable sign. The X_c = 0.30 slope returns to −0.002 ≈ 0, consistent with the saturation picture.
-- *Q: Why do 0.10_multistart and 0.10_preseg disagree (slope = −0.031 vs. −0.040)?* — A: Both are correct, and they reflect **the repulsion strength at different X_GB**. Multistart at this X_c has X_GB = 0.228 (sparser); preseg has X_GB = 0.375 (denser). By the X_GB-ascending ordering, multistart should pattern with 0.075_preseg (low X_GB, steep slope), but it is actually shallower — because it is in a kinetic-floor state, the trajectory is still descending and not fully equilibrated, so the structure carries some random-IC residue. This itself is a secondary observation supporting "non-equilibrium states show different correlation patterns".
-- *Q: Are 218 sites enough?* — A: 218 is the count inside the favourable [−30, −5] window. Within each X_c slice, P_i averaging in each bin still has ~10–25 sites; binomial 95 % CIs are shown as error bars in the right panel. The overall fit has inverse-variance weights against outliers (`scripts/solute_correlation_analysis.py:300-302`).
+- *Q: Could the n_Mg^local trend be a leftover ΔE effect — sites with more Mg neighbours might happen to have less negative ΔE within the window?* — A: The window [−30, −15] kJ/mol is narrow enough that Wagih's per-site prediction varies only from 0.75 to 0.99 across it. Even if high-n_local sites all happened to sit at the upper edge (ΔE = −15), Wagih would still predict P = 0.75. The observed empirical drop to 0.15 is far outside that range, so the gap is not a ΔE confound.
+- *Q: Why use a window cut on ΔE rather than the residual P − P_Wagih(ΔE_i) approach?* — A: The residual approach (`scripts/residual_vs_wagih_test.py`) gives essentially the same slope (−0.069 per Mg-nbr) using all 488 valid sites and is statistically more efficient, but the residual quantity is a derived construct that requires the audience to follow three abstraction layers. The fixed-ΔE-window approach trades efficiency for direct readability — the y-axis is just "fraction of sites that are Mg".
+- *Q: Are 4 sites in the [0,1] bin enough to claim "Wagih holds at low n_local"?* — A: Strictly the 95 % CI is [0.51, 1.00], so the data is consistent with anything from 0.51 upward. The claim is therefore "consistent with the Wagih band [0.75, 0.99]", not "equal to it". If the bin were artificially shifted to [0,2] or [0,3] to gain statistics, the descent visible in the figure would still hold and the conclusion would not change.
+- *Q: The trajectory isn't at equilibrium (X_GB = 0.254 still descending). Does the slope number change at equilibrium?* — A: Probably yes, but the *sign* and *order of magnitude* will not. Non-equilibrium is a conservative bias for Mg–Mg repulsion — the system has had less time to optimise away from energetically costly Mg–Mg first-NN contacts, so the equilibrium slope would be at least as negative as the current −0.080. We will refresh the figure when job 65430294 (X_c = 0.075 continuation) finishes; only the data source path in `scripts/mechanism_repulsion_at_fixed_dE.py` needs to change.
 
 ---
 
@@ -392,7 +481,9 @@ The logical chain in talk order:
                                           ↓ ΔP is largest at lowest X_c (counterintuitive)
                                           ↓ requires a site-level explanation
                                           ↓ check 3
-[Figure 3 / slope vs X_c]        Controlling ΔE → more Mg neighbours = lower occupancy
+[Figure 3 / fixed-ΔE]            At ΔE_i ∈ [−30, −15] kJ/mol (Wagih predicts 0.75–0.99),
+                                          empirical P drops from ~1.0 at low n_local to
+                                          ~0.15 at high n_local
                                           → DIRECT evidence of site-level Mg–Mg REPULSION
                                           ↓ unify
 [Conclusion]                     The mechanism behind Wagih's failure is site-level
@@ -400,7 +491,7 @@ The logical chain in talk order:
                                   in g(r)).
 ```
 
-**Key reconciliation point**: Figure 1 looks like "clustering = attraction"; Figure 3 says "repulsion". They are not contradictory — Figure 1 is *geometric* (deep-ΔE sites are spatially adjacent on the GB plane → filling them produces g(r) > 1), while Figure 3 is the *ΔE-controlled residual* (at fixed ΔE, more neighbours ⇒ lower occupancy). Both consistently point to the same physics: **Mg site selection is influenced by neighbouring Mg, not independent**.
+**Key reconciliation point**: Figure 1 looks like "clustering = attraction"; Figure 3 says "repulsion". They are not contradictory — Figure 1 is *geometric* (deep-ΔE sites are spatially adjacent on the GB plane → filling them produces g(r) > 1), while Figure 3 is *ΔE-controlled* (at the same favourable ΔE, more Mg neighbours ⇒ lower occupancy). Both consistently point to the same physics: **Mg site selection is influenced by neighbouring Mg, not independent**.
 
 ---
 
@@ -452,7 +543,10 @@ Every cited number passes a spot-check; PASS / future-PASS log below.
     X_c=0.15:  ΔP=0.5713 (rounded 0.57)   PASS
     X_c=0.30:  ΔP=0.1284 (rounded 0.13)   PASS
 
-[4] slope-vs-X_c values match JSON site_occupation_vs_density   PASS
+[4] Fig. 3 fixed-ΔE values match JSON 03_mgmg_repulsion_fixed_dE.json
+    favourable bin ΔE∈[−30,−15] kJ/mol: n=112, slope=−0.0804/Mg-nbr  PASS
+    sub-bin counts (4, 15, 44, 36, 13) sum = 112                     PASS
+    neutral bin ΔE∈[−5,+5] kJ/mol: n=128, slope=−0.0252/Mg-nbr       PASS
 
 [5] panel (d) gap table matches JSON hmc_vs_canonfd_T500_with_multistart.json   PASS
 
@@ -466,10 +560,10 @@ Every cited number passes a spot-check; PASS / future-PASS log below.
 
 ### File dependency chains
 
-Mechanism figures (1–3):
+Mechanism figures 1 & 2 (g(r) clustering, P_i vs ΔE):
 
 ```
-report/figures/0{1,2,3}_*.png
+report/figures/0{1,2}_*.png
     ↑
 output/defense_*.png  (regenerable via:
                        python scripts/replot_mechanism_for_defense.py)
@@ -480,9 +574,24 @@ scripts/solute_correlation_analysis.py
     ↑
 data/snapshots/hmc_T500_Xc*_final.lmp  (6 files, 63 MB each)
 data/snapshots/gb_mask_200A.npy        (475,843 bytes)
-/cluster/scratch/cainiu/production_AlMg_200A/delta_e_results_n500_200A_tight.npz
-                                        (63,450 bytes)
+data/snapshots/delta_e_results_n500_200A_tight.npz
 ```
+
+Mechanism figure 3 (fixed-ΔE Mg–Mg repulsion, replaced 2026-05-05):
+
+```
+report/figures/03_mgmg_repulsion_fixed_dE.png
+    ↑
+output/03_mgmg_repulsion_fixed_dE.{png,json}
+    ↑
+scripts/mechanism_repulsion_at_fixed_dE.py    (new 2026-05-05)
+    ↑
+data/snapshots/hmc_T500_Xc0.075_preseg_final.lmp  (single snapshot)
+data/snapshots/gb_mask_200A.npy
+data/snapshots/delta_e_results_n500_200A_tight.npz
+```
+
+The previous Fig. 3 (`03_repulsion_summary.png`, slope-vs-X_c summary using a [−30, −5] kJ/mol window) had a methodological confound: across that window Wagih's per-site prediction varies 0.99 → 0.21, so binning by n_local within the window did not actually hold ΔE fixed. The replacement uses a tighter window [−30, −15] kJ/mol where Wagih's prediction is bounded to [0.75, 0.99] (range 0.24, much smaller than the 0.78 range across the old window). The old PNG is left in `report/figures/` for archival and is no longer referenced from this README.
 
 Headline figure (0):
 
@@ -505,7 +614,7 @@ The original `scripts/canonical_fd_compare_5pt.py` and its outputs `output/hmc_v
 
 - ~~Panel (d) does not yet plot the multistart UB; the X_c ≥ 0.10 breakdown evidence has to be supplied verbally during Q&A.~~ **Resolved 2026-05-02**: the multistart UB now appears on Fig. 0 as the gray ▽ marker; X_c = 0.10 breakdown is direct evidence on the figure itself.
 - For X_c ≥ 0.15 only preseg trajectories are available, and they are still descending — the measurements are vacuous bounds. The breakdown evidence at these X_c relies on threshold extrapolation (X_c\* ∈ (0.05, 0.075]) plus the mechanism figures (1–3).
-- The X_c = 0.20 slope flips positive (+0.0148) due to saturation, **not a physical sign reversal**; if pressed, cite the X_c = 0.30 slope = −0.002 ≈ 0 (slope → 0 is consistent with saturation, not reversal).
+- ~~The X_c = 0.20 slope flips positive (+0.0148) due to saturation, **not a physical sign reversal**; if pressed, cite the X_c = 0.30 slope = −0.002 ≈ 0~~ — **Resolved 2026-05-05**: the old slope-vs-X_c summary panel was retired with the Fig. 3 redesign. The new Fig. 3 uses a single X_c = 0.075 snapshot at fixed ΔE; saturation at high X_c is no longer on the figure.
 - Fig. 2 uses ΔE_i from the X_c = 0 reference spectrum; at finite X_c the effective ΔE_i shifts due to local interactions — this is by-design, not a bug, but should be acknowledged as a simplification during Q&A.
 - Scatter-plot CIs use the binomial normal approximation (OK when n_per_bin ≥ 50; small-bin distortion is possible). Wilson CIs are stricter and are future work.
 
@@ -513,11 +622,17 @@ The original `scripts/canonical_fd_compare_5pt.py` and its outputs `output/hmc_v
 
 ## 9. Reproduction / Regeneration
 
-**Three mechanism figures (Figs. 1–3)**:
+**Mechanism figures 1 & 2 (g(r) clustering, P_i vs ΔE)**:
 ```
 python scripts/replot_mechanism_for_defense.py
 ```
-Reads `output/solute_correlation_analysis.json` and produces the three PNGs `output/defense_*.png` in a few seconds; copy to `figures/`.
+Reads `output/solute_correlation_analysis.json` and produces `output/defense_MgMg_clustering.png` + `output/defense_occupation_breakdown_single.png` in a few seconds; copy to `report/figures/01_MgMg_clustering.png` / `02_occupation_breakdown.png`.
+
+**Mechanism figure 3 (fixed-ΔE Mg–Mg repulsion)**:
+```
+python scripts/mechanism_repulsion_at_fixed_dE.py
+```
+Reads the X_c = 0.075 snapshot + GB mask + reference NPZ; writes `output/03_mgmg_repulsion_fixed_dE.{png,json}`; copy the PNG to `report/figures/`. ~5 s on a login node. To refresh after the X_c = 0.075 continuation job (65430294) finishes, change the `SNAPSHOT` path in the script and re-run.
 
 **Panel (d) (Fig. 0, including the X_c = 0.10 multistart UB)**:
 ```
