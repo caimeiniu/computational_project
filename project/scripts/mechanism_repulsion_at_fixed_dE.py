@@ -139,14 +139,14 @@ def main() -> None:
               f"CI=[{r['ci_lo']:.3f}, {r['ci_hi']:.3f}]")
 
     # ---- single-panel plot, sized for double-column paper figure ----
-    fig, ax = plt.subplots(figsize=(4.2, 3.2))
+    fig, ax = plt.subplots(figsize=(5.2, 3.8))
 
     # Wagih band (favorable ΔE) — shaded; the band is the prediction
     # range, NOT a statistical confidence interval.
     ax.axhspan(pw_fav_min, pw_fav_max, color="0.78", alpha=0.45,
                zorder=0, label="Wagih FD prediction")
-    ax.axhline(pw_fav_min, color="0.55", lw=0.6, zorder=1)
-    ax.axhline(pw_fav_max, color="0.55", lw=0.6, zorder=1)
+    ax.axhline(pw_fav_min, color="0.55", lw=0.5, zorder=1)
+    ax.axhline(pw_fav_max, color="0.55", lw=0.5, zorder=1)
 
     # Empirical points + binomial CI
     nl_centers = np.array([r["n_local_center"] for r in rows_fav])
@@ -157,7 +157,8 @@ def main() -> None:
     ax.errorbar(
         nl_centers[valid], p_hats[valid],
         yerr=[p_hats[valid] - ci_los[valid], ci_his[valid] - p_hats[valid]],
-        fmt="o-", color="#d62728", ms=6, capsize=3, lw=1.4,
+        fmt="o-", color="#d62728", ms=5, capsize=2.5,
+        lw=0.9, elinewidth=0.8, mew=0.8,
         label="HMC empirical",
     )
 
@@ -169,15 +170,18 @@ def main() -> None:
     ax.set_ylabel(r"$P_i$  (probability site is Mg)", fontsize=10)
     ax.set_title(
         rf"Site-level Mg–Mg repulsion ($X_c={XC}$, $T={T_K:.0f}$ K)",
-        fontsize=10.5,
+        fontsize=10.5, pad=10,
     )
-    ax.set_xlim(-0.6, max(r["n_local_hi"] for r in rows_fav) + 0.6)
-    ax.set_ylim(-0.04, 1.06)
+    nl_max = max(r["n_local_hi"] for r in rows_fav)
+    ax.set_xlim(-1.2, nl_max + 1.2)
+    ax.set_ylim(-0.08, 1.10)
     ax.tick_params(labelsize=9)
-    ax.grid(alpha=0.25, lw=0.5)
+    for spine in ax.spines.values():
+        spine.set_linewidth(0.7)
+    ax.grid(alpha=0.25, lw=0.4)
     ax.legend(loc="upper right", fontsize=7.5, framealpha=0.92)
 
-    fig.tight_layout()
+    fig.tight_layout(pad=1.4)
     out_png = OUT_DIR / f"{OUT_PREFIX}.png"
     fig.savefig(out_png, dpi=220, bbox_inches="tight")
     plt.close(fig)
