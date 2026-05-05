@@ -22,6 +22,121 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-05 (late morning) — checkpoint fix in v2 deck; T=500 K equilibration sweep submitted (7 × 16-rank jobs)
+
+### Direction shift
+
+User scope decision: **focus on T=500 K only**, drop T=700 K for the
+final report. At T=500 K, several X_c points are not equilibrated
+(0.05 only ran 63 ps; 0.06 188 ps; 0.075 reached 300 ps but still
+descending; 0.10–0.30 ended above canon-FD with vacuous UB). Plan:
+get a complete equilibrated T=500 K answer before assembling the
+master figure.
+
+### Audit of "X_c=0.05 = equilibrated" claim — needed re-running
+
+The "equilibrated" record in `hmc_vs_canonfd_T500.json` came from
+`hmc_T500_Xc5e-2_verify-preseg_xgb.json` which only reached **63 ps
+PROD** before TIMEOUT (n_frames=63). Trajectory descended 0.2665 →
+0.2241 (last10 = 0.2262), imbalance = −0.778 (still descending). The
+post-burnin mean 0.2375 (CI95 [0.2325, 0.2424]) has CI95 that
+**excludes** canon-FD ours = 0.2282. Strictly, X_c=0.05 is also a
+descending UB, just one with small gap. Needs full-length rerun.
+
+### Checkpoint fix in `hmc_AlMg.lammps`
+
+User-flagged root cause of "can't continue, must rerun X_c=0.06 from
+scratch": original deck has
+
+```
+restart      ${N_PROD} ${outstub}.rst1 ${outstub}.rst2
+```
+
+— writes restart only every N_PROD steps (i.e., once at end of run).
+Any TIMEOUT before reaching N_PROD writes nothing recoverable. All
+three 16-rank queue-fill jobs (X_c=0.06 + T=700 X_c=0.10/0.15) lost
+their state this way.
+
+Fix: new deck `data/decks/hmc_AlMg_v2.lammps` (copy + minimal edits per
+"don't modify canonical scripts" rule) adds `RESTART_PS` variable
+(default 5 ps) and changes the cadence:
+
+```
+variable RESTART_PS  index 5
+variable N_RESTART   equal round(v_RESTART_PS*1000)
+restart      ${N_RESTART} ${outstub}.rst1 ${outstub}.rst2
+```
+
+Cost: 60 restart writes per 300 ps PROD × ~65 MB each = ~3.9 GB total
+write, ~40 sec aggregate I/O on Euler scratch — negligible vs 10 h
+compute. Two alternating files cap on-disk usage at ~130 MB.
+
+Resume deck `data/decks/hmc_AlMg_resume.lammps` (new): reads
+`-var rstfile <path>`, redefines pair_coeff + nvt + atom/swap fixes
+(LAMMPS doesn't preserve EAM filepath or `atom/swap` across restart),
+runs `EXTRA_PS` extension. Acceptance counters f_hmc[1]/f_hmc[2]
+reset on re-attach — post-processing must combine pre/post resume
+thermo blocks if used.
+
+### T=500 K equilibration sweep (7 jobs, all 16-rank, 24 h, v2 deck)
+
+All submitted 2026-05-05 ~late-morning, queued PD (priority). Public
+QOS cap 48 CPU/user → 16-rank = 33 % quota → up to 3 jobs run
+concurrently; remaining 4 backfill as the first wave finishes.
+
+| job ID    | X_c    | starting config                                              | OUTSTUB                          | canon-FD ours | prior end X_GB | gap to descend |
+|-----------|--------|--------------------------------------------------------------|----------------------------------|--------------:|---------------:|---------------:|
+| 65430292  | 0.05   | preseg `poly_AlMg_200A_preseg_Xc5e-2.lmp` (full 300 ps PROD) | `hmc_T500_Xc0.05_preseg_eq`     |        0.2282 |  0.2241 (UB)   |    small       |
+| 65430293  | 0.06   | preseg `poly_AlMg_200A_preseg_Xc0.06.lmp` (full 300 ps PROD) | `hmc_T500_Xc0.06_preseg_eq`     |        0.2611 |  0.2284 (UB)   |    near        |
+| 65430294  | 0.075  | snapshot `hmc_T500_Xc0.075_preseg_final.lmp`                 | `hmc_T500_Xc0.075_eq_cont`      |        0.3007 |  0.2543 (UB)   |    plateau     |
+| 65430295  | 0.10   | snapshot `hmc_T500_Xc0.10_preseg_final.lmp`                  | `hmc_T500_Xc0.10_eq_cont`       |        0.3519 |  0.3749 (UB)   |   +0.025       |
+| 65430296  | 0.15   | snapshot `hmc_T500_Xc0.15_preseg_final.lmp`                  | `hmc_T500_Xc0.15_eq_cont`       |        0.4204 |  0.5888 (UB)   |   +0.17        |
+| 65430300  | 0.20   | snapshot `hmc_T500_Xc0.20_preseg_final.lmp`                  | `hmc_T500_Xc0.20_eq_cont`       |        0.4671 |  0.7942 (UB)   |   +0.33        |
+| 65430302  | 0.30   | snapshot `hmc_T500_Xc0.30_preseg_final.lmp`                  | `hmc_T500_Xc0.30_eq_cont`       |        0.5337 |  0.8379 (UB)   |   +0.30        |
+
+Each script is 16-rank, 24 h budget, with embedded auto-post-process
+(`hmc_xgb_timeseries.py --fd-pred ...` writes `output/<stub>.{json,png}`).
+
+X_c=0.05/0.06 start fresh from preseg (no `_final.lmp` snapshot); the
+others continue from their existing `_final.lmp` to extend the
+trajectory by another ~240 ps PROD (16-rank 24 h → ~10 ps/h × 24 h).
+
+### Expected outcomes per X_c on completion
+
+- **0.05/0.06**: descending UB plateau-or-cross around canon-FD
+  ours. Both should be in or near breakdown (0.05 already trended
+  below FD ours at 63 ps; 0.06 was already 0.033 below FD at 188 ps).
+- **0.075**: continued descent below 0.2543. Combined trajectory ~600
+  ps; expected to plateau near 0.20-0.23. Confirms breakdown.
+- **0.10**: trajectory at 0.3749, FD = 0.3519. ~0.025 to descend +
+  noise. Should cross FD within 24 h; first preseg-only direct
+  breakdown evidence at X_c=0.10 (currently relies on multistart UB).
+- **0.15/0.20/0.30**: still need to descend 0.17–0.33. One 24 h job
+  unlikely to reach equilibrium; checkpoint enables resume via
+  `hmc_AlMg_resume.lammps` for a second extension.
+
+### Job 65428740 cancelled
+
+The 32-rank rerun submitted earlier this morning (still PD) was
+`scancel`'d before this sweep was queued — the v2 deck supersedes its
+purpose. The autopp script `submit_hmc_T500_Xc0.06_preseg_autopp.sh`
+(committed in 3a6761a) is now obsolete; left in tree for history.
+
+### Files this entry
+
+- `data/decks/hmc_AlMg_v2.lammps` — new (copy + RESTART_PS variable +
+  `restart ${N_RESTART}` instead of `${N_PROD}`)
+- `data/decks/hmc_AlMg_resume.lammps` — new (reads .rst1, runs EXTRA_PS)
+- `data/decks/submit_hmc_T500_Xc0.05_preseg_eq.sh` — new
+- `data/decks/submit_hmc_T500_Xc0.06_preseg_eq.sh` — new (replaces
+  the cancelled autopp variant for X_c=0.06)
+- `data/decks/submit_hmc_T500_Xc0.075_eq_cont.sh` — new
+- `data/decks/submit_hmc_T500_Xc0.10_eq_cont.sh` — new
+- `data/decks/submit_hmc_T500_Xc0.15_eq_cont.sh` — new
+- `data/decks/submit_hmc_T500_Xc0.20_eq_cont.sh` — new
+- `data/decks/submit_hmc_T500_Xc0.30_eq_cont.sh` — new
+- this CHANGELOG entry
+
 ## 2026-05-05 (morning) — X_c=0.06 (16r 188 ps) + T=700 K (16r) results post-processed; X_c=0.06 32-rank rerun submitted
 
 ### Trigger

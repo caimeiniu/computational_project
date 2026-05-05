@@ -1,0 +1,80 @@
+# Resume an HMC production run from a periodic .rst1/.rst2 checkpoint
+# written by hmc_AlMg_v2.lammps. Use when a job TIMEOUT'd mid-PROD.
+#
+# Caller picks the newer of the two restart files (compare mtimes); pass
+# its path as -var rstfile <path>. CG and EQUIL phases are NOT redone —
+# read_restart restores positions, velocities, neighbor list, and pair
+# style; we re-attach fixes (nvt, atom/swap) and the dump+restart, then
+# run an additional EXTRA_PS production window.
+#
+# Acceptance counters f_hmc[1]/f_hmc[2] reset on re-attach; combine the
+# pre-resume and post-resume thermo blocks during post-processing.
+#
+# Run from the scratch directory:
+#   srun -n N lmp -in hmc_AlMg_resume.lammps \
+#     -var rstfile  hmc_T500_Xc0.06_preseg_eq.rst1 \
+#     -var outstub  hmc_T500_Xc0.06_preseg_eq_resume \
+#     -var T        500.0 \
+#     -var XC       0.06 \
+#     -var EXTRA_PS 300
+
+# ---------------------------------------------------------------- variables
+variable rstfile        index hmc_resume.rst1
+variable outstub        index hmc_resume
+variable T              index 500.0
+variable XC             index 0.06
+variable SWAP_SEED      index 20260505
+variable SWAP_PER_STEPS index 100
+variable SWAPS_PER_CALL index 10
+variable EXTRA_PS       index 300
+variable DUMP_EVERY     index 1000
+variable RESTART_PS     index 5
+variable POTFILE        index /cluster/home/cainiu/Computational_modeling/project/data/potentials/Al-Mg.eam.fs
+
+variable N_EXTRA        equal round(v_EXTRA_PS*1000)
+variable N_RESTART      equal round(v_RESTART_PS*1000)
+
+log ${outstub}.log
+
+# ------------------------------------------------------------------ resume
+# read_restart restores: box, atoms (id/type/x/v/image), pair_style, fixes
+# saved with checkpoint, neighbor info. We still redefine pair_coeff
+# explicitly because the EAM potential file path is not saved verbatim.
+read_restart ${rstfile}
+
+mass         1 26.9815   # Al
+mass         2 24.3050   # Mg
+
+pair_style   eam/fs
+pair_coeff   * * ${POTFILE} Al Mg
+
+neighbor     1.0 bin
+neigh_modify every 10 delay 0 check yes
+
+timestep     0.001
+
+# ------------------------------------------------ (1) re-attach NVT + HMC
+# `fix atom/swap` is not preserved across restart; re-attach with same
+# parameters as the v2 deck. Acceptance counters start from zero — the
+# post-processing pipeline must combine pre/post resume thermo blocks.
+fix          nvt all nvt temp ${T} ${T} 0.1
+fix          hmc all atom/swap ${SWAP_PER_STEPS} ${SWAPS_PER_CALL} ${SWAP_SEED} ${T} ke yes types 1 2
+
+thermo       100
+thermo_style custom step time temp pe ke press f_hmc[1] f_hmc[2]
+
+dump         d1 all custom ${DUMP_EVERY} ${outstub}.dump id type
+dump_modify  d1 sort id
+
+restart      ${N_RESTART} ${outstub}.rst1 ${outstub}.rst2
+
+# ------------------------------------------------- (2) extension production
+run          ${N_EXTRA}
+
+write_data   ${outstub}_final.lmp
+
+unfix        hmc
+unfix        nvt
+undump       d1
+
+print        "HMC_RESUME_OK outstub=${outstub} T=${T} Xc=${XC} N_EXTRA=${N_EXTRA}"
