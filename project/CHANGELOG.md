@@ -12,6 +12,50 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-05 (evening) — Fermi-Dirac-seeded initial-condition methodology added; 4 PD eq_cont jobs cancelled and replaced by 4 fdseed jobs
+
+### Direction shift
+
+For the X_c ∈ {0.10, 0.15, 0.20, 0.30} runs, switch from "fill grain-boundary (GB) to ceiling, descend toward Fermi-Dirac (FD) prediction" upper-bound methodology to "start exactly at X_GB^FD, watch direction of drift" methodology.
+
+The eq_cont sweep (CHANGELOG 2026-05-05 late-morning) inherited the standard preseg ceiling: X_c = 0.20 / 0.30 saturate GB at X_GB(0) = 1.0; the snapshots passed forward had prior-end X_GB = 0.79 / 0.84, both still ≥ 0.30 above the canonical FD prediction. Two 24-h jobs cannot close that gap. Even if the trajectories were to descend monotonically without crossing FD, the resulting upper bound X_GB(end-of-run) is consistent with both "FD over-predicts" and "FD is the true equilibrium and HMC has not gotten there yet" — same data, opposite conclusions, no project claim either way. The 0_headline figure visually captures this: red downward-triangle markers at X_c ≥ 0.10 sit above the green FD curve and do not argue the project's claim.
+
+Setting X_GB(0) = X_GB^FD makes any net descent direct evidence for X_GB^∞ < X_GB^FD (the central project claim). The trajectory does not need to reach equilibrium — only the sign of the drift matters.
+
+### New initial-condition construction
+
+New driver `scripts/build_fdseed_inits.py` loops over a list of X_c values, computes X_GB^FD via `fermi_dirac_predict.x_gb_canonical` (closed-box, ours 200 Å spectrum), and invokes `pre_segregate.py --xgb-init X_GB^FD` to produce the .lmp data files. Per the "don't modify canonical scripts in place" rule, `pre_segregate.py` is unchanged — its existing `--xgb-init` mode already supports placing N_Mg(GB) = round(X_GB(0) · N_GB) Mg at random GB sites and the remaining Mg at random bulk sites.
+
+Fermi-Dirac seed values used (T = 500 K, ours 200 Å spectrum, n = 500):
+
+| X_c  | X_GB^FD  | X_bulk^FD | N_Mg(GB) | N_Mg(bulk) |
+|-----:|---------:|----------:|---------:|-----------:|
+| 0.10 | 0.3519   | 0.0420    | 31 333   | 16 239     |
+| 0.15 | 0.4204   | 0.0877    | 37 431   | 33 926     |
+| 0.20 | 0.4671   | 0.1385    | 41 590   | 53 553     |
+| 0.30 | 0.5337   | 0.2462    | 47 519   | 95 195     |
+
+Output snapshots (475 715 atoms, 63 MB each) live in `/cluster/scratch/cainiu/hmc_AlMg/poly_AlMg_200A_fdseed_T500K_Xc{0.1,0.15,0.2,0.3}.lmp`. Mass conservation verified: `N_Mg(GB) + N_Mg(bulk) = X_c · N_total` for all four. Manifest written to `/cluster/scratch/cainiu/hmc_AlMg/fdseed_T500K_manifest.json`.
+
+### Sweep redesign
+
+Cancelled the 4 PD eq_cont jobs (X_c = 0.10 / 0.15 / 0.20 / 0.30: SLURM IDs 65430295 / 65430296 / 65430300 / 65430302) — the new methodology supersedes them. Submitted 4 new fdseed jobs in their place. The 3 RUNNING eq_cont jobs (X_c = 0.05 / 0.06 / 0.075: 65430292 / 65430293 / 65430294) continue — those X_c values do equilibrate within budget and provide proper from-above descents on the dilute side.
+
+Each fdseed submit script copies the eq_cont template, swaps SNAPSHOT path to the fdseed .lmp, renames OUTSTUB to `hmc_T500_Xc{xc}_fdseed`, and updates the in-script comment header. SLURM resources (16-rank, 24 h, 2 GB/CPU), LAMMPS deck (`hmc_AlMg_v2.lammps` with the 5 ps RESTART checkpoint), production length (300 ps), and the auto-post-process call (`hmc_xgb_timeseries.py --fd-pred …`) are unchanged.
+
+### Plot plan (after runs return)
+
+User wants a new headline figure that shows ONLY the FD-seeded downward drifts — no overlay of the from-very-far-above red downward-triangle markers (which sit above the FD curve and visually argue against the claim). The new figure will be drafted after the four fdseed runs finish and the auto-post-processed `output/hmc_T500_Xc{xc}_fdseed.{json,png}` artefacts are available.
+
+### Files this entry
+
+- `scripts/build_fdseed_inits.py` — new driver script
+- `data/decks/submit_hmc_T500_Xc0.10_fdseed.sh` — new
+- `data/decks/submit_hmc_T500_Xc0.15_fdseed.sh` — new
+- `data/decks/submit_hmc_T500_Xc0.20_fdseed.sh` — new
+- `data/decks/submit_hmc_T500_Xc0.30_fdseed.sh` — new
+- this CHANGELOG entry
+
 ## 2026-05-05 (afternoon) — Fig 3 redesigned: single-panel P_i vs n_local at fixed ΔE; old window-slope retired
 
 ### Trigger
