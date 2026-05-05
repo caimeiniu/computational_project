@@ -22,6 +22,109 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-05 (morning) — X_c=0.06 (16r 188 ps) + T=700 K (16r) results post-processed; X_c=0.06 32-rank rerun submitted
+
+### Trigger
+
+User return after ~2-day gap; asked to inspect completed jobs from the
+2026-05-01 evening 16-rank queue-fill, focusing on whether X_c=0.06
+equilibrated and whether it deviates from Wagih FD. All three 16-rank
+jobs (X_c=0.06 at T=500, X_c=0.10/0.15 at T=700) reached TIMEOUT before
+finishing 300 ps PROD; none wrote `_final.lmp`.
+
+### Job 65259659 — X_c=0.06 preseg @ T=500 K (16r), TIMEOUT at 188 ps PROD
+
+`hmc_xgb_timeseries.py --fd-pred 0.2611` on the (incomplete) `.dump`:
+
+```
+X_GB(0)        = 0.3198   (preseg start, all Mg in GB)
+X_GB(end, 189 ps) = 0.2284
+last 10 frames mean = 0.2295
+post-burnin mean = 0.2524   CI95 = [0.2466, 0.2583]   (n_prod_frames = 143)
+canon-FD ours  = 0.2611   gap_post-burnin = -0.0087
+canon-FD Wagih = 0.2727
+fwd/rev (post-burnin) = 0.136   (fwd=814, rev=5967, net=-5153, imbalance=-0.760)
+linear slope on t>100 ps = -3.23e-4 per ps   (still descending)
+```
+
+**Verdict (X_c=0.06 also breaks Wagih)**:
+- The CI95 of the post-burnin mean already excludes canon-FD ours (0.2611).
+- The trajectory ended at 0.2284 — that is the descending UB on the
+  equilibrium X_GB^∞, i.e. **X_GB^∞ ≤ 0.2284 < canon-FD 0.2611**, gap ≤
+  −0.0327 against ours / ≤ −0.0443 against Wagih.
+- Direction of the bound is correct (preseg from above, descending), so
+  this is a *valid* breakdown signal — not vacuous like the X_c=0.10/0.15
+  preseg UBs that ended above FD.
+
+**Threshold update**: X_c\* ∈ (0.05, 0.06] (was (0.05, 0.075] after
+2026-04-30 morning's X_c=0.075 result). The pre-registered three-scenario
+tree from CHANGELOG 2026-04-30 afternoon (converged+matches → in (0.06,
+0.075]; converged+deviates → in (0.05, 0.06]; descending UB → adds a ▽)
+landed on **(b)+(c) hybrid**, identical to X_c=0.075's outcome two
+threshold steps earlier.
+
+Mechanism analysis (g_MgMg, P_i vs ΔE, P_i vs n_Mg^local) NOT re-run —
+needs `_final.lmp`, which the new 32-rank job will produce.
+
+### Jobs 65259661 / 65259662 — T=700 K preseg X_c=0.10 / 0.15 (16r), TIMEOUT
+
+Auto-post-process (embedded in 16-rank scripts, see CHANGELOG 2026-04-30
+afternoon) ran successfully even on the timed-out trajectories:
+
+| run             | wall  | t_end | X_GB(0) | X_GB(end) | last10 | canon-FD | gap (last10) | imbalance | bound type |
+|-----------------|-------|------:|--------:|----------:|-------:|---------:|-------------:|----------:|------------|
+| T700, X_c=0.10  | ~20 h | 277 ps| 0.5336  |    0.3128 | 0.3147 |   0.2956 |       +0.019 |    −0.822 | preseg UB, **about to cross** FD |
+| T700, X_c=0.15  | ~20 h | 262 ps| 0.8005  |    0.5009 | 0.5042 |   0.3666 |       +0.138 |    −0.888 | preseg UB, vacuous (above FD) |
+
+T=700 X_c=0.10 is the most interesting T=700 point — descended to within
+0.02 of canon-FD and was still going down when killed (imbalance =
+−0.822, very strong reverse skew). One more ~100 ps would likely cross
+the FD line and demonstrate breakdown at T=700, X_c=0.10. T=700
+X_c=0.15 has another ~0.15 to descend and is unlikely to cross FD in a
+single restart — defer.
+
+### Files left in scratch (not yet persisted, cleaned on next run)
+
+The next 32-rank job (see below) will overwrite the X_c=0.06 dump, log,
+and post-CG files in `/cluster/scratch/cainiu/hmc_AlMg/`. The 188 ps
+timeseries data is preserved as
+`output/hmc_T500_Xc0.06_preseg_16r_188ps.{json,png}` (renamed from the
+canonical `hmc_T500_Xc0.06_preseg.*` to free those names for the rerun).
+T=700 outputs are kept under canonical names since those rerun decisions
+are deferred.
+
+### Job 65428740 — X_c=0.06 32-rank rerun submitted (auto-post-process)
+
+New script `data/decks/submit_hmc_T500_Xc0.06_preseg_autopp.sh` (copy of
+the original 32-rank `submit_hmc_T500_Xc0.06_preseg.sh` per "don't
+modify canonical scripts in place"; adds the auto-post-process block
+mirroring the 16-rank T=700 scripts). 32 ranks = 67 % of public QOS cap;
+fairshare is healthy now (LevelFS 0.55–0.87, was 0.089 on 2026-05-01)
+and queue empty, so the job should start without contention. Submitted
+2026-05-05 ~10:30, currently PD (Priority).
+
+Goals on completion:
+1. Equilibrate (or strongly bound) X_GB^HMC at X_c=0.06; replace the
+   188 ps UB with a clean 300 ps trajectory.
+2. Write `_final.lmp` → mechanism analysis at the threshold (panel f
+   candidate for the master figure; threshold-adjacent g_MgMg signal).
+3. Reduce the X_c=0.06 row gap in `hmc_vs_canonfd_T500.json` from a
+   still-descending end-of-run UB to a stationary mean; tightens the
+   panel (d) ▽ marker for the report figure.
+
+### Files this entry
+
+- `output/hmc_T500_Xc0.06_preseg_16r_188ps.{json,png}` — renamed from
+  canonical `hmc_T500_Xc0.06_preseg.*` to preserve the 16-rank 188 ps
+  timeout result before the 32-rank rerun overwrites scratch
+- `output/hmc_T700_Xc0.10_preseg.{json,png}` — first post-process of
+  T=700 X_c=0.10 (auto-post-process embedded in the 16-rank script
+  succeeded even on the timed-out trajectory)
+- `output/hmc_T700_Xc0.15_preseg.{json,png}` — same for T=700 X_c=0.15
+- `data/decks/submit_hmc_T500_Xc0.06_preseg_autopp.sh` — new (copy +
+  auto-post-process block)
+- this CHANGELOG entry
+
 ## 2026-05-02 (night) — Fig 2 split into single-panel headline + 3xc companion
 
 ### Trigger
