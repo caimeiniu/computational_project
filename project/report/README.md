@@ -2,7 +2,7 @@
 
 > Speaker reference for the four main figures + four supporting figures, with full per-figure walkthroughs and predicted advisor Q&A. Every cited number traces to a source file; nothing is fabricated (spot-checks pass — see §8 Provenance).
 
-Last updated: 2026-05-05 (Fig 3 redesigned to single panel: P_i vs n_local at fixed ΔE ∈ [−30, −15] kJ/mol)
+Last updated: 2026-05-05 (Fig 3 to per-integer n_local view at fixed ΔE ∈ [−30, −15] kJ/mol)
 
 ---
 
@@ -25,7 +25,7 @@ Last updated: 2026-05-05 (Fig 3 redesigned to single panel: P_i vs n_local at fi
 | 0 | `figures/00_headline_hmc_vs_wagih_T500.png` | **Headline / counter-example anchor** | At X_c = 0.075 the HMC measurement X_GB = 0.254 is **below** Wagih's FD prediction 0.301; at X_c = 0.10 the multistart upper bound X_GB = 0.246 is also **below** canon-FD = 0.352 → direct evidence that the assumption fails. |
 | 1 | `figures/01_MgMg_clustering.png` | **Mechanism evidence 1 — spatial** | The Mg–Mg pair correlation function g(r) deviates from the uniform-random reference → Mg atoms are not independently distributed (*aggregate spatial signal*). |
 | 2 | `figures/02_occupation_breakdown.png` | **Mechanism evidence 2 — energy axis** | Empirical P_i is **systematically below** the Wagih sigmoid at the favourable-ΔE end → the breakdown is concentrated at the low-energy tail of the ΔE spectrum. |
-| 3 | `figures/03_mgmg_repulsion_fixed_dE.png` | **Mechanism evidence 3 — direct site-level** | At fixed ΔE ∈ [−30, −15] kJ/mol (Wagih predicts P ∈ [0.75, 0.99]), increasing n_Mg^local drops empirical P from ~1.0 (low n_local, matches Wagih) to ~0.15 (high n_local, far below Wagih) → direct observation of Mg–Mg repulsion. |
+| 3 | `figures/03_mgmg_repulsion_fixed_dE.png` | **Mechanism evidence 3 — direct site-level** | At fixed ΔE_i ∈ [−30, −15] kJ/mol (Wagih predicts P ∈ [0.75, 0.99]): empirical P̂ ≈ 1.0 at n_local = 1 (matches Wagih), sits at 0.33–0.57 for 2 ≤ n_local ≤ 5, then crashes to 0.13–0.15 at n_local ≥ 6 → direct observation of site-level Mg–Mg interaction. |
 
 **Supporting figures (Q&A / methodological backing)**
 
@@ -363,7 +363,7 @@ Short answer: this is the **McLean isotherm** (D. McLean, *Grain Boundaries in M
 
 **Caption (English):**
 
-> **Figure 3.** Site-level Mg–Mg repulsion at X_c = 0.075, T = 500 K. All 112 GB sites shown have segregation energy ΔE_i ∈ [−30, −15] kJ/mol — within this window the per-site Wagih FD model predicts P_i ∈ [0.75, 0.99] (gray band; this is the *prediction range* across the ΔE window, not a statistical confidence interval). Empirical Mg-occupation fractions (red points, Wald 95 % binomial CI) are plotted in 4 sub-bins of n_Mg^local, the number of Mg atoms within r ≤ 5 Å of the reference site. At low local Mg density (n_Mg^local ≤ 1, n = 4 sites) the empirical fraction is consistent with the Wagih band — Wagih's prediction holds when the neighbourhood is empty. As n_Mg^local grows the empirical fraction drops far below the band, reaching ~0.15 by n_Mg^local ≥ 6 (linear-fit slope = −0.080 per Mg-neighbour over all 112 sites). Because ΔE_i is held within a narrow window, the observed n_Mg^local-dependence cannot be a confounded ΔE effect; it is direct evidence that the per-site Wagih assumption fails through Mg–Mg interaction at the favourable-binding sites. **Falsification check**: the same analysis on the neutral ΔE bin [−5, +5] kJ/mol (n = 128 sites, Wagih FD predicts P ∈ [0.024, 0.213]) gives a slope of −0.025 per Mg-neighbour, ~3× weaker — the n_Mg^local effect is concentrated at favourable ΔE where Wagih predicts substantial occupation, exactly where Mg–Mg repulsion can register. Snapshot: `data/snapshots/hmc_T500_Xc0.075_preseg_final.lmp` (preseg trajectory, 300 ps PROD; not yet at full equilibrium — the breakdown signal would only sharpen with further sampling). Source: `scripts/mechanism_repulsion_at_fixed_dE.py`; data file: `output/03_mgmg_repulsion_fixed_dE.json`.
+> **Figure 3.** Mg occupancy P_i versus local Mg density at X_c = 0.075, T = 500 K, restricted to GB sites whose segregation energy ΔE_i lies in [−30, −15] kJ/mol (n = 112 sites). Within this ΔE window the per-site Wagih FD model predicts P_i ∈ [0.75, 0.99] (gray band; this is the *prediction range* across the ΔE window, not a statistical confidence interval). Sites are grouped by integer n_Mg^local — the number of Mg atoms within r ≤ 5 Å of the reference site, excluding self if Mg — with one marker per integer. Empirical Mg-occupation fractions (red points) are plotted with Wald 95 % binomial CIs; integers with fewer than 3 sites in the favourable bin are dropped (these have CIs spanning ~[0, 1] and add no information; n_local ∈ {0, 10, 11} omitted, retaining 9 markers at n_local = 1–9). At very low local Mg density (n_local = 1, 3 sites) the empirical fraction is consistent with the Wagih band; for 2 ≤ n_local ≤ 5 the empirical fraction sits in 0.33–0.57, mostly below the band but with overlapping CIs; a sharp drop at n_local = 5 → 6 brings P̂ to ~0.13–0.15 (n=20 and n=16 sites respectively), and stays near zero through n_local = 9. Linear-fit slope (per-site, all 112 sites) = −0.080 per Mg-neighbour. Because ΔE_i is held within a 15 kJ/mol-wide window, the observed n_local-dependence cannot be a confounded ΔE effect; it is direct evidence that the per-site Wagih assumption fails through Mg–Mg interaction at the favourable-binding sites. **Falsification check**: the same analysis on the neutral ΔE bin [−5, +5] kJ/mol (n = 128 sites, Wagih FD predicts P ∈ [0.024, 0.213]) gives a slope of −0.025 per Mg-neighbour, ~3× weaker — the n_local effect is concentrated at favourable ΔE where Wagih predicts substantial occupation, exactly where Mg–Mg repulsion can register. Snapshot: `data/snapshots/hmc_T500_Xc0.075_preseg_final.lmp` (preseg trajectory, 300 ps PROD; not yet at full equilibrium — the breakdown signal would only sharpen with further sampling). Source: `scripts/mechanism_repulsion_at_fixed_dE.py`; data file: `output/03_mgmg_repulsion_fixed_dE.json` → `favorable_bin.per_integer_stats`.
 
 **Role**: mechanism evidence 3 / **direct site-level evidence** — controlling for ΔE_i within a narrow window, the effect of Mg-neighbour count on occupancy.
 
@@ -372,35 +372,47 @@ Short answer: this is the **McLean isotherm** (D. McLean, *Grain Boundaries in M
 **Core math**:
 1. Restrict the n = 500 reference sites to ΔE_i ∈ [−30, −15] kJ/mol → 112 favourable-binding sites.
 2. For each site *i*, compute n_Mg^local(*i*) = number of Mg atoms within r_local = 5 Å of *i* (excluding self if *i* itself is Mg).
-3. Sub-bin those 112 sites into 4 n_Mg^local groups: {[0,1], [2,3], [4,5], [6,12]}. (The high-n_local bin merges what was originally [6,7] (n=36) and [8,12] (n=13) — the separate [8,12] showed a small +0.015 uptick well inside both Wald CIs but visually distracting; merging removes the wiggle and tightens the CI.)
-4. Within each sub-bin, compute the empirical Mg fraction p̂ and the Wald 95 % binomial CI p̂ ± 1.96 √[p̂(1−p̂)/n] (clipped to [0,1]).
+3. Group those 112 sites by **integer** n_Mg^local. No pre-binning into ranges — n_local is an atom count, so half-integer marker positions (which sub-binning forces) would be physically meaningless.
+4. Within each integer n_local, compute the empirical Mg fraction p̂ and the Wald 95 % binomial CI p̂ ± 1.96 √[p̂(1−p̂)/n] (clipped to [0,1]). Drop integers with n_sites < 3 from the plot (CI spans ~[0,1], no information); keep them in the JSON.
 5. Wagih FD prediction band: evaluate P_i^Wagih(ΔE_i) = 1 / (1 + ((1−X_c)/X_c) · exp(ΔE_i / kT)) at the two bin edges (ΔE = −30 and ΔE = −15) → P_min = 0.750, P_max = 0.991. The shaded gray band spans this range; it is *not* a confidence interval but the spread of Wagih's per-site prediction over the ΔE window.
+6. Linear summary: an unweighted polyfit on the per-site data (each site contributes one (n_local, p̂_i = 0/1) point) gives slope = −0.080 per Mg-neighbour. This is a global summary statistic, not a description of the actual P̂ vs n_local shape — visually the data is closer to "two regimes plus a transition near n_local = 5–6" than to a smooth linear decline.
 
 **Axes**:
 - x: n_Mg^local (Mg neighbours within 5 Å), shown 0 to 12.
 - y: P_i (probability site is Mg), 0 to 1.
 
-**Four empirical points** (source: `output/03_mgmg_repulsion_fixed_dE.json`, verified):
+**Per-integer empirical points** (source: `output/03_mgmg_repulsion_fixed_dE.json` → `favorable_bin.per_integer_stats`, verified):
 
-| n_Mg^local | n_sites | p̂ | 95 % CI | Wagih band | reading |
-|:-|---:|---:|---|---|---|
-| [0, 1] | 4 | 1.00 | [0.51, 1.00] | [0.75, 0.99] | overlaps band — Wagih holds at empty neighbourhood |
-| [2, 3] | 15 | 0.40 | [0.15, 0.65] | [0.75, 0.99] | below band |
-| [4, 5] | 44 | 0.50 | [0.35, 0.65] | [0.75, 0.99] | below band |
-| [6, 12] | 49 | **0.14** | [0.05, 0.24] | [0.75, 0.99] | far below band |
+| n_local | n_sites | p̂ | 95 % CI | Wagih band | reading |
+|--------:|--------:|----:|---------|---|---|
+| 0 | 1 | 1.00 | [0.00, 1.00] | [0.75, 0.99] | dropped from plot (n<3, vacuous CI) |
+| **1** | 3 | 1.00 | [0.35, 1.00] | [0.75, 0.99] | overlaps band — Wagih holds at near-empty neighbourhood |
+| **2** | 6 | 0.33 | [0.00, 0.71] | [0.75, 0.99] | below band |
+| **3** | 9 | 0.44 | [0.12, 0.77] | [0.75, 0.99] | below band |
+| **4** | 30 | 0.47 | [0.29, 0.65] | [0.75, 0.99] | below band, tightest CI in this range |
+| **5** | 14 | 0.57 | [0.31, 0.83] | [0.75, 0.99] | below band, slight peak |
+| **6** | 20 | **0.15** | [0.00, 0.31] | [0.75, 0.99] | sharp drop |
+| **7** | 16 | **0.13** | [0.00, 0.29] | [0.75, 0.99] | confirmed low |
+| **8** | 5 | 0.40 | [0.00, 0.83] | [0.75, 0.99] | wide CI; small-N noise spike |
+| **9** | 5 | 0.00 | [0.00, 0.39] | [0.75, 0.99] | wide CI |
+| 10 | 2 | 0.00 | [0.00, 0.98] | [0.75, 0.99] | dropped from plot (n<3) |
+| 11 | 1 | 0.00 | [0.00, 1.00] | [0.75, 0.99] | dropped from plot (n<3) |
 
-**Key annotations** (intentionally minimal — the visual gap between the red curve and the gray band carries the message):
+**Bold rows** are plotted (9 markers, n_sites ≥ 3); the boundary cases at n_local ∈ {0, 10, 11} are kept in the JSON for traceability.
+
+**Key annotations** (intentionally minimal — the visual gap between the red points and the gray band carries the message):
 - Gray shaded band: Wagih FD prediction range across the ΔE window.
-- Red points + connecting line: HMC empirical fraction with Wald CI.
+- Red points with error bars: HMC empirical fraction with Wald 95 % binomial CI, one marker per integer n_local. No connecting line — per-integer the data has real noise (small n_sites at most integers) and a line would over-imply a smooth function.
 
 **Talking points**:
-> "Every red dot is a different *neighbourhood class* at the **same** segregation energy. Wagih's site-independent model says all of them should sit inside the gray band — same ΔE, same P. Empirically they don't. With no Mg neighbours, the site is filled — Wagih is right. Add four Mg neighbours and the occupancy drops to 50 %. Add eight and it drops to 15 %. Same ΔE, factor-of-six difference in occupancy, controlled by what is around the site. That is direct site-level Mg–Mg repulsion."
+> "Every red dot is a different *neighbourhood class* at the **same** segregation energy. Wagih's site-independent model says they should all sit inside the gray band — same ΔE, same P. Empirically they don't. With one Mg neighbour the site is full (CI overlaps the band, three sites). For 2 to 5 neighbours the empirical fraction sits below the band at 0.33 to 0.57 — Wagih is already wrong here. Then at six or more neighbours occupancy crashes to 0.15. Same ΔE, factor-of-five difference in occupancy controlled by what is around the site. That is direct site-level Mg–Mg interaction. Note we do *not* claim a smooth linear repulsion: the data shows two regimes plus a transition near n_local = 5–6; the linear-fit slope of −0.080 per neighbour is a global summary, not a description of the shape."
 
 **Likely advisor questions**:
-- *Q: Could the n_Mg^local trend be a leftover ΔE effect — sites with more Mg neighbours might happen to have less negative ΔE within the window?* — A: The window [−30, −15] kJ/mol is narrow enough that Wagih's per-site prediction varies only from 0.75 to 0.99 across it. Even if high-n_local sites all happened to sit at the upper edge (ΔE = −15), Wagih would still predict P = 0.75. The observed empirical drop to 0.15 is far outside that range, so the gap is not a ΔE confound.
-- *Q: Why use a window cut on ΔE rather than the residual P − P_Wagih(ΔE_i) approach?* — A: The residual approach (`scripts/residual_vs_wagih_test.py`) gives essentially the same slope (−0.069 per Mg-nbr) using all 488 valid sites and is statistically more efficient, but the residual quantity is a derived construct that requires the audience to follow three abstraction layers. The fixed-ΔE-window approach trades efficiency for direct readability — the y-axis is just "fraction of sites that are Mg".
-- *Q: Are 4 sites in the [0,1] bin enough to claim "Wagih holds at low n_local"?* — A: Strictly the 95 % CI is [0.51, 1.00], so the data is consistent with anything from 0.51 upward. The claim is therefore "consistent with the Wagih band [0.75, 0.99]", not "equal to it". If the bin were artificially shifted to [0,2] or [0,3] to gain statistics, the descent visible in the figure would still hold and the conclusion would not change.
-- *Q: The trajectory isn't at equilibrium (X_GB = 0.254 still descending). Does the slope number change at equilibrium?* — A: Probably yes, but the *sign* and *order of magnitude* will not. Non-equilibrium is a conservative bias for Mg–Mg repulsion — the system has had less time to optimise away from energetically costly Mg–Mg first-NN contacts, so the equilibrium slope would be at least as negative as the current −0.080. We will refresh the figure when job 65430294 (X_c = 0.075 continuation) finishes; only the data source path in `scripts/mechanism_repulsion_at_fixed_dE.py` needs to change.
+- *Q: Could the n_Mg^local trend be a leftover ΔE effect — sites with more Mg neighbours might happen to have less negative ΔE within the window?* — A: The window [−30, −15] kJ/mol is narrow enough that Wagih's per-site prediction varies only from 0.75 to 0.99 across it. Even if high-n_local sites all happened to sit at the upper edge (ΔE = −15), Wagih would still predict P = 0.75. The observed empirical drop to 0.13–0.15 at n_local ≥ 6 is far outside that range, so the gap is not a ΔE confound.
+- *Q: Why is there already a baseline gap at 2 ≤ n_local ≤ 5 (P̂ = 0.3–0.6 vs Wagih 0.75–0.99)?* — A: Two contributions are mixed there. (i) ΔE_i is the bare X_c=0 reference; at finite X_c the effective per-site segregation energy is shifted by the local environment (a 1st-order finite-X_c correction Wagih's framework does not include). (ii) Even at n_local = 2–5 there is some Mg–Mg interaction. The sharp drop at n_local = 5 → 6 is a cleaner repulsion signal because the baseline gap is approximately constant across the low-n_local range while the n_local-dependent component is not.
+- *Q: Why drop n_local = 0, 10, 11 from the plot?* — A: Each of those integers has only 1 or 2 sites in the favourable ΔE bin, so the Wald 95 % CI spans essentially [0, 1] and conveys no information. They are kept in the JSON (`favorable_bin.per_integer_stats`) for traceability and reach the same qualitative pattern (n=0 → P=1, n=10/11 → P=0).
+- *Q: The trajectory isn't at equilibrium (X_GB = 0.254 still descending). Does the slope or the n_local = 5 → 6 transition change at equilibrium?* — A: The *sign* and *order of magnitude* will not change. Non-equilibrium is a conservative bias for Mg–Mg repulsion — the system has had less time to optimise away from energetically costly Mg–Mg first-NN contacts, so the equilibrium slope would be at least as negative as the current −0.080. We will refresh the figure when job 65430294 (X_c = 0.075 continuation) finishes; only the data-source path in `scripts/mechanism_repulsion_at_fixed_dE.py` needs to change.
+- *Q: Why use a window cut on ΔE rather than the residual P − P_Wagih(ΔE_i) approach?* — A: The residual approach (`scripts/residual_vs_wagih_test.py`) gives essentially the same slope (−0.069 per Mg-nbr) using all 488 valid sites and is statistically more efficient, but the residual quantity is a derived construct (subtract Wagih per site, then average) that requires the audience to follow three abstraction layers. The fixed-ΔE-window approach trades efficiency for direct readability — the y-axis is just "fraction of sites that are Mg".
 
 ---
 
@@ -543,9 +555,9 @@ Every cited number passes a spot-check; PASS / future-PASS log below.
     X_c=0.30:  ΔP=0.1284 (rounded 0.13)   PASS
 
 [4] Fig. 3 fixed-ΔE values match JSON 03_mgmg_repulsion_fixed_dE.json
-    favourable bin ΔE∈[−30,−15] kJ/mol: n=112, slope=−0.0804/Mg-nbr  PASS
-    sub-bin counts (4, 15, 44, 49) sum = 112                         PASS
-    neutral bin ΔE∈[−5,+5] kJ/mol: n=128, slope=−0.0252/Mg-nbr       PASS
+    favourable bin ΔE∈[−30,−15] kJ/mol: n=112, slope=−0.0804/Mg-nbr   PASS
+    per-integer counts (1+3+6+9+30+14+20+16+5+5+2+1) sum = 112        PASS
+    neutral bin ΔE∈[−5,+5] kJ/mol: n=128, slope=−0.0252/Mg-nbr        PASS
 
 [5] panel (d) gap table matches JSON hmc_vs_canonfd_T500_with_multistart.json   PASS
 

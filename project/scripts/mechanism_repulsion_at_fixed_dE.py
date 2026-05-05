@@ -1,18 +1,25 @@
 """Mechanism Fig 3 (single panel, double-column paper figure):
-Site-level Mg-Mg repulsion via P_i^empirical vs n_local at fixed ΔE.
+Mg occupancy P_i vs n_Mg^local at fixed ΔE — site-level Mg-Mg
+interaction signal.
 
-At X_c=0.075, restrict to the favorable ΔE bin [-30, -15] kJ/mol
+At X_c=0.075, restrict to the favourable ΔE bin [-30, -15] kJ/mol
 (n=112 sites). Within that window the per-site Wagih FD prediction is
-held in [0.75, 0.99] (the gray band). Sites are then sub-binned by
-n_Mg^local (Mg neighbours within 5 Å); empirical Mg-occupation
-fractions (Wald 95 % binomial CI) are plotted vs n_local.
+held in [0.75, 0.99] (the gray band). Sites are grouped by integer
+n_Mg^local (Mg neighbours within 5 Å) — one marker per integer, no
+pre-binning; markers sit at integer x-positions (n_local is an atom
+count, not a continuous variable). Empirical Mg-occupation fractions
+are shown with Wald 95 % binomial CI.
 
-Reading: at low n_local (≤1, n=4) the empirical fraction is consistent
-with the Wagih band — Wagih works when the neighbourhood is empty.
-At higher n_local empirical drops far below the band, reaching ~0.15
-by n_local≥6. ΔE is held within a narrow window so the n_local-
-dependence cannot be a confounded ΔE effect → direct site-level Mg-Mg
-repulsion.
+Filtering: integers with fewer than N_SITES_MIN sites are dropped
+from the plot (CIs span essentially [0, 1] and add no information);
+they are still written to the JSON for full auditability. With
+N_SITES_MIN=3 the figure shows n=1 through n=9 (9 markers).
+
+Reading: low n_local (1-5) sits in P~0.33-0.57 with substantial CI
+overlap (mostly below the Wagih band, but n=1 with 3 sites overlaps);
+sharp drop at n_local=5→6 to P~0.13-0.15. ΔE is held within a 15
+kJ/mol-wide window so the n_local dependence cannot be a confounded
+ΔE effect → site-level Mg-Mg interaction signal.
 
 Falsification check: same analysis on the neutral ΔE bin [-5, +5]
 kJ/mol (n=128, Wagih predicts P ∈ [0.024, 0.213]) is computed and
@@ -160,11 +167,11 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(5.2, 3.8))
 
     # Wagih band (favorable ΔE) — shaded; the band is the prediction
-    # range, NOT a statistical confidence interval.
+    # range, NOT a statistical confidence interval. The shaded region's
+    # own boundaries are visible enough that explicit edge axhlines are
+    # redundant — dropped per Fig-3 review pass 2 #4.
     ax.axhspan(pw_fav_min, pw_fav_max, color="0.78", alpha=0.45,
                zorder=0, label="Wagih FD prediction")
-    ax.axhline(pw_fav_min, color="0.55", lw=0.5, zorder=1)
-    ax.axhline(pw_fav_max, color="0.55", lw=0.5, zorder=1)
 
     # Empirical points at integer n_local — filter to n_sites >= N_SITES_MIN
     # so we don't pollute the panel with vacuous CIs from 1- or 2-site bins.
@@ -181,7 +188,7 @@ def main() -> None:
         yerr=[p_hats[keep] - ci_los[keep], ci_his[keep] - p_hats[keep]],
         fmt="o", color="#d62728", ms=5, capsize=2.5,
         elinewidth=0.8, mew=0.8,
-        label=f"HMC empirical (n≥{N_SITES_MIN} per integer)",
+        label="HMC empirical",
     )
 
     ax.set_xlabel(
@@ -191,7 +198,8 @@ def main() -> None:
     )
     ax.set_ylabel(r"$P_i$  (probability site is Mg)", fontsize=10)
     ax.set_title(
-        rf"Site-level Mg–Mg repulsion ($X_c={XC}$, $T={T_K:.0f}$ K)",
+        rf"Mg occupancy at $\Delta E_i \in [{DE_FAV[0]:.0f}, {DE_FAV[1]:.0f}]$ kJ/mol  "
+        rf"($T={T_K:.0f}$ K, $X_c={XC}$)",
         fontsize=10.5, pad=16,
     )
     ax.set_xlim(-0.7, N_LOCAL_MAX + 0.7)
@@ -224,7 +232,8 @@ def main() -> None:
             "wagih_p_mean": pw_fav_mean,
             "linear_slope_per_neighbour": slope_fav,
             "linear_intercept": intercept_fav,
-            "subbins": rows_fav,
+            "n_sites_min_for_plot": N_SITES_MIN,
+            "per_integer_stats": rows_fav,
         },
         "neutral_bin_falsification": {
             "delta_e_kjmol": list(DE_NEU),
@@ -233,7 +242,7 @@ def main() -> None:
             "wagih_p_max": pw_neu_max,
             "linear_slope_per_neighbour": slope_neu,
             "linear_intercept": intercept_neu,
-            "subbins": rows_neu,
+            "per_integer_stats": rows_neu,
         },
     }, indent=2, default=float))
     print(f"Saved: {out_json}")
