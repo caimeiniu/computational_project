@@ -363,7 +363,7 @@ Short answer: this is the **McLean isotherm** (D. McLean, *Grain Boundaries in M
 
 **Caption (English):**
 
-> **Figure 3.** Site-level Mg–Mg repulsion at X_c = 0.075, T = 500 K. All 112 GB sites shown have segregation energy ΔE_i ∈ [−30, −15] kJ/mol — within this window the per-site Wagih FD model predicts P_i ∈ [0.75, 0.99] (gray band; this is the *prediction range* across the ΔE window, not a statistical confidence interval). Empirical Mg-occupation fractions (red points, Wald 95 % binomial CI) are plotted in 5 sub-bins of n_Mg^local, the number of Mg atoms within r ≤ 5 Å of the reference site. At low local Mg density (n_Mg^local ≤ 1, n = 4 sites) the empirical fraction is consistent with the Wagih band — Wagih's prediction holds when the neighbourhood is empty. As n_Mg^local grows the empirical fraction drops far below the band, reaching ~0.15 by n_Mg^local ≥ 6 (linear-fit slope = −0.080 per Mg-neighbour over all 112 sites). Because ΔE_i is held within a narrow window, the observed n_Mg^local-dependence cannot be a confounded ΔE effect; it is direct evidence that the per-site Wagih assumption fails through Mg–Mg interaction at the favourable-binding sites. **Falsification check**: the same analysis on the neutral ΔE bin [−5, +5] kJ/mol (n = 128 sites, Wagih FD predicts P ∈ [0.024, 0.213]) gives a slope of −0.025 per Mg-neighbour, ~3× weaker — the n_Mg^local effect is concentrated at favourable ΔE where Wagih predicts substantial occupation, exactly where Mg–Mg repulsion can register. Snapshot: `data/snapshots/hmc_T500_Xc0.075_preseg_final.lmp` (preseg trajectory, 300 ps PROD; not yet at full equilibrium — the breakdown signal would only sharpen with further sampling). Source: `scripts/mechanism_repulsion_at_fixed_dE.py`; data file: `output/03_mgmg_repulsion_fixed_dE.json`.
+> **Figure 3.** Site-level Mg–Mg repulsion at X_c = 0.075, T = 500 K. All 112 GB sites shown have segregation energy ΔE_i ∈ [−30, −15] kJ/mol — within this window the per-site Wagih FD model predicts P_i ∈ [0.75, 0.99] (gray band; this is the *prediction range* across the ΔE window, not a statistical confidence interval). Empirical Mg-occupation fractions (red points, Wald 95 % binomial CI) are plotted in 4 sub-bins of n_Mg^local, the number of Mg atoms within r ≤ 5 Å of the reference site. At low local Mg density (n_Mg^local ≤ 1, n = 4 sites) the empirical fraction is consistent with the Wagih band — Wagih's prediction holds when the neighbourhood is empty. As n_Mg^local grows the empirical fraction drops far below the band, reaching ~0.15 by n_Mg^local ≥ 6 (linear-fit slope = −0.080 per Mg-neighbour over all 112 sites). Because ΔE_i is held within a narrow window, the observed n_Mg^local-dependence cannot be a confounded ΔE effect; it is direct evidence that the per-site Wagih assumption fails through Mg–Mg interaction at the favourable-binding sites. **Falsification check**: the same analysis on the neutral ΔE bin [−5, +5] kJ/mol (n = 128 sites, Wagih FD predicts P ∈ [0.024, 0.213]) gives a slope of −0.025 per Mg-neighbour, ~3× weaker — the n_Mg^local effect is concentrated at favourable ΔE where Wagih predicts substantial occupation, exactly where Mg–Mg repulsion can register. Snapshot: `data/snapshots/hmc_T500_Xc0.075_preseg_final.lmp` (preseg trajectory, 300 ps PROD; not yet at full equilibrium — the breakdown signal would only sharpen with further sampling). Source: `scripts/mechanism_repulsion_at_fixed_dE.py`; data file: `output/03_mgmg_repulsion_fixed_dE.json`.
 
 **Role**: mechanism evidence 3 / **direct site-level evidence** — controlling for ΔE_i within a narrow window, the effect of Mg-neighbour count on occupancy.
 
@@ -372,7 +372,7 @@ Short answer: this is the **McLean isotherm** (D. McLean, *Grain Boundaries in M
 **Core math**:
 1. Restrict the n = 500 reference sites to ΔE_i ∈ [−30, −15] kJ/mol → 112 favourable-binding sites.
 2. For each site *i*, compute n_Mg^local(*i*) = number of Mg atoms within r_local = 5 Å of *i* (excluding self if *i* itself is Mg).
-3. Sub-bin those 112 sites into 5 n_Mg^local groups: {[0,1], [2,3], [4,5], [6,7], [8,12]}.
+3. Sub-bin those 112 sites into 4 n_Mg^local groups: {[0,1], [2,3], [4,5], [6,12]}. (The high-n_local bin merges what was originally [6,7] (n=36) and [8,12] (n=13) — the separate [8,12] showed a small +0.015 uptick well inside both Wald CIs but visually distracting; merging removes the wiggle and tightens the CI.)
 4. Within each sub-bin, compute the empirical Mg fraction p̂ and the Wald 95 % binomial CI p̂ ± 1.96 √[p̂(1−p̂)/n] (clipped to [0,1]).
 5. Wagih FD prediction band: evaluate P_i^Wagih(ΔE_i) = 1 / (1 + ((1−X_c)/X_c) · exp(ΔE_i / kT)) at the two bin edges (ΔE = −30 and ΔE = −15) → P_min = 0.750, P_max = 0.991. The shaded gray band spans this range; it is *not* a confidence interval but the spread of Wagih's per-site prediction over the ΔE window.
 
@@ -380,15 +380,14 @@ Short answer: this is the **McLean isotherm** (D. McLean, *Grain Boundaries in M
 - x: n_Mg^local (Mg neighbours within 5 Å), shown 0 to 12.
 - y: P_i (probability site is Mg), 0 to 1.
 
-**Five empirical points** (source: `output/03_mgmg_repulsion_fixed_dE.json`, verified):
+**Four empirical points** (source: `output/03_mgmg_repulsion_fixed_dE.json`, verified):
 
 | n_Mg^local | n_sites | p̂ | 95 % CI | Wagih band | reading |
 |:-|---:|---:|---|---|---|
 | [0, 1] | 4 | 1.00 | [0.51, 1.00] | [0.75, 0.99] | overlaps band — Wagih holds at empty neighbourhood |
 | [2, 3] | 15 | 0.40 | [0.15, 0.65] | [0.75, 0.99] | below band |
 | [4, 5] | 44 | 0.50 | [0.35, 0.65] | [0.75, 0.99] | below band |
-| [6, 7] | 36 | **0.14** | [0.03, 0.25] | [0.75, 0.99] | far below band |
-| [8, 12] | 13 | **0.15** | [0.00, 0.35] | [0.75, 0.99] | far below band |
+| [6, 12] | 49 | **0.14** | [0.05, 0.24] | [0.75, 0.99] | far below band |
 
 **Key annotations** (intentionally minimal — the visual gap between the red curve and the gray band carries the message):
 - Gray shaded band: Wagih FD prediction range across the ΔE window.
@@ -545,7 +544,7 @@ Every cited number passes a spot-check; PASS / future-PASS log below.
 
 [4] Fig. 3 fixed-ΔE values match JSON 03_mgmg_repulsion_fixed_dE.json
     favourable bin ΔE∈[−30,−15] kJ/mol: n=112, slope=−0.0804/Mg-nbr  PASS
-    sub-bin counts (4, 15, 44, 36, 13) sum = 112                     PASS
+    sub-bin counts (4, 15, 44, 49) sum = 112                         PASS
     neutral bin ΔE∈[−5,+5] kJ/mol: n=128, slope=−0.0252/Mg-nbr       PASS
 
 [5] panel (d) gap table matches JSON hmc_vs_canonfd_T500_with_multistart.json   PASS

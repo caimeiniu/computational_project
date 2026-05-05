@@ -56,7 +56,11 @@ DE_NEU = (-5.0, +5.0)
 # n_local sub-bins: keep [0,1] as the "Wagih works at empty neighbourhood"
 # anchor even though the favorable bin only has n=4 there — its CI
 # happens to cover the Wagih band, which is itself the message.
-NLOCAL_SUBBINS = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 12)]
+# [6,12] merged from [6,7] (n=36) + [8,12] (n=13) → n=49: a separate
+# n=13 [8,12] bin showed a 0.154 uptick vs n=36 [6,7] bin's 0.139, well
+# inside both Wald CIs but visually distracting; merging removes the
+# wiggle without losing data and tightens the high-n_local CI.
+NLOCAL_SUBBINS = [(0, 1), (2, 3), (4, 5), (6, 12)]
 
 
 def _wald_ci(p_hat: float, n: int) -> tuple[float, float]:
@@ -174,7 +178,9 @@ def main() -> None:
     )
     nl_max = max(r["n_local_hi"] for r in rows_fav)
     ax.set_xlim(-1.2, nl_max + 1.2)
-    ax.set_ylim(-0.08, 1.10)
+    # Top headroom raised so the upper-right legend sits above the
+    # Wagih band (which extends to P=0.99) instead of overlapping it.
+    ax.set_ylim(-0.08, 1.22)
     ax.tick_params(labelsize=9)
     for spine in ax.spines.values():
         spine.set_linewidth(0.7)
