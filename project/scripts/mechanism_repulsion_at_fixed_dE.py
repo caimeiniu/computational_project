@@ -170,7 +170,7 @@ def main() -> None:
     ax.set_ylabel(r"$P_i$  (probability site is Mg)", fontsize=10)
     ax.set_title(
         rf"Site-level Mg–Mg repulsion ($X_c={XC}$, $T={T_K:.0f}$ K)",
-        fontsize=10.5, pad=10,
+        fontsize=10.5, pad=16,
     )
     nl_max = max(r["n_local_hi"] for r in rows_fav)
     ax.set_xlim(-1.2, nl_max + 1.2)
@@ -179,7 +179,7 @@ def main() -> None:
     for spine in ax.spines.values():
         spine.set_linewidth(0.7)
     ax.grid(alpha=0.25, lw=0.4)
-    ax.legend(loc="upper right", fontsize=7.5, framealpha=0.92)
+    ax.legend(loc="upper right", fontsize=6.5, framealpha=0.92)
 
     fig.tight_layout(pad=1.4)
     out_png = OUT_DIR / f"{OUT_PREFIX}.png"
