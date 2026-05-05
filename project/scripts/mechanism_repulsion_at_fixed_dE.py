@@ -53,14 +53,20 @@ DE_FAV = (-30.0, -15.0)
 # headroom to register because Wagih's P is small throughout.
 DE_NEU = (-5.0, +5.0)
 
-# n_local sub-bins: keep [0,1] as the "Wagih works at empty neighbourhood"
-# anchor even though the favorable bin only has n=4 there — its CI
-# happens to cover the Wagih band, which is itself the message.
-# [6,12] merged from [6,7] (n=36) + [8,12] (n=13) → n=49: a separate
-# n=13 [8,12] bin showed a 0.154 uptick vs n=36 [6,7] bin's 0.139, well
-# inside both Wald CIs but visually distracting; merging removes the
-# wiggle without losing data and tightens the high-n_local CI.
-NLOCAL_SUBBINS = [(0, 1), (2, 3), (4, 5), (6, 12)]
+# Plot every integer n_local — no pre-binning. Markers sit at integer
+# x-positions (the only physically meaningful values: n_local is an atom
+# count, not a continuous variable). Sub-bin merging tried earlier
+# always introduced a half-integer marker plus the choice of where to
+# cut, both of which raised "what physics drives this binning" questions.
+# Per-integer keeps the underlying data visible.
+N_LOCAL_MAX = 11
+
+# Drop n_local values with fewer than this many sites in the favourable
+# ΔE bin: at very small n_sites the Wald CI spans most of [0, 1] and
+# adds visual noise without information. n_sites=1 gives a vacuous
+# CI [0, 1]; n_sites=2 likewise. Setting this to 3 keeps the n=1
+# (3 sites, CI [0.35, 1.00]) "Wagih at empty neighbourhood" anchor.
+N_SITES_MIN = 3
 
 
 def _wald_ci(p_hat: float, n: int) -> tuple[float, float]:
@@ -74,18 +80,22 @@ def _wald_ci(p_hat: float, n: int) -> tuple[float, float]:
 
 
 def _bin_stats(p_arr: np.ndarray, nl_arr: np.ndarray, sel_de: np.ndarray):
-    """Per-sub-bin stats restricted to the ΔE selection."""
+    """Per-integer stats restricted to the ΔE selection.
+
+    One row per integer n_local in [0, N_LOCAL_MAX]; rows with fewer
+    than N_SITES_MIN sites are kept in the JSON (so the full dist is
+    auditable) but flagged via `n_sites` so the plot can filter them.
+    """
     p_in = p_arr[sel_de]
     nl_in = nl_arr[sel_de]
     rows = []
-    for (a, b) in NLOCAL_SUBBINS:
-        sub = (nl_in >= a) & (nl_in <= b)
+    for n_val in range(N_LOCAL_MAX + 1):
+        sub = nl_in == n_val
         n_sub = int(sub.sum())
         p_hat = float(p_in[sub].mean()) if n_sub > 0 else float("nan")
         ci_lo, ci_hi = _wald_ci(p_hat, n_sub)
         rows.append({
-            "n_local_lo": a, "n_local_hi": b,
-            "n_local_center": (a + b) / 2,
+            "n_local": n_val,
             "n_sites": n_sub,
             "p_hat": p_hat, "ci_lo": ci_lo, "ci_hi": ci_hi,
         })
@@ -138,9 +148,13 @@ def main() -> None:
           f"slope={slope_neu:+.4f} per Mg-nbr")
     print()
     for r in rows_fav:
-        print(f"    fav n_local∈[{r['n_local_lo']:2d},{r['n_local_hi']:2d}]: "
+        if r["n_sites"] == 0:
+            print(f"    fav n_local={r['n_local']:2d}: n=0  (no sites)")
+            continue
+        flag = "" if r["n_sites"] >= N_SITES_MIN else "  [excluded from plot, n<{}]".format(N_SITES_MIN)
+        print(f"    fav n_local={r['n_local']:2d}: "
               f"n={r['n_sites']:3d}  P̂={r['p_hat']:.3f}  "
-              f"CI=[{r['ci_lo']:.3f}, {r['ci_hi']:.3f}]")
+              f"CI=[{r['ci_lo']:.3f}, {r['ci_hi']:.3f}]{flag}")
 
     # ---- single-panel plot, sized for double-column paper figure ----
     fig, ax = plt.subplots(figsize=(5.2, 3.8))
@@ -152,18 +166,22 @@ def main() -> None:
     ax.axhline(pw_fav_min, color="0.55", lw=0.5, zorder=1)
     ax.axhline(pw_fav_max, color="0.55", lw=0.5, zorder=1)
 
-    # Empirical points + binomial CI
-    nl_centers = np.array([r["n_local_center"] for r in rows_fav])
+    # Empirical points at integer n_local — filter to n_sites >= N_SITES_MIN
+    # so we don't pollute the panel with vacuous CIs from 1- or 2-site bins.
+    # No connecting line: per-integer the data has real noise (small n_sites
+    # at most integers) and a line would over-imply a smooth function.
+    nl_int = np.array([r["n_local"] for r in rows_fav])
     p_hats = np.array([r["p_hat"] for r in rows_fav])
     ci_los = np.array([r["ci_lo"] for r in rows_fav])
     ci_his = np.array([r["ci_hi"] for r in rows_fav])
-    valid = ~np.isnan(p_hats)
+    n_sites_arr = np.array([r["n_sites"] for r in rows_fav])
+    keep = (n_sites_arr >= N_SITES_MIN) & ~np.isnan(p_hats)
     ax.errorbar(
-        nl_centers[valid], p_hats[valid],
-        yerr=[p_hats[valid] - ci_los[valid], ci_his[valid] - p_hats[valid]],
-        fmt="o-", color="#d62728", ms=5, capsize=2.5,
-        lw=0.9, elinewidth=0.8, mew=0.8,
-        label="HMC empirical",
+        nl_int[keep], p_hats[keep],
+        yerr=[p_hats[keep] - ci_los[keep], ci_his[keep] - p_hats[keep]],
+        fmt="o", color="#d62728", ms=5, capsize=2.5,
+        elinewidth=0.8, mew=0.8,
+        label=f"HMC empirical (n≥{N_SITES_MIN} per integer)",
     )
 
     ax.set_xlabel(
@@ -176,8 +194,8 @@ def main() -> None:
         rf"Site-level Mg–Mg repulsion ($X_c={XC}$, $T={T_K:.0f}$ K)",
         fontsize=10.5, pad=16,
     )
-    nl_max = max(r["n_local_hi"] for r in rows_fav)
-    ax.set_xlim(-1.2, nl_max + 1.2)
+    ax.set_xlim(-0.7, N_LOCAL_MAX + 0.7)
+    ax.set_xticks(range(0, N_LOCAL_MAX + 1, 2))
     # Top headroom raised so the upper-right legend sits above the
     # Wagih band (which extends to P=0.99) instead of overlapping it.
     ax.set_ylim(-0.08, 1.22)
