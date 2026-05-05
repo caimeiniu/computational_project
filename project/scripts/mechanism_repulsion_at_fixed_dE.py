@@ -138,17 +138,25 @@ def main() -> None:
               f"n={r['n_sites']:3d}  P̂={r['p_hat']:.3f}  "
               f"CI=[{r['ci_lo']:.3f}, {r['ci_hi']:.3f}]")
 
-    # ---- single-panel plot, sized for double-column paper figure ----
-    fig, ax = plt.subplots(figsize=(4.2, 3.2))
+    # ---- single-panel plot, styled to match Fig 0 conventions ----
+    # Fig 0 (canonical_fd_compare_5pt_with_multistart.py) uses:
+    #   Wagih FD = green C2 line, HMC equilibrium = red C3 filled circle,
+    #   grid alpha=0.25 lw=0.5, title fontsize=12.5 pad=22, legend
+    #   fontsize=10. We mirror those choices here. Figure size stays
+    #   smaller (single-column-of-double-column-paper layout).
+    fig, ax = plt.subplots(figsize=(4.4, 3.4))
 
-    # Wagih band (favorable ΔE) — shaded; the band is the prediction
-    # range, NOT a statistical confidence interval.
-    ax.axhspan(pw_fav_min, pw_fav_max, color="0.78", alpha=0.45,
+    # Wagih FD prediction band (green to match Fig 0's Wagih line color).
+    # The band spans the per-site prediction range across the ΔE window —
+    # this is the prediction *range*, NOT a statistical confidence band.
+    ax.axhspan(pw_fav_min, pw_fav_max, color="C2", alpha=0.20,
                zorder=0, label="Wagih FD prediction")
-    ax.axhline(pw_fav_min, color="0.55", lw=0.6, zorder=1)
-    ax.axhline(pw_fav_max, color="0.55", lw=0.6, zorder=1)
+    ax.axhline(pw_fav_min, color="C2", lw=0.8, alpha=0.55, zorder=1)
+    ax.axhline(pw_fav_max, color="C2", lw=0.8, alpha=0.55, zorder=1)
 
-    # Empirical points + binomial CI
+    # Empirical points + binomial CI (red C3 filled circle, ms=8 — matches
+    # Fig 0's HMC-equilibrium marker; no connecting line — Fig 0 leaves
+    # discrete measurements unconnected).
     nl_centers = np.array([r["n_local_center"] for r in rows_fav])
     p_hats = np.array([r["p_hat"] for r in rows_fav])
     ci_los = np.array([r["ci_lo"] for r in rows_fav])
@@ -157,29 +165,28 @@ def main() -> None:
     ax.errorbar(
         nl_centers[valid], p_hats[valid],
         yerr=[p_hats[valid] - ci_los[valid], ci_his[valid] - p_hats[valid]],
-        fmt="o-", color="#d62728", ms=6, capsize=3, lw=1.4,
-        label="HMC empirical",
+        fmt="o", color="C3", ms=8, capsize=3, elinewidth=1.0, mew=1.0,
+        label="HMC empirical", zorder=5,
     )
 
     ax.set_xlabel(
-        rf"$n_\mathrm{{Mg}}^\mathrm{{local}}$  (Mg neighbours within "
-        rf"$r \leq {R_LOCAL:.0f}$ Å)",
-        fontsize=10,
+        rf"$n_\mathrm{{Mg}}^\mathrm{{local}}$  "
+        rf"(Mg neighbours within $r \leq {R_LOCAL:.0f}$ Å)"
     )
-    ax.set_ylabel(r"$P_i$  (probability site is Mg)", fontsize=10)
+    ax.set_ylabel(r"$P_i$  (probability site is Mg)")
     ax.set_title(
-        rf"Site-level Mg–Mg repulsion ($X_c={XC}$, $T={T_K:.0f}$ K)",
-        fontsize=10.5,
+        rf"Al(Mg) GB occupancy at favourable $\Delta E$  "
+        rf"($T={T_K:.0f}$ K, $X_c={XC}$)",
+        fontsize=11.5, pad=14,
     )
     ax.set_xlim(-0.6, max(r["n_local_hi"] for r in rows_fav) + 0.6)
     ax.set_ylim(-0.04, 1.06)
-    ax.tick_params(labelsize=9)
-    ax.grid(alpha=0.25, lw=0.5)
-    ax.legend(loc="lower left", fontsize=8.5, framealpha=0.92)
+    ax.grid(True, alpha=0.25, lw=0.5)
+    ax.legend(loc="lower left", fontsize=9.5, framealpha=0.95)
 
     fig.tight_layout()
     out_png = OUT_DIR / f"{OUT_PREFIX}.png"
-    fig.savefig(out_png, dpi=220, bbox_inches="tight")
+    fig.savefig(out_png, dpi=200, bbox_inches="tight")
     plt.close(fig)
     print(f"\nSaved: {out_png}")
 
