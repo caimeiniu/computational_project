@@ -12,6 +12,77 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-06 — T=500 K dilute-side equilibration sweep (X_c=0.05/0.06/0.075) all COMPLETED; HMC < FD confirmed at 95% CI on all three; strict equilibrium not yet reached
+
+### Three jobs all reached full 300 ps PROD with `_final.lmp` saved
+
+| job ID    | X_c   | starting config                                              | OUTSTUB                       | wall      |
+|-----------|-------|--------------------------------------------------------------|-------------------------------|-----------|
+| 65430292  | 0.05  | preseg `poly_AlMg_200A_preseg_Xc5e-2.lmp`                    | `hmc_T500_Xc0.05_preseg_eq`   | 20:39:41  |
+| 65430293  | 0.06  | preseg `poly_AlMg_200A_preseg_Xc0.06.lmp`                    | `hmc_T500_Xc0.06_preseg_eq`   | 19:05:19  |
+| 65430294  | 0.075 | snapshot `hmc_T500_Xc0.075_preseg_final.lmp` (continuation)  | `hmc_T500_Xc0.075_eq_cont`    | 18:58:24  |
+
+All three wrote `_final.lmp` (61 MB) + `.dump` (1.2 GB) + `.rst1/2` (40 MB each) to `/cluster/scratch/cainiu/hmc_AlMg/`. Validates the v2 deck's 5 ps `RESTART_PS` cadence (CHANGELOG 2026-05-05 late-morning) — contrast the prior 16-rank queue-fill trio (65259659/661/662) which all TIMEOUT'd before `write_data` and lost state.
+
+### Headline result — dilute-limit breakdown confirmed at all three X_c
+
+Numbers from `project/output/hmc_T500_Xc{0.05,0.06,0.075}*_eq*.json` (post-burnin window n_frames = 240 of 300, 5-frame block bootstrap):
+
+| X_c   | X_GB^HMC mean | CI95              | X_GB^FD (canon, ours) | gap (HMC − FD) | CI95 hi vs FD |
+|------:|--------------:|-------------------|----------------------:|---------------:|---------------|
+| 0.050 |        0.1941 | [0.1901, 0.1981]  |               0.2282  |        −0.0341 | EXCLUDES      |
+| 0.060 |        0.2298 | [0.2246, 0.2348]  |               0.2611  |        −0.0313 | EXCLUDES      |
+| 0.075 |        0.2289 | [0.2268, 0.2310]  |               0.3007  |        −0.0718 | EXCLUDES      |
+
+All three CI95 upper edges fall strictly below FD ours → direct dilute-limit-breakdown evidence at three dilute-side X_c values, T=500 K. X_c=0.075 has the largest absolute gap (−7.2 mMg/GB-frac; FD over-predicts X_GB by 24%).
+
+### Strict equilibrium NOT yet reached — means are upper bounds
+
+Per-run drift evidence, ranked by distance-from-plateau (closest first):
+
+| X_c   | last10 X_GB | last10 − mean | post-burnin swap imbalance | PE drift over 300 ps PROD     |
+|------:|------------:|--------------:|---------------------------:|-------------------------------|
+| 0.075 |      0.2180 |        −0.011 |                     −0.548 | −325.5 eV  (−1.08 eV/ps)      |
+| 0.050 |      0.1748 |        −0.019 |                     −0.648 | −1622.5 eV (−5.41 eV/ps)      |
+| 0.060 |      0.2051 |        −0.025 |                     −0.714 | −1865.5 eV (−6.22 eV/ps)      |
+
+X_c=0.06 is **furthest from plateau on all three independent diagnostics**: largest `|last10 − mean|`, largest swap imbalance (most net Mg leaving GB per accepted swap), largest PE drift rate. X_c=0.075 is closest because its trajectory continued from the prior 300 ps preseg run (~600 ps total elapsed PROD).
+
+All three trajectories drift **away from FD** (X_GB still descending, post-burnin swap imbalance still net-reverse), so the post-burnin mean is a strict **upper bound** on the true equilibrium X_GB^∞. The breakdown direction (HMC < FD) cannot reverse with more sampling — it only sharpens. Naive exp(−t/τ) fit on 0.06 gives τ ~ 100–200 ps; 300–500 ps additional PROD via `hmc_AlMg_resume.lammps` would be needed to drive last10 within noise of plateau, if/when an asymptotic value is needed for a specific report claim.
+
+### "Saturation signature" between X_c = 0.06 and 0.075
+
+GB-Mg atom counts at the post-burnin mean (N_GB = 89 042 atoms):
+
+- X_c = 0.06  → N_Mg(GB) = 20 460  (= 0.2298 × 89 042)
+- X_c = 0.075 → N_Mg(GB) = 20 384  (= 0.2289 × 89 042)
+
+A +25 % step in X_c leaves N_Mg(GB) essentially unchanged (Δ = −76 atoms, −0.4 %). FD predicts +15 % over the same X_c interval. This is GB geometric-saturation: mass conservation pushes the extra Mg into bulk — X_bulk goes 0.0209 → 0.0396 (+89 %), and enrichment vs site-bulk drops 10.99 → 5.79. The constant-N_Mg(GB) signature is the project's quantitative differentiator from FD over this X_c window.
+
+### Implications for master figure panel (d) headline
+
+The three new dilute-side equilibrated points (X_c ∈ {0.05, 0.06, 0.075}) feed `scripts/canonical_fd_compare_5pt.py` directly via the JSON paths above. A 3-point HMC vs canon-FD panel can be drafted now; a 7-point sweep covering X_c = 0.05–0.30 will be available after the four in-flight fdseed runs return (2026-05-07).
+
+### fdseed runs in flight (informational only — analysis when complete)
+
+| job ID    | X_c   | state    | started/queued                                       |
+|-----------|-------|----------|------------------------------------------------------|
+| 65485867  | 0.10  | RUNNING  | 2026-05-06 10:11, 24 h budget                        |
+| 65485869  | 0.15  | RUNNING  | 2026-05-06 10:11, 24 h budget                        |
+| 65485871  | 0.20  | RUNNING  | 2026-05-06 11:23, 24 h budget                        |
+| 65485900  | 0.30  | PENDING  | QOSMaxCpuPerUserLimit (public QOS 48 CPU cap)        |
+
+ETA: 2026-05-07 ~10:11 for X_c=0.10/0.15, ~11:23 for X_c=0.20; X_c=0.30 starts when one of those completes (so finishes ~24 h later).
+
+### Pending follow-ups (not in this commit)
+
+- Persist `/cluster/scratch/cainiu/hmc_AlMg/hmc_T500_Xc{0.05,0.06,0.075}*_final.lmp` (≈ 183 MB total) to `project/data/snapshots/` (gitignored) before Euler scratch TTL — see `project_report_figure_plan.md` memory.
+- Optional: extend X_c=0.06 by ~300–500 ps PROD via `hmc_AlMg_resume.lammps` if a plateau-pinned equilibrium value is needed (current upper bound 0.2298 already excludes FD at 95% CI, so this is a "nice to have", not load-bearing for the breakdown claim).
+
+### Files this entry
+
+- this CHANGELOG entry only (no code or data changes; result JSONs/PNGs were auto-post-processed by the embedded `hmc_xgb_timeseries.py` call inside each SLURM script)
+
 ## 2026-05-05 (evening) — Fermi-Dirac-seeded initial-condition methodology added; 4 PD eq_cont jobs cancelled and replaced by 4 fdseed jobs
 
 ### Direction shift
