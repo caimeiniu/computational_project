@@ -12,6 +12,63 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-07 (evening) — Methods section draft + figure layout decisions + OVITO render script (held for tomorrow's team meeting)
+
+### Methods draft delivered (standalone, not yet pasted into Overleaf)
+
+- `report/methods_draft.tex` — full Methods section + double-panel
+  method figure (TikZ flow-chart + OVITO polycrystal placeholder) +
+  appendix (key equations, HMC algorithm box, ΔE spectrum convergence).
+  Header has paste instructions, list of preamble packages required
+  (`tikz`, `algorithm`, `algpseudocode`), and explicit decision
+  hooks for tomorrow's team meeting (Cu(Ni) collaborator merge,
+  selection-optimisation collaborator's appendix slot).
+- `report/methods_references_to_verify.md` — six `\cite{}` keys with
+  candidate DOIs and explicit "VERIFY" markers per user's rule
+  "不可以编造文献!!!".
+- `scripts/render_methods_polycrystal.py` — OVITO 3.x Python script
+  that loads `poly_Al_200A_16g_annealed.lmp`, runs adaptive CNA,
+  recolours bulk vs GB, and renders a 1600×1200 PNG perspective view
+  for the right panel of the method figure.
+
+### Layout decisions made this session
+
+- HMC naming: option (ii) — keep "HMC" but expand on first use to
+  "hybrid Monte Carlo / molecular dynamics" + footnote distinguishing
+  from Hamiltonian Monte Carlo (Duane et al. 1987).
+- Method figure: double-panel `\begin{figure*}` with `\subfloat`
+  layout. Left = 4-box TikZ flow-chart (Atomistic+spectrum →
+  FD predictor / HMC → grid comparison; fdseed highlighted in
+  yellow callout box). Right = OVITO render of the polycrystal
+  geometry showing bulk + GB atoms.
+- Critical-X_c "broken band" framing intentionally **not** in
+  Methods; that is Results / Discussion content per user.
+- Equations all moved to Appendix B; `Δ E_i` definition,
+  Wagih single-site FD, canonical FD self-consistency, Wald binomial
+  CI. Methods narrative cross-references via `[Eq.~(\ref{eq:...})]`
+  and remains action-oriented ("purpose, not formula").
+
+### Held for tomorrow's team meeting
+
+- Cu(Ni) collaborator: if their atomistic protocol matches ours,
+  Sec.~\ref{sec:meth:base} can become a shared paragraph; otherwise
+  keep separate.
+- Selection-optimisation collaborator (improving Wagih's training
+  point selection): suggested home is a new appendix section
+  rather than the main Methods, since their work refines the
+  spectrum input rather than testing the FD hypothesis. Final call
+  pending their result maturity.
+- The TikZ flow-chart should compile as-is once the preamble adds
+  `\usepackage{tikz}` and the libraries; the `polycrystal_geometry.png`
+  needs to be generated before the figure renders.
+
+### Files this entry
+
+- `report/methods_draft.tex` — new
+- `report/methods_references_to_verify.md` — new
+- `scripts/render_methods_polycrystal.py` — new
+- this CHANGELOG entry
+
 ## 2026-05-07 (afternoon) — Strategic reframe: panel (d) headline shifts from saturation signature to "critical X_c + T-axis robustness"; three new fdseed jobs queued
 
 ### Strategic reframe (user-driven, this session)

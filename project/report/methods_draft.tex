@@ -1,0 +1,375 @@
+% =============================================================================
+% Methods + Appendix draft for the GB-segregation report
+% Generated: 2026-05-07 (afternoon)
+%
+% USAGE NOTES (read before pasting into Overleaf main.tex):
+%
+% 1. PASTE LOCATIONS
+%    - Section "\section{Methodology}..." → replaces §II Methodology placeholder
+%      bullets in main.tex.
+%    - Figure "\begin{figure*} ... \end{figure*}" → place after the Methodology
+%      section body (or wherever you want it to float to).
+%    - Sections "\appendix", "\section{Atomistic system...}", "\section{Key
+%      equations}", "\section{HMC sampling protocol}", "\section{Delta E
+%      spectrum...}" → paste under the existing \appendix line in main.tex
+%      (before the existing app1/app2 placeholders if you keep them).
+%
+% 2. PACKAGES TO ADD to main.tex preamble (the current preamble does NOT have
+%    these):
+%       \usepackage{tikz}
+%       \usetikzlibrary{arrows.meta, positioning, shapes}
+%       \usepackage{algorithm}
+%       \usepackage{algpseudocode}
+%
+% 3. CITES used: \cite{Wagih2020}, \cite{Mendelev2009}, \cite{LAMMPS},
+%    \cite{Stukowski2012}, \cite{VoroPP}, \cite{Sadigh2012}.
+%    See report/methods_references_to_verify.md for candidate DOIs — VERIFY
+%    BEFORE adding bibitems (per user instruction "不可以编造文献").
+%
+% 4. FIGURE (b) RIGHT PANEL (polycrystal_geometry.png) does not yet exist.
+%    Run report/render_methods_polycrystal.py with OVITO (Pro or Basic,
+%    locally or on Euler with the ovito module loaded) to generate it;
+%    upload the resulting .png to Overleaf and the \includegraphics will
+%    resolve. (LaTeX also accepts .pdf if you prefer vector — re-render
+%    via OVITO Pro's Export Image > Vector option.)
+%
+% 5. HMC NAMING: option (ii) — keep "HMC" but expand on first use + footnote
+%    distinguishing from Hamiltonian Monte Carlo. The footnote is in
+%    Sec.~\ref{sec:meth:HMC}.
+%
+% 6. STILL TO DECIDE TOMORROW (after team meeting):
+%    - Whether Cu(Ni) collaborator uses the same atomistic base + protocol
+%      → if yes, merge §\ref{sec:meth:base} into a shared paragraph.
+%    - Whether the selection-optimisation collaborator's result is mature
+%      enough to include → suggested home: Appendix \ref{app:dE_compare}
+%      or a new dedicated appendix §, since their work refines the spectrum
+%      input rather than testing the FD hypothesis.
+% =============================================================================
+
+
+\section{Methodology}\label{sec:meth}
+
+Our objective is to test where the independent-site Fermi--Dirac (FD)
+framework of Wagih et al.~\cite{Wagih2020} for grain-boundary (GB) solute
+segregation breaks down in $(T, X_c)$ space, where $T$ is the temperature
+and $X_c$ the global Mg fraction. The methodology is structured as a
+hypothesis-versus-ground-truth comparison on a single shared atomistic
+basis (Fig.~\ref{fig:method}): the FD framework provides the prediction
+$X_\mathrm{GB}^\mathrm{FD}(T, X_c)$, hybrid Monte Carlo / molecular
+dynamics (HMC) sampling provides the ground truth
+$X_\mathrm{GB}^\mathrm{HMC}(T, X_c)$, and the gap between them is the
+testable quantity. Sub-sections below describe each leg in turn; key
+equations and the HMC algorithm are stated in
+Apps.~\ref{app:eq}--\ref{app:alg}.
+
+
+\subsection{Atomistic base and segregation-energy spectrum}\label{sec:meth:base}
+
+A 200~\AA{} cubic Al polycrystal of $N_\mathrm{tot} = 475{,}715$ atoms is
+built by 3D Voronoi tessellation~\cite{VoroPP} of 16 random grain seeds
+and annealed using the Wagih protocol~\cite{Wagih2020} in
+LAMMPS~\cite{LAMMPS} with the Mendelev Al--Mg embedded-atom-method
+potential~\cite{Mendelev2009} (full anneal schedule in
+App.~\ref{app:atomistic}). Adaptive common-neighbour
+analysis~\cite{Stukowski2012} identifies $N_\mathrm{GB} = 89{,}042$ GB
+atoms, giving a GB fraction $f_\mathrm{GB} \equiv
+N_\mathrm{GB}/N_\mathrm{tot} = 0.187$. The resulting GB mask is fixed
+throughout, so that all downstream quantities — the $\Delta E_i$ spectrum,
+the FD predictor, and the HMC measurement — refer to the same set of
+sites.
+
+The per-site segregation energy $\Delta E_i$ at GB site $i$
+[Eq.~(\ref{eq:dE})] is the energy change for transferring a single Mg
+from a bulk substitutional site to GB site $i$, computed at $T = 0$~K
+with full local relaxation. We sample $n = 500$ random GB sites; this
+sub-sample passes a two-sample Kolmogorov--Smirnov test against the
+Wagih Zenodo dataset and is sufficient for the canonical FD predictor
+(App.~\ref{app:dE_compare}).
+
+
+\subsection{Fermi--Dirac equilibrium predictions}\label{sec:meth:FD}
+
+We compute two FD prediction variants from the same $\{\Delta E_i\}$
+spectrum:
+\begin{enumerate}\itemsep0pt\parsep0pt
+    \item \emph{Grand-canonical} (GC-FD)~[Eq.~(\ref{eq:FD_single})]: the
+        textbook Wagih form with chemical-potential offset $\Delta\mu$
+        fixed by the bulk reference. It does not enforce $N_\mathrm{Mg}$
+        conservation.
+    \item \emph{Canonical} (canon-FD)~[Eq.~(\ref{eq:FD_canon})]:
+        $\Delta\mu$ self-consistent under the closed-box constraint
+        $N_\mathrm{Mg} = X_c \cdot N_\mathrm{tot}$.
+\end{enumerate}
+Canon-FD is the appropriate comparator for our HMC measurement, which is
+also closed-box at fixed $X_c$. GC-FD is reported alongside as the
+upper envelope of the FD prediction band, and as the point of reference
+for readers familiar with Wagih's textbook curve. The two coincide in
+the dilute limit but diverge as the GB fills.
+
+
+\subsection{Hybrid Monte Carlo / MD sampling}\label{sec:meth:HMC}
+
+To compute $X_\mathrm{GB}$ at finite $X_c$ in the presence of
+solute--solute interactions, we use the LAMMPS \texttt{fix atom/swap}
+implementation~\cite{Sadigh2012} of semi-grand-canonical Metropolis
+swap Monte Carlo interleaved with NVT molecular dynamics --- hereafter
+\emph{HMC}\footnote{Hybrid Monte Carlo / MD. Distinct from the
+Hamiltonian Monte Carlo of Duane et al., \emph{Phys. Lett. B}
+\textbf{195}, 216 (1987); here HMC denotes the MC--MD hybrid implemented
+by LAMMPS \texttt{fix atom/swap}.}. Each cycle alternates 100 attempted
+Mg/Al type-swap moves (Metropolis-accepted at the simulation
+temperature $T$) with 1~ps of NVT MD relaxation; runs use 16 MPI ranks.
+
+\paragraph*{Initial condition (key methodological choice).}
+For each $(T, X_c)$ run we use a \emph{Fermi--Dirac-seeded} (\emph{fdseed})
+initial condition: $X_\mathrm{GB}(0)$ is set to
+$X_\mathrm{GB}^\mathrm{FD}(T, X_c)$ by random Mg placement at GB and
+bulk sites in the proportions matching the canonical FD prediction.
+The trajectory is initialised \emph{at} the FD hypothesis. Any net
+descent of $X_\mathrm{GB}(t)$ below $X_\mathrm{GB}^\mathrm{FD}$ is
+direct evidence that the equilibrium $X_\mathrm{GB}^{\infty} <
+X_\mathrm{GB}^\mathrm{FD}$, irrespective of whether the trajectory has
+reached strict equilibrium within the wallclock budget. This sidesteps
+the much larger equilibration cost otherwise required to bring a
+saturated-GB initial condition down to its true equilibrium when the
+gap is small.
+
+\paragraph*{Production schedule.}
+Each run consists of 10~ps of NVT equilibration followed by 300~ps of
+production at 1~ps thermo cadence, $\sim 24$~h wallclock per
+$(T, X_c)$. Restart files are written every 5~ps, allowing resumption
+past the SLURM wallclock limit when the trajectory is still drifting.
+The full HMC step-by-step is given in Algorithm~\ref{alg:hmc}.
+
+
+\subsection{$(T, X_c)$ grid and comparison}\label{sec:meth:grid}
+
+The hypothesis-versus-ground-truth comparison is repeated on a $(T, X_c)$
+grid covering $T \in \{300, 500, 700\}$~K and $X_c \in [0.04, 0.30]$.
+The dilute-side boundary $X_c \approx 0.04$ is set by closed-box ceiling
+compression: at $X_c < 0.03$, the global Mg inventory $N_\mathrm{Mg} =
+X_c \cdot N_\mathrm{tot}$ is small enough that even
+$X_\mathrm{GB}^\mathrm{FD}$ approaches the geometric ceiling $X_c \cdot
+N_\mathrm{tot}/N_\mathrm{GB}$, leaving negligible dynamic range in
+which to resolve $X_\mathrm{GB}^\mathrm{HMC} < X_\mathrm{GB}^\mathrm{FD}$.
+The reported quantity at each grid point is the gap
+$X_\mathrm{GB}^\mathrm{HMC} - X_\mathrm{GB}^\mathrm{FD,canon}$, with
+uncertainties described in Sec.~\ref{sec:meth:stats}.
+
+
+\subsection{Statistical analysis}\label{sec:meth:stats}
+
+Two distinct sources of randomness are reported with two distinct
+confidence-interval prescriptions, neither of which is assumed Gaussian.
+
+\paragraph*{Trajectory-level CI on $\langle X_\mathrm{GB}\rangle$.}
+The first 20\% of production frames are dropped as burn-in. The
+post-burn-in mean and 95\% confidence interval are computed by
+stationary block bootstrap with a 5-frame block size and $2000$
+resamples, accounting for the autocorrelation between adjacent thermo
+dumps.
+
+\paragraph*{Per-site empirical occupation $\hat P_i$ in
+Fig.~\ref{fig:repulsion}.}
+Each GB site in a converged HMC snapshot is a Bernoulli trial
+(Mg or Al, 0/1). For Wagih-favourable sites with $\Delta E_i \in
+[-30, -15]$~kJ/mol, we sub-bin by the local Mg neighbour count
+$n^\mathrm{Mg}_\mathrm{local}$ (Mg atoms within $r \leq 5$~\AA) and
+report the empirical occupation $\hat P$ per integer
+$n^\mathrm{Mg}_\mathrm{local}$ with its 95\% Wald binomial confidence
+interval [Eq.~(\ref{eq:WaldCI})]. The two CI prescriptions therefore
+treat distinct sources of randomness: trajectory autocorrelation in
+the former, finite-sample Bernoulli noise in the latter.
+
+
+% ============================================================================
+% METHOD FIGURE (place after the Methodology section, or anywhere it floats)
+% ============================================================================
+
+\begin{figure*}[t]
+\centering
+\subfloat[]{%
+    \begin{tikzpicture}[
+        node distance = 0.5cm and 0.6cm,
+        box/.style    = {draw, rounded corners, align=center, inner sep=4pt,
+                         font=\footnotesize, minimum width=4.0cm,
+                         minimum height=1.4cm},
+        cwbox/.style  = {draw, rounded corners, dashed, align=center,
+                         inner sep=3pt, font=\scriptsize,
+                         fill=yellow!22, minimum width=3.5cm},
+        arr/.style    = {-{Stealth[length=2.2mm]}, thick}
+    ]
+        \node[box] (base) {%
+            \textbf{Atomistic base \& $\Delta E_i$ spectrum}\\[1pt]
+            Al--Mg, Mendelev EAM/FS\\
+            $200^3$ \AA$^3$ Voronoi polycrystal, 16 grains\\
+            $N_\mathrm{tot}{=}475{,}715$, a-CNA $\to$ $N_\mathrm{GB}{=}89{,}042$\\
+            $\Delta E_i$ at $n{=}500$ GB sites};
+
+        \node[box, below left =of base, xshift=-0.3cm] (fd) {%
+            \textbf{FD predictor (canon)}\\[1pt]
+            Eqs.~(\ref{eq:FD_single}), (\ref{eq:FD_canon})\\
+            $\to X_\mathrm{GB}^\mathrm{FD}(T, X_c)$\\
+            \emph{hypothesis}};
+
+        \node[box, below right=of base, xshift=0.3cm] (hmc) {%
+            \textbf{HMC sampling}\\[1pt]
+            \texttt{fix atom/swap} + NVT MD\\
+            300~ps prod., 16 MPI ranks\\
+            $\to X_\mathrm{GB}^\mathrm{HMC}(T, X_c)$\\
+            \emph{ground truth}};
+
+        \node[cwbox, below=0.35cm of hmc] (fdseed) {%
+            $\bigstar$ \textbf{fdseed initial condition}\\
+            $X_\mathrm{GB}(0) = X_\mathrm{GB}^\mathrm{FD}$\\
+            any descent $\Rightarrow$ HMC $<$ FD};
+
+        \node[box, below=4.7cm of base] (cmp) {%
+            \textbf{$(T, X_c)$ grid comparison}\\[1pt]
+            gap $= X_\mathrm{GB}^\mathrm{HMC} - X_\mathrm{GB}^\mathrm{FD}$\\
+            block-bootstrap CI; binomial CI\\
+            $\to$ broken $X_c$ band, $T$-axis robustness};
+
+        \draw[arr] (base.south) -- ++(0,-0.15) -| (fd.north);
+        \draw[arr] (base.south) -- ++(0,-0.15) -| (hmc.north);
+        \draw[arr] (fd.south)  -- ++(0,-0.20) |- (cmp.west);
+        \draw[arr] (fdseed.south) -- ++(0,-0.20) |- (cmp.east);
+        \draw[densely dashed, gray] (hmc.south) -- (fdseed.north);
+    \end{tikzpicture}
+    \label{fig:method:flow}
+}\hfill
+\subfloat[]{%
+    \includegraphics[width=0.36\textwidth]{polycrystal_geometry.png}%
+    \label{fig:method:geom}
+}
+\caption{%
+\textbf{(a)} Methodology overview. The atomistic base feeds two
+independent paths: the canonical Fermi--Dirac framework predicts
+$X_\mathrm{GB}^\mathrm{FD}(T, X_c)$ from the per-site $\Delta E_i$
+spectrum (left), and HMC sampling provides the ground-truth
+$X_\mathrm{GB}^\mathrm{HMC}(T, X_c)$ (right). The fdseed initial
+condition (yellow) sets $X_\mathrm{GB}(0) = X_\mathrm{GB}^\mathrm{FD}$
+so that any net descent of the HMC trajectory is direct evidence that
+the equilibrium $X_\mathrm{GB}^{\infty} < X_\mathrm{GB}^\mathrm{FD}$.
+\textbf{(b)} The 16-grain Al polycrystal used throughout the study,
+with bulk atoms in light grey and a-CNA-identified GB atoms
+(highlighted) defining the GB mask.
+}
+\label{fig:method}
+\end{figure*}
+
+
+% ============================================================================
+% APPENDICES (paste under the existing \appendix line in main.tex)
+% ============================================================================
+
+\appendix
+
+\section{Atomistic system and anneal schedule}\label{app:atomistic}
+
+The Al polycrystal is generated by drawing 16 random grain seeds
+uniformly within the $200^3$~\AA$^3$ box, each with a uniformly random
+crystal orientation, and assigning every lattice site to its nearest
+seed (3D Voronoi tessellation~\cite{VoroPP}). The lattice constant is
+$a = 4.05$~\AA{} (FCC Al). The anneal schedule follows
+Wagih et al.~\cite{Wagih2020}: (1) conjugate-gradient minimisation;
+(2) NVT temperature ramp from 100~K to $0.4\,T_\mathrm{melt} = 373$~K
+over 50~ps; (3) NPT hold at 373~K for 250~ps to relax the GB
+structure; (4) $-3$~K/ps quench to $0$~K; (5) final box relaxation by
+conjugate gradient with full Hessian update on the simulation cell.
+The resulting annealed configuration is the fixed substrate for all
+subsequent measurements. GB atoms are identified by adaptive
+common-neighbour analysis~\cite{Stukowski2012} with default cutoffs.
+
+
+\section{Key equations}\label{app:eq}
+
+\paragraph*{Per-site segregation energy} (Sec.~\ref{sec:meth:base}):
+\begin{equation}\label{eq:dE}
+\Delta E_i = E_i^\mathrm{GB-Mg} + E^\mathrm{bulk-Al}
+           - E_i^\mathrm{GB-Al} - E^\mathrm{bulk-Mg},
+\end{equation}
+the energy change for transferring a Mg atom from a bulk
+substitutional site to GB site $i$, with all four energies obtained
+at $T = 0$~K with full local relaxation.
+
+\paragraph*{Wagih single-site Fermi--Dirac}
+(Sec.~\ref{sec:meth:FD}):
+\begin{equation}\label{eq:FD_single}
+P_i^\mathrm{FD}(\Delta E_i, T, \Delta\mu) =
+\frac{1}{1 + \exp\!\big[(\Delta E_i + \Delta\mu)/k_B T\big]}.
+\end{equation}
+$P_i^\mathrm{FD}$ is the probability that GB site $i$ is occupied by
+Mg, treated as independent of all other GB sites --- the dilute-limit
+(independent-site) assumption tested by HMC.
+
+\paragraph*{Closed-box (canonical) FD}
+(Sec.~\ref{sec:meth:FD}):
+At fixed $X_c$, $\Delta\mu$ is determined self-consistently from
+$N_\mathrm{Mg}$ conservation:
+\begin{equation}\label{eq:FD_canon}
+\sum_{i \in \mathrm{GB}} P_i^\mathrm{FD}(\Delta E_i, T, \Delta\mu)
++ N_\mathrm{bulk} \cdot
+\frac{1}{1 + \exp(\Delta\mu/k_B T)}
+= X_c \cdot N_\mathrm{tot}.
+\end{equation}
+The first sum is over all $N_\mathrm{GB}$ sites with their respective
+$\Delta E_i$; the second term is the bulk Mg population (treating bulk
+sites as $\Delta E = 0$). $X_\mathrm{GB}^\mathrm{FD,canon} =
+(1/N_\mathrm{GB}) \sum_{i \in \mathrm{GB}} P_i^\mathrm{FD}$ once
+$\Delta\mu$ is determined.
+
+\paragraph*{Wald 95\% binomial confidence interval}
+(Sec.~\ref{sec:meth:stats}):
+For $n$ Bernoulli trials with empirical success rate $\hat P$,
+\begin{equation}\label{eq:WaldCI}
+\mathrm{CI}_{95\%}(\hat P) =
+\hat P \pm 1.96 \sqrt{\hat P (1-\hat P) / n}.
+\end{equation}
+The Wald approximation breaks down at the boundaries
+($\hat P \approx 0$ or $1$); for those bins we report $[0, 0]$ or
+$[1, 1]$ explicitly in the figure.
+
+
+\section{HMC sampling protocol}\label{app:alg}
+
+\begin{algorithm}[H]
+\caption{HMC sampling at $(T, X_c)$ with fdseed initial condition.}
+\label{alg:hmc}
+\begin{algorithmic}[1]
+\State Solve Eq.~(\ref{eq:FD_canon}) for $\Delta\mu(T, X_c)$ on the
+       $\{\Delta E_i\}$ spectrum
+\State Compute $X_\mathrm{GB}^\mathrm{FD}(T, X_c) = (1/N_\mathrm{GB})
+       \sum_i P_i^\mathrm{FD}$
+\State \textbf{fdseed IC:} place $\lfloor X_\mathrm{GB}^\mathrm{FD}
+       \cdot N_\mathrm{GB} \rfloor$ Mg at random GB sites; place the
+       remainder at random bulk sites
+\State Equilibrate 10 ps NVT at temperature $T$
+\For{$\tau = 1$ to $300$ ps}
+    \State attempt 100 Mg$\leftrightarrow$Al type-swap moves
+           (Metropolis-accept at $T$)
+    \State 1 ps NVT MD relaxation
+    \State log $X_\mathrm{GB}(\tau)$, instantaneous swap accept rate, PE
+    \State write restart file every 5 ps
+\EndFor
+\State \textbf{Post-process:} discard first 20\% of production frames;
+       compute $\langle X_\mathrm{GB}\rangle$ and 95\% CI by stationary
+       block bootstrap (5-frame block, 2000 resamples)
+\end{algorithmic}
+\end{algorithm}
+
+
+\section{$\Delta E$ spectrum convergence and Wagih comparison}\label{app:dE_compare}
+
+The choice $n = 500$ GB sites is supported by two checks:
+(1) the skew-normal fit parameters $\{\mu, \sigma, \alpha\}$ are
+converged below the precision relevant to the canonical FD predictor,
+which depends on the spectrum integral rather than the fit form per
+se; (2) a two-sample Kolmogorov--Smirnov test on $\{\Delta E_i\}$
+versus the Wagih Zenodo dataset (their $n = 82{,}646$ DFT-trained
+machine-learning predictions on a comparable polycrystal) yields
+$p > 0.5$, indicating spectrum-level indistinguishability under our
+chosen tightness of CG relaxation. The KS-stability and skew-normal
+parameter drift across $n \in \{50, 100, 250, 500\}$ are detailed
+elsewhere; the spectrum match is also illustrated in
+Fig.~\ref{fig:spectrum}.
