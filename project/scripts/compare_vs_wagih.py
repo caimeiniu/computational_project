@@ -83,7 +83,7 @@ def main():
     ax.hist(dE_wagih, bins=bins, density=True, color="#55a868", alpha=0.55,
             edgecolor="white", label=f"Wagih Zenodo (n={m_wagih['n']})")
     ax.hist(dE_ours, bins=bins, density=True, color="#c44e52", alpha=0.55,
-            edgecolor="white", label=f"Ours production (n={m_ours['n']})")
+            edgecolor="white", label=f"Ours polycrystal (n={m_ours['n']})")
     # overlay fits
     xs = np.linspace(bins[0], bins[-1], 400)
     ax.plot(xs, stats.skewnorm.pdf(xs, a=f_wagih["alpha"], loc=f_wagih["mu"],
@@ -98,7 +98,7 @@ def main():
     ax.set_xlabel(r"$\Delta E_\mathrm{seg}$  (kJ/mol)")
     ax.set_ylabel("probability density")
     ax.set_title(r"Al(Mg) $\Delta E_\mathrm{seg}$ — ours vs Wagih Zenodo "
-                 + f"(KS D={ks.statistic:.3f}, p={ks.pvalue:.2g})")
+                 + f"(KS D={ks.statistic:.3f}, p={ks.pvalue:.2g})", pad=14)
     ax.legend(loc="upper left", fontsize=8, framealpha=0.95)
     fig.tight_layout()
     Path(args.out_png).parent.mkdir(parents=True, exist_ok=True)

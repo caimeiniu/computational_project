@@ -191,8 +191,7 @@ def fig2_occupation_breakdown_single(d: dict) -> None:
     ax.set_ylabel(r"$P_i$ — probability site $i$ is Mg", fontsize=12)
     ax.set_title(
         rf"Per-site Mg occupation $P_i$ vs $\Delta E_i$ at "
-        rf"$X_c={x_c:.3f}$  ($X_{{GB}}={x_gb:.3f}$)  "
-        r"—  HMC vs Wagih FD",
+        rf"$X_c={x_c:.3f}$  ($X_{{GB}}={x_gb:.3f}$)",
         fontsize=12.5, pad=16,
     )
     ax.set_ylim(-0.05, 1.08)
