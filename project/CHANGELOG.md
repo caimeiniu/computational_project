@@ -12,6 +12,147 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-07 (afternoon) — Strategic reframe: panel (d) headline shifts from saturation signature to "critical X_c + T-axis robustness"; three new fdseed jobs queued
+
+### Strategic reframe (user-driven, this session)
+
+The morning entry below documented panel (d) at T=500 K with 6 X_c points,
+all HMC < FD. In planning the next batch of jobs, user reframed the
+project headline from "saturation signature is the quantitative
+differentiator vs FD" to two cleaner claims that match the central
+question in `project_computational_modeling.md`:
+
+1. **critical X_c**: at what X_c does the dilute-limit (independent-site)
+   FD prediction stop matching HMC?
+2. **T-axis robustness**: does the breakdown persist (and possibly
+   intensify) at lower T, consistent with an enthalpic Mg–Mg repulsion
+   mechanism that is washed out by thermal noise at high T?
+
+**Why the reframe**: the saturation observation (CHANGELOG 2026-05-06,
+"+25 % X_c at 0.06→0.075 leaves N_Mg(GB) unchanged") is computed from
+two **upper bounds** (post-burnin means of trajectories that are still
+descending). Using last10 mean as a closer-to-equilibrium estimator,
+the +25 % X_c step actually adds +6.5 % N_Mg(GB), and the saturation
+visual disappears. The signature is real but load-bearing on plateau
+data we don't have. The reframed claims are robust to the same data
+limitation — sign-test on gap survives even unequilibrated trajectories
+under fdseed methodology.
+
+**Operationalization of "critical X_c"**: the smallest X_c at which the
+HMC post-burnin CI95 upper edge still falls below canon-FD (ours).
+Same statistical test panel (d) already uses; no new threshold needed.
+
+### Dilute-side ceiling-margin estimate (5 min)
+
+Computed `X_GB^FD - ceiling = X_c·N_total/N_GB` margin via
+`fermi_dirac_predict.x_gb_canonical` for X_c ∈ {0.005, 0.01, 0.02,
+0.025, 0.03, 0.035, 0.04, 0.05, 0.06, 0.075, 0.10}. Result:
+
+| X_c | X_GB^FD | ceiling | margin | viable (margin ≥ 0.02)? |
+|----:|---------:|--------:|-------:|---|
+| 0.005 | 0.0265 | 0.0267 | 0.0002 | ❌ ceiling-locked |
+| 0.010 | 0.0526 | 0.0534 | 0.0009 | ❌ |
+| 0.020 | 0.1028 | 0.1069 | 0.0041 | ❌ |
+| 0.025 | 0.1265 | 0.1336 | 0.0070 | ❌ ceiling-suppressed |
+| 0.030 | 0.1493 | 0.1603 | 0.0110 | ⚠️ marginal |
+| 0.035 | 0.1708 | 0.1870 | 0.0162 | ⚠️ marginal |
+| **0.040** | 0.1912 | 0.2137 | **0.0225** | ✅ task A |
+| 0.050 | 0.2282 | 0.2671 | 0.0389 | ✅ baseline |
+
+**Physical conclusion**: at X_c < 0.03 the closed-box ceiling
+`min(1, X_c·N_total/N_GB)` itself caps both FD and HMC at nearly
+the same value — gap shrinks not because Wagih's hypothesis recovers
+but because both predictions are mechanically squeezed to the
+ceiling. The dilute-side reach of fdseed-based critical-X_c probing
+is therefore floored at ~X_c = 0.04 with the current geometry
+(N_GB / N_total = 0.187). Going further dilute would require either
+a different geometry (more grains, larger box → smaller N_GB / N_total)
+or a separate analytical argument for X_c → 0.
+
+### Three new SLURM jobs submitted (16-rank × 24 h each, fdseed v2 deck)
+
+`build_fdseed_inits.py` already accepts `--T` so no new builder script
+needed. Existing `submit_hmc_T500_Xc0.10_fdseed.sh` was used as
+template; three siblings written by changing the {T, X_c, OUTSTUB,
+FD_PRED, SNAPSHOT} block.
+
+| task | job ID    | T (K) | X_c  | X_GB^FD | margin | purpose                       |
+|------|-----------|-----:|-----:|--------:|-------:|-------------------------------|
+| A    | 65732267  |  500 | 0.04 | 0.1912  | 0.0225 | dilute critical-X_c probe     |
+| B    | 65732274  |  300 | 0.10 | 0.4268  | 0.1075 | T-axis low-T point            |
+| C    | 65732280  |  700 | 0.10 | 0.2956  | 0.2387 | T-axis high-T point           |
+
+Initial conditions in `/cluster/scratch/cainiu/hmc_AlMg/`:
+`poly_AlMg_200A_fdseed_T500K_Xc0.04.lmp`,
+`poly_AlMg_200A_fdseed_T300K_Xc0.1.lmp`,
+`poly_AlMg_200A_fdseed_T700K_Xc0.1.lmp`. Manifest files
+`fdseed_T{300,500,700}K_manifest.json` updated/created. The T=500K
+manifest was overwritten (now contains only X_c=0.04); the prior
+{0.10, 0.15, 0.20, 0.30} entries are captured in CHANGELOG
+2026-05-05 evening table — no information loss.
+
+### Queue layout
+
+X_c=0.30 fdseed (job 65485900) still RUNNING with ~10 h left
+(TIME_LEFT 10:19:53 at queue snapshot). All three new jobs are
+PENDING with reason "(Priority)" — fairshare ordering. Once X_c=0.30
+finishes (~tomorrow 00:30), SLURM will start two of {A, B, C} (32 CPU
+under 48-CPU public-QOS cap), then the third when one of those
+finishes. Effective ETA: tasks A and B return ~2026-05-08 evening,
+task C ~2026-05-09 evening.
+
+### Kinetic vs thermodynamic caveat for T-axis (task B + C)
+
+τ(T) ~ 1/swap_accept_rate falls with T (Metropolis rejects more
+unfavorable swaps at low T). At fixed PROD = 300 ps, the T=300 K
+trajectory will be further from its plateau than the T=500 K one.
+Naively comparing |gap(T=300, t=300ps)| > |gap(T=500, t=300ps)|
+would conflate "low T break more 剧烈" (the project claim) with
+"low T trajectory still descending more slowly" (kinetic artefact).
+
+Mitigation strategy: **panel (d) supplement makes two distinct
+comparisons**:
+
+1. **sign-test (qualitative T-robustness)**: does CI95 exclude FD
+   at all three T? If yes → "breakdown is T-robust". This claim
+   does not require plateau data.
+2. **trajectory-shape comparison (kinetic)**: plot X_GB(t) for
+   T=300/500/700 K at X_c=0.10 on the same axes. Compare initial
+   descent rates from the FD seed; this is a kinetic statement
+   ("low T descends more steeply from FD in fixed PS"), not a
+   thermodynamic |gap| statement. Defendable without plateau.
+
+Strict thermodynamic |gap|(T) trend would require resuming each T
+to within-noise plateau (typical extra 200–500 ps via
+`hmc_AlMg_resume.lammps`). Decision deferred until task B/C come
+back: if both look near-plateau at 300 ps, no resume needed; if
+both still drifting strongly, decide based on report-claim
+priority.
+
+### Files this entry
+
+- `data/decks/submit_hmc_T500_Xc0.04_fdseed.sh` — new
+- `data/decks/submit_hmc_T300_Xc0.10_fdseed.sh` — new
+- `data/decks/submit_hmc_T700_Xc0.10_fdseed.sh` — new
+- (gitignored) `/cluster/scratch/cainiu/hmc_AlMg/poly_AlMg_200A_fdseed_T{500,300,700}K_Xc{0.04,0.1,0.1}.lmp`
+- (gitignored) `/cluster/scratch/cainiu/hmc_AlMg/fdseed_T{500,300,700}K_manifest.json`
+- this CHANGELOG entry
+
+### Pending follow-ups (when jobs return)
+
+- task A (X_c=0.04): postprocess auto-runs at job end. Check whether
+  CI95 still excludes FD; if yes → critical X_c < 0.04 (push further
+  dilute would need new geometry); if no → critical X_c ∈ (0.04, 0.05).
+- task B (T=300): check last10 vs mean drift. If small → straightforward
+  thermodynamic gap vs T=500 K. If large → fall back to trajectory-shape
+  comparison (see kinetic caveat above).
+- task C (T=700): same drift check. Possibly the most stable of the
+  three given largest ceiling margin.
+- Update `output/panel_d_T500_dilute_breakdown_6pt.{json,png}` →
+  9-point version once all three return + X_c=0.30 from earlier.
+- T-axis subpanel: new figure script (don't modify `canonical_fd_compare_5pt.py`
+  in place — copy + rename per "no-in-place-script-edits" rule).
+
 ## 2026-05-07 — fdseed sweep at T=500 K, X_c ∈ {0.10, 0.15, 0.20} returned; panel (d) headline draft with 6-point HMC < FD breakdown across X_c ∈ [0.05, 0.20]
 
 ### fdseed runs status
