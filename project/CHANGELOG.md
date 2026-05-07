@@ -153,6 +153,54 @@ priority.
 - T-axis subpanel: new figure script (don't modify `canonical_fd_compare_5pt.py`
   in place — copy + rename per "no-in-place-script-edits" rule).
 
+### Physical interpretation of the dilute-end ceiling-fade
+
+The X_GB^FD → ceiling behaviour at X_c < 0.03 above is two effects
+*superposed*, not one effect masking another:
+
+| Layer | Mechanism | Effect on gap |
+|---|---|---|
+| **Mechanical** | X_GB ≤ X_c·N_total/N_GB by N_Mg conservation | Compresses both X_GB^FD and X_GB^HMC into the ceiling, mechanically squeezing gap toward 0 |
+| **Physical** | When N_Mg ≪ count of deep-tail strong-binding sites, all Mg sit in well-separated sites with no Mg-Mg neighbours — Wagih's independent-site formula is *exact in this limit* | gap → 0 because the assumption it tests genuinely recovers, not because methodology fails to detect break |
+
+These two layers cannot be separated by data alone in the dilute
+regime — both reduce measurable gap. gap → 0 as X_c → 0 is the
+**expected honest behaviour**, not a methodological limitation.
+
+This forces a reinterpretation of "critical X_c":
+
+- **Physical** critical X_c: X_c where gap_true = 0. Does **not** exist
+  as a sharp transition — fades continuously toward 0 as X_c → 0.
+- **Operational** critical X_c: smallest X_c with CI95 upper edge still
+  below canon-FD. What we can actually publish.
+
+### Restated central claim for panel (d) caption / discussion
+
+Wagih's independent-site approximation **fails over a finite X_c band**,
+with edges set by geometry, not a single threshold:
+
+- **Dilute boundary** (~X_c = 0.04 at GB_frac = 0.187): below this,
+  ceiling compression and physical recovery of the dilute-limit
+  assumption combine to make break undetectable in finite samples
+- **Saturation boundary** (~X_c = 0.20): above this, GB itself begins
+  filling up (X_GB approaches its own saturation,independent of FD comparison)
+
+The **width of the broken band** is the robust physical signature;
+the edges are geometry-dependent. This pre-empts the natural audience
+question "but isn't Wagih correct at X_c → 0?" — yes, by his own
+assumption, and the project measures *how far away from 0* his
+approximation remains a good description.
+
+### Implication for task A (X_c=0.04) interpretation — both outcomes advance the framing
+
+- CI95 excludes FD → broken band extends down to (or below) 0.04;
+  the dilute boundary moves further dilute and we report a wider band
+- CI95 covers FD → 0.04 *is* the dilute boundary of the broken band
+  in this geometry; ceiling compression dominates below
+
+There is no "task A failed" branch — both outcomes are publishable
+data points on the dilute boundary of the broken band.
+
 ## 2026-05-07 — fdseed sweep at T=500 K, X_c ∈ {0.10, 0.15, 0.20} returned; panel (d) headline draft with 6-point HMC < FD breakdown across X_c ∈ [0.05, 0.20]
 
 ### fdseed runs status
