@@ -12,6 +12,68 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-07 — fdseed sweep at T=500 K, X_c ∈ {0.10, 0.15, 0.20} returned; panel (d) headline draft with 6-point HMC < FD breakdown across X_c ∈ [0.05, 0.20]
+
+### fdseed runs status
+
+| X_c   | job ID    | wall      | state           | autopost? | _final.lmp? |
+|------:|-----------|-----------|-----------------|-----------|-------------|
+| 0.10  | 65485867  | 23:29:55  | COMPLETED       | yes       | yes (61 MB) |
+| 0.15  | 65485869  | 21:51:37  | COMPLETED       | yes       | yes (61 MB) |
+| 0.20  | 65485871  | 24:00:01  | TIMEOUT (1d cap)| no — manual `hmc_xgb_timeseries.py` invocation today | no (cut off mid-PROD) |
+| 0.30  | 65485900  | (RUNNING) | 6h elapsed of 24h budget; ETA 2026-05-08 ~08:12 | (later) | (later) |
+
+X_c=0.20 manual postprocess produced `output/hmc_T500_Xc0.20_fdseed.{json,png}` from the ~302 ps PROD trajectory that had been written to disk before the 24h SLURM wall-time killed the job. The `_final.lmp` was not written (LAMMPS killed mid-run), so panel-(f) source for X_c=0.20 will need either Option B (extract last frame from `_fdseed.dump`, ~1.2 GB) or substitute another X_c.
+
+### Headline numbers (all 6 X_c, T=500 K, ours 200A spectrum n=500)
+
+| X_c   | X_GB^HMC mean | CI95              | X_GB^FD canon-ours | gap (HMC − FD) | source                         |
+|------:|--------------:|-------------------|-------------------:|---------------:|--------------------------------|
+| 0.050 |        0.1941 | [0.1901, 0.1981]  |             0.2282 |        −0.0341 | `hmc_T500_Xc0.05_preseg_eq.json` (CHANGELOG 2026-05-06) |
+| 0.060 |        0.2298 | [0.2246, 0.2348]  |             0.2604 |        −0.0306 | `hmc_T500_Xc0.06_preseg_eq.json` |
+| 0.075 |        0.2289 | [0.2268, 0.2310]  |             0.3007 |        −0.0718 | `hmc_T500_Xc0.075_eq_cont.json` |
+| 0.100 |        0.2785 | (computed inside JSON) | 0.3519        |        −0.0734 | `hmc_T500_Xc0.10_fdseed.json` (NEW) |
+| 0.150 |        0.3475 | (computed inside JSON) | 0.4204        |        −0.0728 | `hmc_T500_Xc0.15_fdseed.json` (NEW) |
+| 0.200 |        0.4010 | [0.3959, 0.4063]  |             0.4671 |        −0.0661 | `hmc_T500_Xc0.20_fdseed.json` (NEW today via manual postprocess) |
+
+**All 6 X_c CI95 upper edges fall strictly below canon-FD (ours)** — direct dilute-limit-breakdown evidence at six X_c values from 0.05 to 0.20 at T=500 K. The X_c=0.10/0.15/0.20 points use the fdseed methodology (CHANGELOG 2026-05-05 evening): trajectory **starts at X_GB^FD** and descends; even though strict equilibrium not necessarily reached, the *direction* of drift is unambiguous evidence for X_GB^∞ < X_GB^FD.
+
+X_c=0.20 still descending: post-burnin mean = 0.401, last-10-frame mean = 0.374, PE drift over 302 ps = −3409 eV, post-burnin swap imbalance = −0.678 (very strongly net-reverse). Treat the post-burnin mean as a strict upper bound on X_GB^∞.
+
+### Panel (d) headline draft
+
+`output/panel_d_T500_dilute_breakdown_6pt.{json,png}` produced via existing `scripts/canonical_fd_compare_5pt.py` with all 6 fdseed/eq JSONs passed as `--equilibrated` (filled red circles + CI) and `--upper-bound` left empty. CI bars are smaller than markers (typical ±0.005 in X_GB) — caption note recommended. The 0.06↔0.075 saturation signature is visible as two adjacent markers at nearly the same X_GB (~0.23) despite a +25 % step in X_c. X_c=0.30 will be added to the same plot tomorrow when its fdseed run completes.
+
+### Snapshots persisted
+
+Five `_final.lmp` files (~305 MB total, gitignored under `project/data/snapshots/`) copied from `/cluster/scratch/cainiu/hmc_AlMg/` to protect against Euler scratch TTL:
+
+- `hmc_T500_Xc0.05_preseg_eq_final.lmp`
+- `hmc_T500_Xc0.06_preseg_eq_final.lmp`
+- `hmc_T500_Xc0.075_eq_cont_final.lmp`
+- `hmc_T500_Xc0.10_fdseed_final.lmp`
+- `hmc_T500_Xc0.15_fdseed_final.lmp`
+
+`_final.lmp` for X_c=0.20 does not exist (timeout). `_final.lmp` for X_c=0.30 will be persisted later if the run completes within budget.
+
+### .gitignore update
+
+Added `project/report/69f62101465c6c925c0856e8/` — a teammate-imported Overleaf checkout (separate `git@git.overleaf.com/69f62101…` repo, blank RevTeX 4-2 starter). Excluded so the nested `.git` doesn't get treated as a submodule by the project repo. The Overleaf checkout itself stays on disk; only its tracking is removed.
+
+### Files this entry
+
+- `.gitignore` — Overleaf exclusion
+- `output/hmc_T500_Xc0.20_fdseed.{json,png}` — new (gitignored)
+- `output/panel_d_T500_dilute_breakdown_6pt.{json,png}` — new (gitignored)
+- `project/data/snapshots/hmc_T500_Xc{0.05,0.06,0.075,0.10,0.15}*_final.lmp` — new (gitignored)
+- this CHANGELOG entry
+
+### Pending follow-ups
+
+- When job 65485900 (X_c=0.30 fdseed) completes (ETA 2026-05-08 ~08:12), auto-postprocess + add to panel (d) for the 7-point definitive sweep.
+- Refresh Fig 3 mechanism panel using `hmc_T500_Xc0.075_eq_cont_final.lmp` (CHANGELOG 2026-05-05 afternoon "Pending refresh").
+- Re-explain Fig 2 red dots + CI per `report/explainer_fig2_red_dots_CI.md` strategy (TODO at top of CHANGELOG).
+
 ## 2026-05-06 — T=500 K dilute-side equilibration sweep (X_c=0.05/0.06/0.075) all COMPLETED; HMC < FD confirmed at 95% CI on all three; strict equilibrium not yet reached
 
 ### Three jobs all reached full 300 ps PROD with `_final.lmp` saved

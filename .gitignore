@@ -36,6 +36,9 @@ project/data/snapshots/
 *.npz
 *.lmp
 
+# Overleaf checkout (separate git repo, not tracked here)
+project/report/69f62101465c6c925c0856e8/
+
 # OS
 .DS_Store
 Thumbs.db
