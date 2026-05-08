@@ -12,6 +12,121 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-08 (late evening) — Headline-curve methodological cleanup: 3 fdseed redos submitted at X_c ∈ {0.05, 0.06, 0.075}, T=500 K
+
+### Decision
+
+User direction: discard the dilute-side preseg/eq_cont upper-bound
+points and rebuild the headline curve (panel (d) at T=500 K, also
+project Fig 0 / 00_headline) with a single uniform fdseed methodology
+across all 8 X_c. Reason: the current 8-pt curve has anomalously
+shallow gap-W magnitudes at X_c=0.05 (−0.047) and X_c=0.06 (−0.042)
+relative to neighbours (X_c=0.04 = −0.061, X_c=0.075 = −0.081), an
+artefact of the X_c=0.05/0.06 trajectories being preseg-from-1.0
+upper bounds that did not reach plateau within the 24-h budget
+(post-burnin imbalance −0.648 / −0.714 from CHANGELOG 2026-05-06).
+X_c=0.075 used eq_cont (preseg + 300 ps continuation) and is closer
+to plateau (imbalance −0.548) but still methodologically diverges
+from fdseed used at X_c ≥ 0.10.
+
+After this batch, all 8 X_c at T=500 K (0.04, 0.05, 0.06, 0.075,
+0.10, 0.15, 0.20, 0.30) will be fdseed-only — paper Methods can
+describe a single IC protocol without footnoting sub-cases.
+
+### Three jobs submitted
+
+`build_fdseed_inits.py --T 500 --xc-list 0.04,0.05,0.06,0.075`
+(X_c=0.04 regenerated idempotently with seed=20260505 to refresh the
+manifest; identical bytes to the existing file). Per-X_c FD-seed
+values written to `/cluster/scratch/cainiu/hmc_AlMg/fdseed_T500K_manifest.json`:
+
+| X_c   | X_GB^FD canon-ours | N_Mg(GB) | N_Mg(bulk) | total Mg = X_c · N_total |
+|------:|--------------------:|---------:|-----------:|-------------------------:|
+| 0.040 |              0.1912 |   17 024 |      2 005 |                  19 029  |
+| 0.050 |              0.2282 |   20 319 |      3 467 |                  23 786  |
+| 0.060 |              0.2604 |   23 184 |      5 359 |                  28 543  |
+| 0.075 |              0.3007 |   26 773 |      8 906 |                  35 679  |
+
+| job ID    | X_c   | submit script                                            | state at queue snapshot |
+|-----------|------:|----------------------------------------------------------|-------------------------|
+| 65880421  | 0.05  | `data/decks/submit_hmc_T500_Xc0.05_fdseed.sh`            | PENDING (Priority)      |
+| 65880422  | 0.06  | `data/decks/submit_hmc_T500_Xc0.06_fdseed.sh`            | PENDING (Priority)      |
+| 65880423  | 0.075 | `data/decks/submit_hmc_T500_Xc0.075_fdseed.sh`           | PENDING (Priority)      |
+
+Each: 16-rank × 24 h × 2 GB/CPU; v2 deck (`hmc_AlMg_v2.lammps`) with
+5 ps RESTART_PS cadence; auto-postprocess via `hmc_xgb_timeseries.py`.
+
+### Queue layout / ETA
+
+Public-QOS hard cap is 48 CPU (`reference_euler_quota.md`). With
+task C `hmc_AlMg_T700_Xc0.10_fdseed` (job 65732280) RUNNING on 16
+CPU, 32 CPU available → two of {0.05, 0.06, 0.075} start RUNNING
+once SLURM scheduler resolves "Priority" fairshare; the third waits.
+
+| job   | expected start         | expected end (24 h cap) |
+|-------|------------------------|-------------------------|
+| 0.05  | ~05-08 22:30 (priority resolves) | ~05-09 22:30  |
+| 0.06  | ~05-08 22:30           | ~05-09 22:30            |
+| task C ends ~05-09 06:00, freeing 16 CPU                          |
+| 0.075 | ~05-09 06:00           | ~05-10 06:00            |
+
+### Trade-off this round
+
+Defers the X_c=0.40 saturation-edge probe to a later batch. The
+broken-band right edge stays implicitly bounded above X_c=0.30
+(|gap-W| = −0.049 at X_c=0.30 is the smallest of any X_c ≥ 0.04 and
+trends toward closure). Acceptable for the headline figure: the
+"breakdown interval covers X_c ∈ [0.04, 0.30] at T=500 K" claim is
+fully supported, and "saturation closure point > 0.30, not yet
+characterised" is honest as a future-work bullet.
+
+### Expected effect on headline curve
+
+Predicted post-batch |gap-W| profile (replacing 0.05/0.06/0.075
+upper bounds with fdseed plateau-pinned points):
+
+| X_c   | |gap-W| now | |gap-W| predicted post-batch |
+|------:|------------:|-----------------------------:|
+| 0.040 |       0.061 |        0.061 (unchanged)     |
+| 0.050 |   *0.047*   |        ~0.07–0.08 (deeper)   |
+| 0.060 |   *0.042*   |        ~0.07–0.08 (deeper)   |
+| 0.075 |       0.081 |        ~0.08–0.09 (slightly deeper) |
+| 0.100 |       0.080 |        unchanged             |
+| 0.150 |       0.078 |        unchanged             |
+| 0.200 |       0.070 |        unchanged             |
+| 0.300 |       0.049 |        unchanged             |
+
+Predicted shape: smooth inverted-U with peak |gap-W| ≈ 0.08 at
+X_c ∈ [0.075, 0.15], fading to ~0.06 at the dilute boundary
+(X_c=0.04) and ~0.05 at the saturation side (X_c=0.30). No
+non-monotonic dip at the 0.05–0.06 region.
+
+### Files this entry
+
+- `data/decks/submit_hmc_T500_Xc0.05_fdseed.sh` — new (committed)
+- `data/decks/submit_hmc_T500_Xc0.06_fdseed.sh` — new (committed)
+- `data/decks/submit_hmc_T500_Xc0.075_fdseed.sh` — new (committed)
+- `/cluster/scratch/cainiu/hmc_AlMg/poly_AlMg_200A_fdseed_T500K_Xc{0.05,0.06,0.075}.lmp` — new (gitignored, scratch)
+- `/cluster/scratch/cainiu/hmc_AlMg/fdseed_T500K_manifest.json` — refreshed (gitignored)
+- this CHANGELOG entry (committed)
+
+### Pending follow-ups
+
+- When 65880421/22/23 complete (~05-09 22:30 / ~05-10 06:00):
+  auto-postprocess writes `output/hmc_T500_Xc{0.05,0.06,0.075}_fdseed.{json,png}`;
+  rebuild `output/panel_d_T500_dilute_breakdown_8pt.{json,png}` swapping
+  the three replaced JSONs; persist `_final.lmp` to snapshots.
+- Old preseg-eq / eq_cont JSONs (`hmc_T500_Xc0.05_preseg_eq.json`,
+  `hmc_T500_Xc0.06_preseg_eq.json`, `hmc_T500_Xc0.075_eq_cont.json`)
+  are NOT deleted — kept for diagnostic comparison of trajectory
+  shapes in CHANGELOG appendices, but the published headline
+  figure will use the new fdseed numbers exclusively.
+- Task C (T=700, X_c=0.10) ETA ~05-09 06:00; T-axis 2-pt → 3-pt
+  refresh remains queued from the 2026-05-08 evening entry.
+- X_c=0.40 saturation-edge fdseed deferred to next batch; submit
+  after at least two of the current trio land so the queue does
+  not blow past the 48-CPU cap.
+
 ## 2026-05-08 (evening) — Tasks A/B fdseed COMPLETED; panel (d) → 8 pt at T=500 K; T-axis 2-pt draft at X_c=0.10
 
 ### Job state
