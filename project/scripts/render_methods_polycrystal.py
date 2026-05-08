@@ -37,13 +37,21 @@ CAMERA TUNING:
 from __future__ import annotations
 from pathlib import Path
 import sys
+import warnings
+
+# Suppress the "OVITO PyPI in conda env" warning that fires on every import
+# when ovito was pip-installed inside a miniconda environment. Cosmetic only.
+warnings.filterwarnings("ignore", message=".*OVITO.*PyPI.*")
 
 import numpy as np
 
 try:
     from ovito.io import import_file
-    from ovito.modifiers import CommonNeighborAnalysisModifier
-    from ovito.vis import Viewport, OpenGLRenderer
+    from ovito.modifiers import (
+        CommonNeighborAnalysisModifier,
+        PythonScriptModifier,
+    )
+    from ovito.vis import Viewport, TachyonRenderer
 except ImportError as e:
     sys.exit(
         f"OVITO Python module not available: {e}\n"
@@ -78,48 +86,58 @@ def main() -> None:
         )
     )
 
-    # Compute one frame so we can read the Structure Type property and
-    # set per-atom colours manually (more control than ColorCodingModifier).
-    data = pipeline.compute()
-    structure = np.asarray(data.particles["Structure Type"][...])
-    n_atoms = data.particles.count
-    fcc_type = CommonNeighborAnalysisModifier.Type.FCC
-    n_fcc = int((structure == fcc_type).sum())
-    n_gb = n_atoms - n_fcc
-    print(f"a-CNA: {n_fcc} FCC bulk + {n_gb} non-FCC GB out of "
-          f"{n_atoms} atoms ({n_gb/n_atoms*100:.2f} % GB)")
+    # ---- 3. Per-atom colour + transparency via PythonScriptModifier ----
+    # We need this in the modifier chain (not on a one-shot data.compute())
+    # because viewport.render_image() re-runs the pipeline; properties set
+    # on a stale frame would be discarded.
+    def colour_and_fade(frame, data):
+        structure = np.asarray(data.particles["Structure Type"][...])
+        n = data.particles.count
+        fcc_mask = (structure == CommonNeighborAnalysisModifier.Type.FCC)
+        n_gb = n - int(fcc_mask.sum())
+        colors = np.empty((n, 3), dtype=np.float32)
+        transp = np.empty(n, dtype=np.float32)
+        colors[fcc_mask]  = (0.85, 0.85, 0.85)   # bulk grey
+        colors[~fcc_mask] = (0.27, 0.46, 0.71)   # GB steel blue
+        transp[fcc_mask]  = 0.82                  # bulk almost see-through
+        transp[~fcc_mask] = 0.00                  # GB fully opaque
+        data.particles_.create_property("Color", data=colors)
+        data.particles_.create_property("Transparency", data=transp)
+        # Print only on the first frame call for a clean log.
+        if frame == 0:
+            print(f"a-CNA: {n - n_gb} FCC bulk + {n_gb} non-FCC GB out of "
+                  f"{n} atoms ({n_gb/n*100:.2f} % GB)")
 
-    # ---- 3. Recolour atoms ---------------------------------------------
-    colors = np.empty((n_atoms, 3), dtype=np.float32)
-    fcc_mask = (structure == fcc_type)
-    colors[fcc_mask]  = (0.82, 0.82, 0.82)   # bulk Al   — light grey
-    colors[~fcc_mask] = (0.85, 0.30, 0.20)   # GB atoms  — warm red
+    pipeline.modifiers.append(
+        PythonScriptModifier(function=colour_and_fade)
+    )
 
-    # Inject as the per-particle Color property; OVITO uses this to
-    # override the default per-type colour map at render time.
-    data.particles_.create_property("Color", data=colors)
-
-    # Render-time visualisation tweaks: slightly smaller particles so the
-    # GB network is not obscured by overlapping bulk spheres.
-    pipeline.source.data.particles_.vis.radius = 1.05
+    # Render-time particle size: slightly smaller than default so bulk
+    # spheres don't fully occlude the GB network even at 0.82 transparency.
+    pipeline.source.data.particles_.vis.radius = 0.95
 
     pipeline.add_to_scene()
 
     # ---- 4. Camera + render --------------------------------------------
-    # Box is 200 Å on a side, centred on (100, 100, 100). Camera at
-    # (350, -300, 270) Å, pointing back towards the box → roughly
-    # corner-ish elevation, ~35° field of view.
+    # Box is 200 Å on a side, centred on (100, 100, 100). We use a
+    # corner-ish 3/4 view, then zoom_all() auto-fits the cube into the
+    # viewport. The exact camera_pos / camera_dir act as direction hints;
+    # zoom_all overrides distance so the cube fills the frame.
     vp = Viewport()
     vp.type = Viewport.Type.Perspective
-    vp.camera_pos = (350.0, -300.0, 270.0)
-    vp.camera_dir = (-0.65, 0.55, -0.52)
+    vp.camera_pos = (450.0, -200.0, 350.0)
+    vp.camera_dir = (-0.62, 0.55, -0.56)
     vp.fov = float(np.radians(35.0))
+    vp.zoom_all()
 
+    # TachyonRenderer is CPU raytraced — slower than OpenGL (~30 s vs ~5 s)
+    # but works headlessly (no X / OpenGL context required), which matters
+    # on Euler login / compute nodes.
     vp.render_image(
         filename=str(OUTPUT_PNG),
         size=(1600, 1200),
         background=(1.0, 1.0, 1.0),
-        renderer=OpenGLRenderer(),
+        renderer=TachyonRenderer(),
     )
     print(f"wrote {OUTPUT_PNG}")
     print("Upload this PNG to Overleaf next to main.tex; "
