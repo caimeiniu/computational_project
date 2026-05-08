@@ -12,6 +12,160 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-08 (evening) — Tasks A/B fdseed COMPLETED; panel (d) → 8 pt at T=500 K; T-axis 2-pt draft at X_c=0.10
+
+### Job state
+
+Tasks A (X_c=0.04, T=500 K) and B (X_c=0.10, T=300 K) both COMPLETED
+within the 24 h cap; auto-postprocess wrote the result JSON/PNG. Task C
+(X_c=0.10, T=700 K, job 65732280) still RUNNING with TIME_LEFT 10:28
+at queue snapshot — only running job in the queue. Below is the
+post-process recap for A and B.
+
+| task | jobid    | state     | wall      | _final.lmp written? |
+|------|----------|-----------|-----------|---------------------|
+| A    | 65732267 | COMPLETED | 18:17:51  | yes (61 MB)         |
+| B    | 65732274 | COMPLETED | 21:23:24  | yes (61 MB)         |
+| C    | 65732280 | RUNNING   | 13:32 elapsed of 24 h | (later) |
+
+### Headline numbers
+
+Pulled from `output/hmc_T{500_Xc0.04,300_Xc0.10}_fdseed.json`
+(post-burnin window n_frames=240 of 300, 5-frame block bootstrap):
+
+| task                | T (K) | X_c   | X_GB^HMC | CI95              | X_GB^FD canon-ours | gap     | swap accept | post-burnin imbalance |
+|---------------------|------:|------:|---------:|-------------------|-------------------:|--------:|------------:|----------------------:|
+| A (dilute probe)    |   500 | 0.04  | 0.1434   | [0.1409, 0.1459]  |             0.1912 | −0.0478 |       4.50% |               −0.469  |
+| B (T-axis low)      |   300 | 0.10  | 0.3514   | [0.3466, 0.3560]  |             0.4268 | −0.0754 |       4.35% |               −0.785  |
+
+Both CI95 upper edges fall strictly below canon-FD (ours) → CI excludes
+FD at both points. Combined with the previous 7 X_c at T=500 K, the
+broken band evidence now spans X_c ∈ [0.04, 0.30] at T=500 K (eight
+points all with HMC < FD).
+
+### Two notable observations (ranked by claim-relevance)
+
+1. **|gap| at X_c=0.04 (0.0478) is LARGER than at X_c=0.05/0.06
+   (0.0341/0.0306).** This is the opposite direction predicted by
+   "ceiling fade → gap → 0" framing landed 2026-05-07 afternoon
+   (CHANGELOG that day). Two non-exclusive explanations:
+   - Task A at X_c=0.04 has post-burnin imbalance −0.47 (the LEAST
+     reverse of any dilute-side run we have); X_c=0.05 has −0.65
+     and X_c=0.06 has −0.71 (CHANGELOG 2026-05-06). So X_c=0.04 is
+     the closest-to-plateau of the three; the X_c=0.05/0.06 mean
+     values are *upper bounds* still well above their unknown
+     X_GB^∞. Reading X_c=0.05/0.06 as |gap_true| ≥ 0.05 and
+     X_c=0.04 |gap_true| ≥ 0.048 makes the three close again,
+     monotonic structure unclear.
+   - The "physical recovery of dilute-limit assumption" prediction
+     (gap → 0 as X_c → 0) is asymptotic; X_c=0.04 may not yet be in
+     that asymptotic regime. The dilute boundary of the broken band
+     is not yet pinned down by these data — a more dilute X_c is
+     ceiling-locked by geometry (CHANGELOG 2026-05-07 afternoon
+     ceiling-margin table: X_c=0.03 margin 0.011 marginal, X_c=0.02
+     margin 0.004 ceiling-locked).
+   - **Caption / discussion implication**: do NOT over-claim "gap
+     → 0 as X_c → 0 verified" from these 8 points. Honest claim is
+     "broken band confirmed across X_c ∈ [0.04, 0.30] at T=500 K;
+     dilute boundary < 0.04 in this geometry but cannot be probed
+     further dilute without changing N_GB / N_total."
+
+2. **gap at T=300 K vs T=500 K (X_c=0.10) nearly identical.**
+   |gap| = 0.0754 vs 0.0734 — qualitative claim 1 ("breakdown is
+   T-robust", CHANGELOG 2026-05-07 afternoon) is supported in
+   sign-test sense (CI95 excludes FD at both T). For claim 2 ("low T
+   break deeper"), the kinetic caveat applies as foreseen: T=300 K
+   has post-burnin imbalance −0.785 (most negative of any run);
+   the post-burnin mean is a strict upper bound and the true
+   |gap_T=300| > 0.0754. T=500 K imbalance is −0.691 (also strongly
+   net-reverse). Both still descending; relative ordering of true
+   gaps cannot be determined from current data. T=700 K (task C)
+   tomorrow morning will give the third anchor.
+
+### Panel (d) at T=500 K → 8 points
+
+`output/panel_d_T500_dilute_breakdown_8pt.{json,png}` produced via
+existing `scripts/canonical_fd_compare_5pt.py` with all eight fdseed/eq
+JSONs as `--equilibrated`. New filename, does NOT overwrite the 7-pt
+version (kept for diff). All 8 red circles below canon-FD (ours);
+gap profile (X_c, gap):
+
+| X_c   | gap-O    | gap-W    |
+|------:|---------:|---------:|
+| 0.040 | −0.0477  | −0.0610  |
+| 0.050 | −0.0341  | −0.0469  |
+| 0.060 | −0.0306  | −0.0422  |
+| 0.075 | −0.0718  | −0.0814  |
+| 0.100 | −0.0734  | −0.0805  |
+| 0.150 | −0.0728  | −0.0778  |
+| 0.200 | −0.0661  | −0.0702  |
+| 0.300 | −0.0462  | −0.0494  |
+
+(gap-W = same comparison vs canon-FD using Wagih's n=82,646 spectrum;
+consistently more negative than gap-O by 0.01–0.015 since Wagih's
+deeper-tail spectrum predicts higher X_GB^FD than ours at every X_c.)
+
+### T-axis 2-pt draft (X_c = 0.10)
+
+New script `scripts/canonical_fd_compare_t_axis.py` (copy + rename of
+`canonical_fd_compare_5pt.py` per `no-in-place-script-edits` feedback
+rule). Two-panel figure:
+
+- **Left (equilibrium view)**: X_GB^HMC vs T at X_c=0.10 with canon-FD,
+  GC-FD, and ceiling reference curves. Two red circles at T=300 K
+  (X_GB=0.351) and T=500 K (X_GB=0.279), both clearly below the
+  canon-FD curve.
+- **Right (kinetic view)**: X_GB(t) trajectories starting from the
+  fdseed initial condition. Both descend below FD; T=500 K descent
+  is steeper (higher swap-accept rate). T=300 K trajectory ends at
+  X_GB ≈ 0.33 (still descending); T=500 K ends at X_GB ≈ 0.25 (still
+  descending).
+
+Output: `output/panel_d_T_axis_X_c0.10_2pt_draft.{json,png}`. Banner
+in figure marks "DRAFT — T=700 K (X_c=0.10) pending task C". Will
+extend to 3-point definitive version when task C lands tomorrow.
+
+### Snapshots persisted (scratch TTL hedge)
+
+Copied from `/cluster/scratch/cainiu/hmc_AlMg/` to
+`project/data/snapshots/` (gitignored, ~61 MB each):
+
+- `hmc_T500_Xc0.04_fdseed_final.lmp`
+- `hmc_T300_Xc0.10_fdseed_final.lmp`
+
+These cover the panel (f) OVITO-render fallback for the dilute side
+(X_c=0.04: less Mg loaded, less visually striking — likely will not
+be the chosen render) and the T=300 K low-T configuration (more Mg
+than the X_c=0.04 case but fewer than X_c=0.20+; potential candidate
+if low-T morphology proves visually distinct).
+
+### Files this entry
+
+- `output/panel_d_T500_dilute_breakdown_8pt.{json,png}` — new (gitignored)
+- `output/panel_d_T_axis_X_c0.10_2pt_draft.{json,png}` — new (gitignored)
+- `project/data/snapshots/hmc_T{500_Xc0.04,300_Xc0.10}_fdseed_final.lmp` — new (gitignored)
+- `scripts/canonical_fd_compare_t_axis.py` — new (committed)
+- this CHANGELOG entry (committed)
+
+### Pending follow-ups
+
+- Task C (T=700 K, X_c=0.10) ETA tomorrow ~06:00. Once it returns:
+  - Add to `panel_d_T_axis_X_c0.10_3pt.{json,png}` (definitive version,
+    drop the DRAFT banner).
+  - Persist `_final.lmp` to `project/data/snapshots/` if written.
+  - Decide whether to extend T-axis to additional X_c (resume
+    discussion is still pending user decision per session start).
+- Resume-vs-accept-as-upper-bound decision for X_c={0.05, 0.06} at
+  T=500 K and X_c=0.10 at T=300 K: deferred per session-start
+  question — user wanted clarification on what "resume" means before
+  deciding (now provided in conversation; awaiting choice).
+- Standing TODOs unchanged: re-explain Fig 2 red dots + CI per
+  `report/explainer_fig2_red_dots_CI.md`; refresh Fig 3 mechanism
+  panel using `hmc_T500_Xc0.075_eq_cont_final.lmp`.
+- `report/methods_draft.tex` remains as-is per user instruction
+  ("已有结论,我会单独说" — Cu(Ni) / selection-optimization
+  collaborator merge decisions to come separately).
+
 ## 2026-05-08 (early afternoon) — X_c=0.30 fdseed timeout-residue post-processed; panel (d) updated to 7 points at T=500 K
 
 ### X_c=0.30 fdseed — manual post-process
