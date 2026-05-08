@@ -12,6 +12,73 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-08 (early afternoon) — X_c=0.30 fdseed timeout-residue post-processed; panel (d) updated to 7 points at T=500 K
+
+### X_c=0.30 fdseed — manual post-process
+
+job 65485900 TIMEOUT'd at 24h cap on 2026-05-08 08:11. `.dump`
+(1.07 GB) was written through 07:42; no `_final.lmp` (LAMMPS killed
+mid-run). Manual `hmc_xgb_timeseries.py` invocation on the partial
+dump produced `output/hmc_T500_Xc0.30_fdseed.{json,png}` from 204 prod
+frames (vs 300 expected; ~70 % wall-time reached).
+
+| metric                        | value                          |
+|-------------------------------|--------------------------------|
+| X_GB^HMC mean                 | 0.4874                         |
+| 95 % CI (block-bootstrap)     | [0.4831, 0.4920]               |
+| X_GB^FD canon (ours)          | 0.5337                         |
+| gap (HMC − FD canon-ours)     | **−0.0463**                    |
+| swap accept                   | 10.24 %  (25,620 / 250,200)    |
+| post-burnin fwd / rev ratio   | 0.253  (imbalance −0.596)      |
+
+CI95 upper edge 0.4920 is well below FD 0.5337 → **CI excludes FD**:
+seventh data point in the dilute-limit-breakdown band at T=500 K. The
+imbalance −0.596 (vs −0.678 at X_c=0.20) shows the trajectory is still
+net-reverse but slightly closer to plateau than X_c=0.20; treat the
+post-burnin mean as a strict upper bound on X_GB^∞ as before.
+
+### Panel (d) 6 → 7 points (T = 500 K, X_c ∈ [0.05, 0.30])
+
+`output/panel_d_T500_dilute_breakdown_7pt.{json,png}` produced via
+existing `scripts/canonical_fd_compare_5pt.py` with all 7 fdseed/eq
+JSONs as `--equilibrated` (filled red circles + CI; CI bars smaller
+than markers). Headline numbers (kJ/mol → X_GB):
+
+| X_c   | X_GB^HMC | canon-FD ours | gap     |
+|------:|---------:|--------------:|--------:|
+| 0.050 |  0.1941  |  0.2282       | −0.0341 |
+| 0.060 |  0.2298  |  0.2604       | −0.0306 |
+| 0.075 |  0.2289  |  0.3007       | −0.0718 |
+| 0.100 |  0.2785  |  0.3519       | −0.0734 |
+| 0.150 |  0.3475  |  0.4204       | −0.0728 |
+| 0.200 |  0.4010  |  0.4671       | −0.0661 |
+| 0.300 |  0.4874  |  0.5337       | −0.0462 |
+
+Gap profile is approximately inverted-U with the deepest break in the
+middle (X_c ∈ [0.075, 0.10], gap ≈ −0.073), narrowing toward both
+ends (−0.034 at X_c=0.05; −0.046 at X_c=0.30). Consistent with the
+"finite broken X_c band, edges set by geometry" framing landed
+2026-05-07 afternoon: dilute side narrows because both X_GB^HMC and
+X_GB^FD compress against the closed-box ceiling; high side narrows
+because GB itself begins filling up regardless of FD comparison.
+
+### What's NOT yet in panel (d)
+
+- Task A (X_c=0.04, T=500 K) — RUNNING, ETA tonight ~19:00; will
+  extend the dilute side and probe the lower edge of the broken band.
+- Tasks B / C (T=300 / 700 K at X_c=0.10) — give the T-axis subpanel
+  for the report; new figure script will be `canonical_fd_compare_t_axis.py`
+  (copy-rename per no-in-place rule), produced when at least Task B
+  returns.
+- 9-pt definitive T=500 K version awaits Task A; 9-pt across all 3 T
+  awaits Task C tomorrow.
+
+### Files this entry
+
+- `output/hmc_T500_Xc0.30_fdseed.{json,png}` — new (gitignored)
+- `output/panel_d_T500_dilute_breakdown_7pt.{json,png}` — new (gitignored)
+- this CHANGELOG entry (only this is committed)
+
 ## 2026-05-08 (morning) — Methods OVITO render landed (steel-blue recolor); team-meeting walk-through notes
 
 ### What got done
