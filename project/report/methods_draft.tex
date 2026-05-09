@@ -193,70 +193,67 @@ latter.
 \centering
 \subfloat[]{%
     \begin{tikzpicture}[
-        node distance = 0.5cm and 0.6cm,
-        box/.style    = {draw, rounded corners, align=center, inner sep=4pt,
-                         font=\footnotesize, minimum width=4.0cm,
-                         minimum height=1.4cm},
-        cwbox/.style  = {draw, rounded corners, dashed, align=center,
-                         inner sep=3pt, font=\scriptsize,
-                         fill=yellow!22, minimum width=3.5cm},
-        arr/.style    = {-{Stealth[length=2.2mm]}, thick}
+        node distance = 0.45cm and 0.55cm,
+        box/.style    = {draw, rounded corners, align=center, inner sep=3pt,
+                         font=\scriptsize, minimum height=1.7cm},
+        cwbox/.style  = {draw, rounded corners, align=center, inner sep=3pt,
+                         font=\scriptsize, minimum height=1.7cm,
+                         fill=yellow!18},
+        arr/.style    = {-{Stealth[length=2mm]}, semithick}
     ]
-        \node[box] (base) {%
-            \textbf{Atomistic base \& $\Delta E_i$ spectrum}\\[1pt]
-            Al--Mg, Mendelev EAM/FS\\
-            $200^3$ \AA$^3$ Voronoi polycrystal, 16 grains\\
-            $N_\mathrm{tot}{=}475{,}715$, a-CNA $\to$ $N_\mathrm{GB}{=}89{,}042$\\
-            $\Delta E_i$ at $n{=}500$ GB sites};
+        \node[box, minimum width=2.5cm] (base) {%
+            \textbf{atomistic base}\\
+            $200^3$\,\AA$^3$, 16 grains\\
+            Mendelev EAM/FS\\
+            $N_\mathrm{tot}{=}475{,}715$\\
+            a-CNA $\to N_\mathrm{GB}{=}89{,}042$\\
+            $\Delta E_i$ at $n{=}500$ sites};
 
-        \node[box, below left =of base, xshift=-0.3cm] (fd) {%
-            \textbf{FD predictor (canon)}\\[1pt]
-            Eqs.~(\ref{eq:FD_single}), (\ref{eq:FD_canon})\\
+        \node[box, minimum width=3.0cm,
+              right=of base, yshift=1.0cm] (fd) {%
+            \textbf{FD predictor (canon)}\\
+            Eqs.~(\ref{eq:FD_single})--(\ref{eq:FD_canon})\\
             $\to X_\mathrm{GB}^\mathrm{FD}(T, X_c)$\\
             \emph{hypothesis}};
 
-        \node[box, below right=of base, xshift=0.3cm] (hmc) {%
-            \textbf{HMC sampling}\\[1pt]
+        \node[cwbox, minimum width=3.0cm,
+              right=of base, yshift=-1.0cm] (hmc) {%
+            \textbf{HMC sampling} ($\bigstar$ fdseed IC)\\
             \texttt{fix atom/swap} + NVT MD\\
-            300~ps prod., 16 MPI ranks\\
+            $X_\mathrm{GB}(0){=}X_\mathrm{GB}^\mathrm{FD}$\\
             $\to X_\mathrm{GB}^\mathrm{HMC}(T, X_c)$\\
             \emph{ground truth}};
 
-        \node[cwbox, below=0.35cm of hmc] (fdseed) {%
-            $\bigstar$ \textbf{fdseed initial condition}\\
-            $X_\mathrm{GB}(0) = X_\mathrm{GB}^\mathrm{FD}$\\
-            any descent $\Rightarrow$ HMC $<$ FD};
-
-        \node[box, below=4.7cm of base] (cmp) {%
-            \textbf{$(T, X_c)$ grid comparison}\\[1pt]
+        \node[box, minimum width=2.6cm,
+              right=of fd, yshift=-1.0cm] (cmp) {%
+            \textbf{$(T, X_c)$ comparison}\\
             gap $= X_\mathrm{GB}^\mathrm{HMC} - X_\mathrm{GB}^\mathrm{FD}$\\
-            block-bootstrap CI; binomial CI\\
-            $\to$ gap landscape (see Results)};
+            block-bootstrap CI;\\
+            binomial CI\\
+            $\to$ gap landscape};
 
-        \draw[arr] (base.south) -- ++(0,-0.15) -| (fd.north);
-        \draw[arr] (base.south) -- ++(0,-0.15) -| (hmc.north);
-        \draw[arr] (fd.south)  -- ++(0,-0.20) |- (cmp.west);
-        \draw[arr] (fdseed.south) -- ++(0,-0.20) |- (cmp.east);
-        \draw[densely dashed, gray] (hmc.south) -- (fdseed.north);
+        \draw[arr] (base.east) -- (fd.west);
+        \draw[arr] (base.east) -- (hmc.west);
+        \draw[arr] (fd.east)   -- (cmp.west);
+        \draw[arr] (hmc.east)  -- (cmp.west);
     \end{tikzpicture}
     \label{fig:method:flow}
 }\hfill
 \subfloat[]{%
-    \includegraphics[width=0.36\textwidth]{polycrystal_geometry.png}%
+    \includegraphics[width=0.30\textwidth]{polycrystal_geometry.png}%
     \label{fig:method:geom}
 }
 \caption{%
 \textbf{(a)} Methodology overview. The atomistic base feeds two
-independent paths: the canonical Fermi--Dirac framework predicts
-$X_\mathrm{GB}^\mathrm{FD}(T, X_c)$ from the per-site $\Delta E_i$
-spectrum (left), and HMC sampling provides the ground-truth
-$X_\mathrm{GB}^\mathrm{HMC}(T, X_c)$ (right). The fdseed initial
-condition (yellow) sets $X_\mathrm{GB}(0) = X_\mathrm{GB}^\mathrm{FD}$
-so that any net descent of the HMC trajectory is direct evidence that
-the equilibrium $X_\mathrm{GB}^{\infty} < X_\mathrm{GB}^\mathrm{FD}$.
-\textbf{(b)} The 16-grain Al polycrystal used throughout the study,
-with bulk FCC atoms in light grey and a-CNA-identified GB atoms
-in steel blue, defining the fixed GB mask.
+independent paths: a Fermi--Dirac predictor of
+$X_\mathrm{GB}^\mathrm{FD}(T, X_c)$ from the $\Delta E_i$ spectrum
+(top), and HMC sampling of the ground-truth
+$X_\mathrm{GB}^\mathrm{HMC}(T, X_c)$ (bottom, yellow). The fdseed
+initial condition sets $X_\mathrm{GB}(0) = X_\mathrm{GB}^\mathrm{FD}$,
+so any net descent of the HMC trajectory is direct evidence that
+$X_\mathrm{GB}^{\infty} < X_\mathrm{GB}^\mathrm{FD}$.
+\textbf{(b)} The 16-grain Al polycrystal used throughout, with bulk
+FCC atoms in light grey and a-CNA-identified GB atoms in steel blue.
 }
 \label{fig:method}
 \end{figure*}
@@ -338,7 +335,7 @@ $[1, 1]$ explicitly in the figure.
 
 \section{HMC sampling protocol}\label{app:alg}
 
-\begin{algorithm}[H]
+\begin{algorithm}[!htbp]
 \caption{HMC sampling at $(T, X_c)$ with fdseed initial condition.}
 \label{alg:hmc}
 \begin{algorithmic}[1]
