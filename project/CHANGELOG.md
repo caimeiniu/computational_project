@@ -12,6 +12,93 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-09 (morning) — Task C (T=700, X_c=0.10) timed out; post-process reveals non-convergence; resume queued
+
+### What finished overnight
+
+| job      | run                       | state                  | wall    | N_PROD reached |
+|----------|---------------------------|------------------------|---------|----------------|
+| 65732267 | `T500_Xc0.04_fdseed`      | COMPLETED 05-08 16:11  | 18 h 17 | 300 000 / 300 000 (100%) |
+| 65732274 | `T300_Xc0.10_fdseed`      | COMPLETED 05-08 19:16 | 21 h 23 | 300 000 / 300 000 (100%) |
+| 65732280 | `T700_Xc0.10_fdseed`      | TIMEOUT  05-09 08:12   | 24 h 00 | ~262 000 / 300 000 (~87%) |
+
+Tasks A (T=500, X_c=0.04) and B (T=300, X_c=0.10) were already
+auto-post-processed by their submit scripts and consumed in commit
+637a53d (panel d 8-pt + T-axis 2-pt draft). Nothing new there —
+recorded here only for completeness of the overnight cohort.
+
+### Task C (T=700, X_c=0.10): manual post-process of timeout residue
+
+Submit-script auto-post-process did not run (LAMMPS killed by SLURM
+before reaching the python step). Ran `hmc_xgb_timeseries.py`
+manually against the timeout residue (log + dump are clean to step
+274 700; the very last thermo line is mid-write but `parse_thermo_blocks`
+drops malformed trailing rows by design):
+
+- X_GB^HMC = 0.2369 [0.2326, 0.2414] (n_prod_frames = 212, post-20% burn-in)
+- X_GB^FD  = 0.2956 → reported gap = −0.0587
+- swap accept = 9.36 % (24 725 / 264 200; consistent with thermal
+  trend across T-axis: 4.4% @300 K, 6.6% @500 K, 9.4% @700 K)
+
+### Why this is NOT a publishable T-axis upper point
+
+X_GB(t) was monotonically descending throughout the production
+window — 0.2953 at t=11 ps (= X_GB^FD seed) → 0.2147 at t=275 ps.
+Splitting in thirds:
+
+| window           | mean   | std    |
+|------------------|--------|--------|
+| first 3rd (n=88) | 0.2725 | 0.0117 |
+| middle 3rd (n=88)| 0.2417 | 0.0066 |
+| last 3rd  (n=89) | 0.2228 | 0.0049 |
+| last 50          | 0.2190 | 0.0027 |
+| prev 50          | 0.2286 | 0.0029 |
+
+Last-100 frames still show ~0.01/100 ps drift down. Post-burnin
+fwd/rev = 0.275 (fwd=1772, rev=6433, net=−4661, imbalance = −0.568)
+— Mg is still net leaving GB sites at simulation end. The reported
+mean 0.2369 oversamples the relaxation phase; equilibrium X_GB is
+< 0.219, gap is wider than the −0.0587 we just printed.
+
+PE also has not plateaued (drops monotonically across the window
+from −1.4726 × 10⁶ to −1.4750 × 10⁶ eV).
+
+### Resume submitted (job 65928302, PD Priority)
+
+New file `data/decks/submit_hmc_T700_Xc0.10_fdseed_resume.sh`
+(copy-and-rename per no-in-place-edits rule; uses
+`hmc_AlMg_resume.lammps` which `read_restart`'s the .rst1 checkpoint
+and re-attaches NVT + atom/swap without redoing CG/EQUIL):
+
+- rstfile : `hmc_T700_Xc0.10_fdseed.rst1` (mtime 05-09 08:10, 2 min before timeout)
+- outstub : `hmc_T700_Xc0.10_fdseed_resume`
+- EXTRA_PS = 300 (uses 24 h budget; analogous to original ~21 h prod compute)
+- Auto-post-process at end via `hmc_xgb_timeseries.py`
+
+Caveat documented in the script header: `f_hmc[1]`/`f_hmc[2]`
+counters reset on fix re-attach, so the resume's accept-rate report
+is local to the resume window. We don't combine pre/post-resume
+counters — the post-burnin equilibrium estimator only needs the
+local window anyway.
+
+### Queue state at submit (snapshot)
+
+48-CPU public-QOS cap is full from yesterday's three cleanup runs
+(65880421, 65880422 at 14 h elapsed; 65880423 at ~4½ h elapsed).
+Resume sits PENDING (Priority) and starts when one of those frees.
+ETA: 65880421/422 expected to complete some time today (~21 h prod
+window of historical T=500 fdseed runs); 65880423 finishes ~05-10
+early hours.
+
+### Open question for next iteration
+
+Whether T=700 truly equilibrates within the resume window or needs a
+second extension. Decision rule: if resume's last 100 frames still
+show > 0.5 σ of drift or |imbalance| ≥ 0.3, queue another resume
+from its rst1.
+
+---
+
 ## 2026-05-08 (late evening) — Headline-curve methodological cleanup: 3 fdseed redos submitted at X_c ∈ {0.05, 0.06, 0.075}, T=500 K
 
 ### Decision
