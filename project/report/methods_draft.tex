@@ -320,9 +320,9 @@ $[1, 1]$ explicitly in the figure.
 
 \section{HMC sampling protocol}\label{app:alg}
 
-\begin{algorithm}[!htbp]
-\caption{HMC sampling at $(T, X_c)$ with fdseed initial condition.}
-\label{alg:hmc}
+\refstepcounter{algorithm}\label{alg:hmc}%
+\noindent\textbf{Algorithm \thealgorithm: HMC sampling at $(T, X_c)$ with
+fdseed initial condition.}\\[2pt]
 \begin{algorithmic}[1]
 \State Solve Eq.~(\ref{eq:FD_canon}) for $\Delta\mu(T, X_c)$ on the
        $\{\Delta E_i\}$ spectrum
@@ -349,7 +349,6 @@ $[1, 1]$ explicitly in the figure.
        burn-in; compute $\langle X_\mathrm{GB}\rangle$ and 95\% CI by
        stationary block bootstrap (5-frame block, 2000 resamples)
 \end{algorithmic}
-\end{algorithm}
 
 
 \section{$\Delta E$ spectrum convergence and Wagih comparison}\label{app:dE_compare}
