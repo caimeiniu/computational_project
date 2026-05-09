@@ -1,6 +1,6 @@
 % =============================================================================
 % Methods + Appendix draft for the GB-segregation report
-% Generated: 2026-05-07 (afternoon)
+% Generated: 2026-05-07; revised 2026-05-09 after team meeting.
 %
 % USAGE NOTES (read before pasting into Overleaf main.tex):
 %
@@ -21,29 +21,28 @@
 %       \usepackage{algorithm}
 %       \usepackage{algpseudocode}
 %
-% 3. CITES used: \cite{Wagih2020}, \cite{Mendelev2009}, \cite{LAMMPS},
-%    \cite{Stukowski2012}, \cite{VoroPP}, \cite{Sadigh2012}.
-%    See report/methods_references_to_verify.md for candidate DOIs — VERIFY
-%    BEFORE adding bibitems (per user instruction "不可以编造文献").
+% 3. CITES used (all 5 DOIs Crossref-verified 2026-05-09):
+%       \cite{Wagih2020}, \cite{Mendelev2009}, \cite{LAMMPS},
+%       \cite{Stukowski2012}, \cite{Sadigh2012}.
+%    Bibitem block ready to paste: report/methods_bibitems.tex.
 %
-% 4. FIGURE (b) RIGHT PANEL (polycrystal_geometry.png) does not yet exist.
-%    Run report/render_methods_polycrystal.py with OVITO (Pro or Basic,
-%    locally or on Euler with the ovito module loaded) to generate it;
-%    upload the resulting .png to Overleaf and the \includegraphics will
-%    resolve. (LaTeX also accepts .pdf if you prefer vector — re-render
-%    via OVITO Pro's Export Image > Vector option.)
+% 4. FIGURE (b) RIGHT PANEL: report/figures/polycrystal_geometry.png exists
+%    (steel-blue GB version, 2026-05-08). Upload to Overleaf alongside the
+%    main.tex paste; \includegraphics{polycrystal_geometry.png} will resolve.
 %
-% 5. HMC NAMING: option (ii) — keep "HMC" but expand on first use + footnote
-%    distinguishing from Hamiltonian Monte Carlo. The footnote is in
-%    Sec.~\ref{sec:meth:HMC}.
+% 5. HMC NAMING: "hybrid Monte Carlo / molecular dynamics" on first use +
+%    footnote distinguishing from Hamiltonian Monte Carlo (Duane et al. 1987).
+%    Footnote inline in Sec.~\ref{sec:meth:HMC}.
 %
-% 6. STILL TO DECIDE TOMORROW (after team meeting):
-%    - Whether Cu(Ni) collaborator uses the same atomistic base + protocol
-%      → if yes, merge §\ref{sec:meth:base} into a shared paragraph.
-%    - Whether the selection-optimisation collaborator's result is mature
-%      enough to include → suggested home: Appendix \ref{app:dE_compare}
-%      or a new dedicated appendix §, since their work refines the spectrum
-%      input rather than testing the FD hypothesis.
+% 6. POST-MEETING DECISIONS (2026-05-09; resolved):
+%    - Cu(Ni) collaborator: NOT in Methods. Al(Mg) is the sole described
+%      system. (User direction "我的方法为主".)
+%    - Selection-optimisation collaborator: NOT in Methods. Their work
+%      refines the spectrum sampling, not the FD-vs-HMC hypothesis test.
+%    - HMC naming: option (ii) confirmed (see note 5).
+%    - Method figure: double-panel layout confirmed (left TikZ flow, right
+%      OVITO geometry).
+%    - "Broken X_c band" framing: stays in Results / Discussion, NOT here.
 % =============================================================================
 
 
@@ -66,8 +65,10 @@ Apps.~\ref{app:eq}--\ref{app:alg}.
 \subsection{Atomistic base and segregation-energy spectrum}\label{sec:meth:base}
 
 A 200~\AA{} cubic Al polycrystal of $N_\mathrm{tot} = 475{,}715$ atoms is
-built by 3D Voronoi tessellation~\cite{VoroPP} of 16 random grain seeds
-and annealed using the Wagih protocol~\cite{Wagih2020} in
+built by 3D Voronoi tessellation of 16 randomly placed grain seeds with
+uniform SO(3) orientations, with each FCC lattice site assigned to its
+nearest seed under periodic boundary conditions; the resulting box is
+then annealed using the Wagih protocol~\cite{Wagih2020} in
 LAMMPS~\cite{LAMMPS} with the Mendelev Al--Mg embedded-atom-method
 potential~\cite{Mendelev2009} (full anneal schedule in
 App.~\ref{app:atomistic}). Adaptive common-neighbour
@@ -111,14 +112,17 @@ the dilute limit but diverge as the GB fills.
 
 To compute $X_\mathrm{GB}$ at finite $X_c$ in the presence of
 solute--solute interactions, we use the LAMMPS \texttt{fix atom/swap}
-implementation~\cite{Sadigh2012} of semi-grand-canonical Metropolis
-swap Monte Carlo interleaved with NVT molecular dynamics --- hereafter
-\emph{HMC}\footnote{Hybrid Monte Carlo / MD. Distinct from the
-Hamiltonian Monte Carlo of Duane et al., \emph{Phys. Lett. B}
-\textbf{195}, 216 (1987); here HMC denotes the MC--MD hybrid implemented
-by LAMMPS \texttt{fix atom/swap}.}. Each cycle alternates 100 attempted
-Mg/Al type-swap moves (Metropolis-accepted at the simulation
-temperature $T$) with 1~ps of NVT MD relaxation; runs use 16 MPI ranks.
+implementation~\cite{Sadigh2012} of canonical Metropolis swap Monte
+Carlo interleaved with NVT molecular dynamics --- hereafter
+\emph{HMC}\footnote{Hybrid Monte Carlo / molecular dynamics. Distinct
+from the Hamiltonian Monte Carlo of Duane \emph{et al.},
+\emph{Phys.~Lett.~B} \textbf{195}, 216 (1987); here HMC denotes the
+MC--MD hybrid implemented by LAMMPS \texttt{fix atom/swap}.}. The
+integration timestep is $\Delta t = 1$~fs. Every 100 timesteps
+($0.1$~ps), 100 Mg$\leftrightarrow$Al type-swap moves are attempted,
+each independently Metropolis-accepted at the simulation temperature
+$T$; this preserves the closed-box $N_\mathrm{Mg}$ at fixed $X_c$.
+Production runs use 16 MPI ranks.
 
 \paragraph*{Initial condition (key methodological choice).}
 For each $(T, X_c)$ run we use a \emph{Fermi--Dirac-seeded} (\emph{fdseed})
@@ -135,11 +139,15 @@ saturated-GB initial condition down to its true equilibrium when the
 gap is small.
 
 \paragraph*{Production schedule.}
-Each run consists of 10~ps of NVT equilibration followed by 300~ps of
-production at 1~ps thermo cadence, $\sim 24$~h wallclock per
-$(T, X_c)$. Restart files are written every 5~ps, allowing resumption
-past the SLURM wallclock limit when the trajectory is still drifting.
-The full HMC step-by-step is given in Algorithm~\ref{alg:hmc}.
+Each run consists of 10~ps of NVT equilibration (no swaps) followed by
+300~ps of HMC production --- $3 \times 10^5$ MD timesteps with
+3000 interleaved bursts of 100 swap attempts, for $3 \times 10^5$ total
+attempted moves. Per-frame configurations are dumped every 1~ps for
+post-processing of $X_\mathrm{GB}(t)$; thermodynamic and swap counters
+are logged every 0.1~ps. Restart files are written every 5~ps,
+allowing resumption past the SLURM 24~h wallclock limit when the
+trajectory is still drifting. The HMC step-by-step is given in
+Algorithm~\ref{alg:hmc}.
 
 
 \subsection{$(T, X_c)$ grid and comparison}\label{sec:meth:grid}
@@ -166,8 +174,8 @@ confidence-interval prescriptions, neither of which is assumed Gaussian.
 The first 20\% of production frames are dropped as burn-in. The
 post-burn-in mean and 95\% confidence interval are computed by
 stationary block bootstrap with a 5-frame block size and $2000$
-resamples, accounting for the autocorrelation between adjacent thermo
-dumps.
+resamples, accounting for the autocorrelation between adjacent
+1~ps dump frames.
 
 \paragraph*{Per-site empirical occupation $\hat P_i$ in
 Fig.~\ref{fig:repulsion}.}
@@ -228,7 +236,7 @@ the former, finite-sample Bernoulli noise in the latter.
             \textbf{$(T, X_c)$ grid comparison}\\[1pt]
             gap $= X_\mathrm{GB}^\mathrm{HMC} - X_\mathrm{GB}^\mathrm{FD}$\\
             block-bootstrap CI; binomial CI\\
-            $\to$ broken $X_c$ band, $T$-axis robustness};
+            $\to$ gap landscape (see Results)};
 
         \draw[arr] (base.south) -- ++(0,-0.15) -| (fd.north);
         \draw[arr] (base.south) -- ++(0,-0.15) -| (hmc.north);
@@ -252,8 +260,8 @@ condition (yellow) sets $X_\mathrm{GB}(0) = X_\mathrm{GB}^\mathrm{FD}$
 so that any net descent of the HMC trajectory is direct evidence that
 the equilibrium $X_\mathrm{GB}^{\infty} < X_\mathrm{GB}^\mathrm{FD}$.
 \textbf{(b)} The 16-grain Al polycrystal used throughout the study,
-with bulk atoms in light grey and a-CNA-identified GB atoms
-(highlighted) defining the GB mask.
+with bulk FCC atoms in light grey and a-CNA-identified GB atoms
+in steel blue, defining the fixed GB mask.
 }
 \label{fig:method}
 \end{figure*}
@@ -267,19 +275,21 @@ with bulk atoms in light grey and a-CNA-identified GB atoms
 
 \section{Atomistic system and anneal schedule}\label{app:atomistic}
 
-The Al polycrystal is generated by drawing 16 random grain seeds
-uniformly within the $200^3$~\AA$^3$ box, each with a uniformly random
-crystal orientation, and assigning every lattice site to its nearest
-seed (3D Voronoi tessellation~\cite{VoroPP}). The lattice constant is
-$a = 4.05$~\AA{} (FCC Al). The anneal schedule follows
-Wagih et al.~\cite{Wagih2020}: (1) conjugate-gradient minimisation;
-(2) NVT temperature ramp from 100~K to $0.4\,T_\mathrm{melt} = 373$~K
-over 50~ps; (3) NPT hold at 373~K for 250~ps to relax the GB
-structure; (4) $-3$~K/ps quench to $0$~K; (5) final box relaxation by
-conjugate gradient with full Hessian update on the simulation cell.
-The resulting annealed configuration is the fixed substrate for all
-subsequent measurements. GB atoms are identified by adaptive
-common-neighbour analysis~\cite{Stukowski2012} with default cutoffs.
+The Al polycrystal is generated by drawing 16 grain seeds uniformly
+within the $200^3$~\AA$^3$ box and a uniformly random orientation
+$R \in \mathrm{SO}(3)$ for each grain, then assigning every lattice
+site to its nearest seed under periodic boundary conditions (3D
+Voronoi tessellation, implemented via $k$-d-tree nearest-neighbour
+lookup). The FCC lattice constant is $a = 4.05$~\AA. The anneal
+schedule follows Wagih \emph{et al.}~\cite{Wagih2020}:
+(1) conjugate-gradient minimisation; (2) NVT temperature ramp from
+100~K to $0.4\,T_\mathrm{melt} = 373$~K over 50~ps; (3) NPT hold at
+373~K for 250~ps to relax the GB structure; (4) $-3$~K/ps quench to
+0~K; (5) final box relaxation by conjugate gradient with full Hessian
+update on the simulation cell. The resulting annealed configuration is
+the fixed substrate for all subsequent measurements. GB atoms are
+identified by adaptive common-neighbour analysis~\cite{Stukowski2012}
+with default cutoffs.
 
 
 \section{Key equations}\label{app:eq}
@@ -342,19 +352,25 @@ $[1, 1]$ explicitly in the figure.
 \State Compute $X_\mathrm{GB}^\mathrm{FD}(T, X_c) = (1/N_\mathrm{GB})
        \sum_i P_i^\mathrm{FD}$
 \State \textbf{fdseed IC:} place $\lfloor X_\mathrm{GB}^\mathrm{FD}
-       \cdot N_\mathrm{GB} \rfloor$ Mg at random GB sites; place the
-       remainder at random bulk sites
-\State Equilibrate 10 ps NVT at temperature $T$
-\For{$\tau = 1$ to $300$ ps}
-    \State attempt 100 Mg$\leftrightarrow$Al type-swap moves
-           (Metropolis-accept at $T$)
-    \State 1 ps NVT MD relaxation
-    \State log $X_\mathrm{GB}(\tau)$, instantaneous swap accept rate, PE
-    \State write restart file every 5 ps
+       \cdot N_\mathrm{GB} \rfloor$ Mg atoms at random GB sites; place
+       the remaining $N_\mathrm{Mg} = X_c \cdot N_\mathrm{tot}$ Mg
+       atoms at random bulk sites
+\State Equilibrate 10\,ps of NVT MD at temperature $T$ (no swaps)
+\For{$k = 1$ to $3000$}
+    \Comment{$3 \times 10^5$ MD steps total $\Rightarrow$ 300\,ps}
+    \State Run 100 NVT MD timesteps (0.1\,ps, $\Delta t = 1$\,fs)
+    \State Attempt 100 Mg$\leftrightarrow$Al type-swap moves; accept each
+           with $P=\min\{1, \exp(-\Delta U/k_B T)\}$ at temperature $T$
+    \If{$k \bmod 10 = 0$} \Comment{every 1\,ps}
+        \State Dump per-atom \texttt{(id, type)} for $X_\mathrm{GB}(t)$
+    \EndIf
+    \If{$k \bmod 50 = 0$} \Comment{every 5\,ps}
+        \State Write restart checkpoint
+    \EndIf
 \EndFor
-\State \textbf{Post-process:} discard first 20\% of production frames;
-       compute $\langle X_\mathrm{GB}\rangle$ and 95\% CI by stationary
-       block bootstrap (5-frame block, 2000 resamples)
+\State \textbf{Post-process:} discard first 20\% of production frames as
+       burn-in; compute $\langle X_\mathrm{GB}\rangle$ and 95\% CI by
+       stationary block bootstrap (5-frame block, 2000 resamples)
 \end{algorithmic}
 \end{algorithm}
 
