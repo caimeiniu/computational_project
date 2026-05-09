@@ -193,43 +193,28 @@ latter.
 \centering
 \subfloat[]{%
     \begin{tikzpicture}[
-        node distance = 0.45cm and 0.55cm,
-        box/.style    = {draw, rounded corners, align=center, inner sep=3pt,
-                         font=\scriptsize, minimum height=1.7cm},
-        cwbox/.style  = {draw, rounded corners, align=center, inner sep=3pt,
-                         font=\scriptsize, minimum height=1.7cm,
+        node distance = 0.55cm and 0.7cm,
+        box/.style    = {draw, rounded corners, align=center, inner sep=5pt,
+                         font=\footnotesize, minimum width=3.0cm},
+        cwbox/.style  = {draw, rounded corners, align=center, inner sep=5pt,
+                         font=\footnotesize, minimum width=3.0cm,
                          fill=yellow!18},
-        arr/.style    = {-{Stealth[length=2mm]}, semithick}
+        arr/.style    = {-{Stealth[length=2.5mm]}, semithick}
     ]
-        \node[box, minimum width=2.5cm] (base) {%
+        \node[box] (base) {%
             \textbf{atomistic base}\\
-            $200^3$\,\AA$^3$, 16 grains\\
-            Mendelev EAM/FS\\
-            $N_\mathrm{tot}{=}475{,}715$\\
-            a-CNA $\to N_\mathrm{GB}{=}89{,}042$\\
-            $\Delta E_i$ at $n{=}500$ sites};
+            $\Delta E_i$ spectrum};
 
-        \node[box, minimum width=3.0cm,
-              right=of base, yshift=1.0cm] (fd) {%
-            \textbf{FD predictor (canon)}\\
-            Eqs.~(\ref{eq:FD_single})--(\ref{eq:FD_canon})\\
-            $\to X_\mathrm{GB}^\mathrm{FD}(T, X_c)$\\
-            \emph{hypothesis}};
+        \node[box, right=of base, yshift=0.85cm] (fd) {%
+            \textbf{FD predictor}\\
+            $\to X_\mathrm{GB}^\mathrm{FD}$ \emph{(hyp.)}};
 
-        \node[cwbox, minimum width=3.0cm,
-              right=of base, yshift=-1.0cm] (hmc) {%
-            \textbf{HMC sampling} ($\bigstar$ fdseed IC)\\
-            \texttt{fix atom/swap} + NVT MD\\
-            $X_\mathrm{GB}(0){=}X_\mathrm{GB}^\mathrm{FD}$\\
-            $\to X_\mathrm{GB}^\mathrm{HMC}(T, X_c)$\\
-            \emph{ground truth}};
+        \node[cwbox, right=of base, yshift=-0.85cm] (hmc) {%
+            \textbf{HMC} ($\bigstar$\,fdseed)\\
+            $\to X_\mathrm{GB}^\mathrm{HMC}$ \emph{(g.t.)}};
 
-        \node[box, minimum width=2.6cm,
-              right=of fd, yshift=-1.0cm] (cmp) {%
-            \textbf{$(T, X_c)$ comparison}\\
-            gap $= X_\mathrm{GB}^\mathrm{HMC} - X_\mathrm{GB}^\mathrm{FD}$\\
-            block-bootstrap CI;\\
-            binomial CI\\
+        \node[box, right=of fd, yshift=-0.85cm] (cmp) {%
+            $(T, X_c)$ comparison\\
             $\to$ gap landscape};
 
         \draw[arr] (base.east) -- (fd.west);
