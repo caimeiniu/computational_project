@@ -57,27 +57,26 @@ basis (Fig.~\ref{fig:method}): the FD framework provides the prediction
 $X_\mathrm{GB}^\mathrm{FD}(T, X_c)$, hybrid Monte Carlo / molecular
 dynamics (HMC) sampling provides the ground truth
 $X_\mathrm{GB}^\mathrm{HMC}(T, X_c)$, and the gap between them is the
-testable quantity. Sub-sections below describe each leg in turn; key
-equations and the HMC algorithm are stated in
+testable quantity. The equations and the HMC algorithm are stated in
 Apps.~\ref{app:eq}--\ref{app:alg}.
 
 
 \subsection{Atomistic base and segregation-energy spectrum}\label{sec:meth:base}
 
-A 200~\AA{} cubic Al polycrystal of $N_\mathrm{tot} = 475{,}715$ atoms is
-built by 3D Voronoi tessellation of 16 randomly placed grain seeds with
-uniform SO(3) orientations, with each FCC lattice site assigned to its
-nearest seed under periodic boundary conditions; the resulting box is
-then annealed using the Wagih protocol~\cite{Wagih2020} in
-LAMMPS~\cite{LAMMPS} with the Mendelev Al--Mg embedded-atom-method
-potential~\cite{Mendelev2009} (full anneal schedule in
-App.~\ref{app:atomistic}). Adaptive common-neighbour
-analysis~\cite{Stukowski2012} identifies $N_\mathrm{GB} = 89{,}042$ GB
-atoms, giving a GB fraction $f_\mathrm{GB} \equiv
-N_\mathrm{GB}/N_\mathrm{tot} = 0.187$. The resulting GB mask is fixed
-throughout, so that all downstream quantities — the $\Delta E_i$ spectrum,
-the FD predictor, and the HMC measurement — refer to the same set of
-sites.
+A 200~\AA{} cubic Al polycrystal of $N_\mathrm{tot} = 475{,}715$ atoms
+is built by 3D Voronoi tessellation: 16 grain seeds are placed
+uniformly in the box with uniformly random SO(3) orientations, and
+each FCC lattice site is assigned to its nearest seed under periodic
+boundary conditions. The box is then annealed using the Wagih
+protocol~\cite{Wagih2020} in LAMMPS~\cite{LAMMPS} with the Mendelev
+Al--Mg embedded-atom-method potential~\cite{Mendelev2009}; the full
+anneal schedule is in App.~\ref{app:atomistic}. Adaptive
+common-neighbour analysis~\cite{Stukowski2012} identifies
+$N_\mathrm{GB} = 89{,}042$ GB atoms, giving a GB fraction
+$f_\mathrm{GB} \equiv N_\mathrm{GB}/N_\mathrm{tot} = 0.187$. The
+resulting GB mask is fixed throughout, so the $\Delta E_i$ spectrum,
+the FD predictor, and the HMC measurement all refer to the same set
+of sites.
 
 The per-site segregation energy $\Delta E_i$ at GB site $i$
 [Eq.~(\ref{eq:dE})] is the energy change for transferring a single Mg
@@ -113,25 +112,25 @@ the dilute limit but diverge as the GB fills.
 To compute $X_\mathrm{GB}$ at finite $X_c$ in the presence of
 solute--solute interactions, we use the LAMMPS \texttt{fix atom/swap}
 implementation~\cite{Sadigh2012} of canonical Metropolis swap Monte
-Carlo interleaved with NVT molecular dynamics --- hereafter
-\emph{HMC}\footnote{Hybrid Monte Carlo / molecular dynamics. Distinct
-from the Hamiltonian Monte Carlo of Duane \emph{et al.},
-\emph{Phys.~Lett.~B} \textbf{195}, 216 (1987); here HMC denotes the
-MC--MD hybrid implemented by LAMMPS \texttt{fix atom/swap}.}. The
-integration timestep is $\Delta t = 1$~fs. Every 100 timesteps
-($0.1$~ps), 100 Mg$\leftrightarrow$Al type-swap moves are attempted,
+Carlo interleaved with NVT molecular dynamics. We refer to this
+hybrid as HMC throughout.\footnote{Hybrid Monte Carlo / molecular
+dynamics. Not to be confused with the Hamiltonian Monte Carlo of Duane
+\emph{et al.}, \emph{Phys.~Lett.~B} \textbf{195}, 216 (1987); here HMC
+denotes the MC--MD hybrid implemented by LAMMPS \texttt{fix atom/swap}.}
+The integration timestep is $\Delta t = 1$~fs. Every 100 timesteps
+(0.1~ps), 100 Mg$\leftrightarrow$Al type-swap moves are attempted,
 each independently Metropolis-accepted at the simulation temperature
 $T$; this preserves the closed-box $N_\mathrm{Mg}$ at fixed $X_c$.
 Production runs use 16 MPI ranks.
 
-\paragraph*{Initial condition (key methodological choice).}
+\paragraph*{Initial condition.}
 For each $(T, X_c)$ run we use a \emph{Fermi--Dirac-seeded} (\emph{fdseed})
 initial condition: $X_\mathrm{GB}(0)$ is set to
 $X_\mathrm{GB}^\mathrm{FD}(T, X_c)$ by random Mg placement at GB and
 bulk sites in the proportions matching the canonical FD prediction.
-The trajectory is initialised \emph{at} the FD hypothesis. Any net
-descent of $X_\mathrm{GB}(t)$ below $X_\mathrm{GB}^\mathrm{FD}$ is
-direct evidence that the equilibrium $X_\mathrm{GB}^{\infty} <
+The trajectory is initialised at the FD hypothesis. Any net descent
+of $X_\mathrm{GB}(t)$ below $X_\mathrm{GB}^\mathrm{FD}$ is direct
+evidence that the equilibrium $X_\mathrm{GB}^{\infty} <
 X_\mathrm{GB}^\mathrm{FD}$, irrespective of whether the trajectory has
 reached strict equilibrium within the wallclock budget. This sidesteps
 the much larger equilibration cost otherwise required to bring a
@@ -139,30 +138,25 @@ saturated-GB initial condition down to its true equilibrium when the
 gap is small.
 
 \paragraph*{Production schedule.}
-Each run consists of 10~ps of NVT equilibration (no swaps) followed by
-300~ps of HMC production --- $3 \times 10^5$ MD timesteps with
-3000 interleaved bursts of 100 swap attempts, for $3 \times 10^5$ total
-attempted moves. Per-frame configurations are dumped every 1~ps for
-post-processing of $X_\mathrm{GB}(t)$; thermodynamic and swap counters
-are logged every 0.1~ps. Restart files are written every 5~ps,
-allowing resumption past the SLURM 24~h wallclock limit when the
-trajectory is still drifting. The HMC step-by-step is given in
-Algorithm~\ref{alg:hmc}.
+Each run is 10~ps of NVT equilibration followed by 300~ps of HMC
+production at fixed $T$, with per-atom configurations dumped every
+1~ps and a restart checkpoint every 5~ps. Algorithm~\ref{alg:hmc}
+gives the step-by-step.
 
 
 \subsection{$(T, X_c)$ grid and comparison}\label{sec:meth:grid}
 
-The hypothesis-versus-ground-truth comparison is repeated on a $(T, X_c)$
+We repeat the hypothesis-versus-ground-truth comparison on a $(T, X_c)$
 grid covering $T \in \{300, 500, 700\}$~K and $X_c \in [0.04, 0.30]$.
-The dilute-side boundary $X_c \approx 0.04$ is set by closed-box ceiling
-compression: at $X_c < 0.03$, the global Mg inventory $N_\mathrm{Mg} =
-X_c \cdot N_\mathrm{tot}$ is small enough that even
-$X_\mathrm{GB}^\mathrm{FD}$ approaches the geometric ceiling $X_c \cdot
-N_\mathrm{tot}/N_\mathrm{GB}$, leaving negligible dynamic range in
-which to resolve $X_\mathrm{GB}^\mathrm{HMC} < X_\mathrm{GB}^\mathrm{FD}$.
-The reported quantity at each grid point is the gap
+The dilute-side boundary $X_c \approx 0.04$ is set by closed-box
+ceiling compression. Below $X_c \approx 0.03$ the total Mg inventory
+$N_\mathrm{Mg} = X_c N_\mathrm{tot}$ is so small that
+$X_\mathrm{GB}^\mathrm{FD}$ already approaches the geometric ceiling
+$X_c N_\mathrm{tot}/N_\mathrm{GB}$, leaving no dynamic range to
+resolve $X_\mathrm{GB}^\mathrm{HMC} < X_\mathrm{GB}^\mathrm{FD}$. The
+reported quantity at each grid point is the gap
 $X_\mathrm{GB}^\mathrm{HMC} - X_\mathrm{GB}^\mathrm{FD,canon}$, with
-uncertainties described in Sec.~\ref{sec:meth:stats}.
+uncertainties as defined in Sec.~\ref{sec:meth:stats}.
 
 
 \subsection{Statistical analysis}\label{sec:meth:stats}
@@ -177,17 +171,18 @@ stationary block bootstrap with a 5-frame block size and $2000$
 resamples, accounting for the autocorrelation between adjacent
 1~ps dump frames.
 
-\paragraph*{Per-site empirical occupation $\hat P_i$ in
-Fig.~\ref{fig:repulsion}.}
-Each GB site in a converged HMC snapshot is a Bernoulli trial
-(Mg or Al, 0/1). For Wagih-favourable sites with $\Delta E_i \in
-[-30, -15]$~kJ/mol, we sub-bin by the local Mg neighbour count
-$n^\mathrm{Mg}_\mathrm{local}$ (Mg atoms within $r \leq 5$~\AA) and
-report the empirical occupation $\hat P$ per integer
-$n^\mathrm{Mg}_\mathrm{local}$ with its 95\% Wald binomial confidence
-interval [Eq.~(\ref{eq:WaldCI})]. The two CI prescriptions therefore
-treat distinct sources of randomness: trajectory autocorrelation in
-the former, finite-sample Bernoulli noise in the latter.
+\paragraph*{Per-site empirical occupation $\hat P_i$.}
+For the per-site Mg-neighbour analysis presented in Results
+(Fig.~\ref{fig:repulsion}), each GB site in a converged HMC snapshot
+is a Bernoulli trial (Mg or Al, 0/1). For Wagih-favourable sites with
+$\Delta E_i \in [-30, -15]$~kJ/mol, we sub-bin by the local Mg
+neighbour count $n^\mathrm{Mg}_\mathrm{local}$ (Mg atoms within
+$r \leq 5$~\AA) and report the empirical occupation $\hat P$ per
+integer $n^\mathrm{Mg}_\mathrm{local}$ with its 95\% Wald binomial
+confidence interval [Eq.~(\ref{eq:WaldCI})]. The two CI prescriptions
+therefore treat distinct sources of randomness: trajectory
+autocorrelation in the former, finite-sample Bernoulli noise in the
+latter.
 
 
 % ============================================================================
@@ -277,19 +272,19 @@ in steel blue, defining the fixed GB mask.
 
 The Al polycrystal is generated by drawing 16 grain seeds uniformly
 within the $200^3$~\AA$^3$ box and a uniformly random orientation
-$R \in \mathrm{SO}(3)$ for each grain, then assigning every lattice
-site to its nearest seed under periodic boundary conditions (3D
-Voronoi tessellation, implemented via $k$-d-tree nearest-neighbour
-lookup). The FCC lattice constant is $a = 4.05$~\AA. The anneal
+$R \in \mathrm{SO}(3)$ for each grain. Each FCC lattice site is then
+assigned to its nearest seed under periodic boundary conditions, a 3D
+Voronoi tessellation implemented via $k$-d-tree nearest-neighbour
+lookup. The FCC lattice constant is $a = 4.05$~\AA. The anneal
 schedule follows Wagih \emph{et al.}~\cite{Wagih2020}:
 (1) conjugate-gradient minimisation; (2) NVT temperature ramp from
-100~K to $0.4\,T_\mathrm{melt} = 373$~K over 50~ps; (3) NPT hold at
-373~K for 250~ps to relax the GB structure; (4) $-3$~K/ps quench to
-0~K; (5) final box relaxation by conjugate gradient with full Hessian
-update on the simulation cell. The resulting annealed configuration is
-the fixed substrate for all subsequent measurements. GB atoms are
-identified by adaptive common-neighbour analysis~\cite{Stukowski2012}
-with default cutoffs.
+1~K to $0.4\,T_\mathrm{melt} = 373$~K over 5~ps; (3) NPT hold at
+373~K for 250~ps to relax the GB structure; (4) NPT cool from 373~K
+to 1~K at 3~K/ps; (5) final zero-pressure box relaxation by conjugate
+gradient (\texttt{fix box/relax}). The annealed configuration is the
+fixed substrate for all subsequent measurements. GB atoms are
+identified by adaptive common-neighbour
+analysis~\cite{Stukowski2012} with default cutoffs.
 
 
 \section{Key equations}\label{app:eq}
@@ -310,8 +305,8 @@ P_i^\mathrm{FD}(\Delta E_i, T, \Delta\mu) =
 \frac{1}{1 + \exp\!\big[(\Delta E_i + \Delta\mu)/k_B T\big]}.
 \end{equation}
 $P_i^\mathrm{FD}$ is the probability that GB site $i$ is occupied by
-Mg, treated as independent of all other GB sites --- the dilute-limit
-(independent-site) assumption tested by HMC.
+Mg, treated as independent of all other GB sites. This independent-site
+(dilute-limit) assumption is the assumption tested by HMC.
 
 \paragraph*{Closed-box (canonical) FD}
 (Sec.~\ref{sec:meth:FD}):
@@ -387,5 +382,4 @@ machine-learning predictions on a comparable polycrystal) yields
 $p > 0.5$, indicating spectrum-level indistinguishability under our
 chosen tightness of CG relaxation. The KS-stability and skew-normal
 parameter drift across $n \in \{50, 100, 250, 500\}$ are detailed
-elsewhere; the spectrum match is also illustrated in
-Fig.~\ref{fig:spectrum}.
+elsewhere.
