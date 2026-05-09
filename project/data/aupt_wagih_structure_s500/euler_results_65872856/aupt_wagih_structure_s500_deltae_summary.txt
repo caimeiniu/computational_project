@@ -1,0 +1,8 @@
+n = 500
+bulk references = 10
+bulk reference std = 32.701 kJ/mol
+mean = -11.632 kJ/mol
+std = 25.036 kJ/mol
+min/max = -67.959 / 82.296 kJ/mol
+Wagih Ni(Cu) approx: mu=-2.0 kJ/mol, sigma=8.0 kJ/mol, range=(-30.0, 30.0) kJ/mol
+fraction outside Wagih approx range = 29.80%

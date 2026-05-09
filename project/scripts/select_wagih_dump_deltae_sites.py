@@ -82,7 +82,14 @@ def read_dump(path: Path, energy_column: str | None) -> tuple[list[dict[str, flo
     return rows, box, columns, selected_energy
 
 
-def select_rows(rows: list[dict[str, float]], box: np.ndarray, samples: int, bulk_references: int, seed: int) -> list[dict[str, object]]:
+def select_rows(
+    rows: list[dict[str, float]],
+    box: np.ndarray,
+    samples: int,
+    bulk_references: int,
+    seed: int,
+    bulk_min_distance: float,
+) -> list[dict[str, object]]:
     rng = np.random.default_rng(seed)
     energy = np.array([row["wagih_delta_e_kj_mol"] for row in rows], dtype=float)
     positions = np.array([[row["x_A"], row["y_A"], row["z_A"]] for row in rows], dtype=float)
@@ -98,7 +105,16 @@ def select_rows(rows: list[dict[str, float]], box: np.ndarray, samples: int, bul
     chosen_gb = rng.choice(gb_indices, size=min(samples, len(gb_indices)), replace=False)
     gb_tree = cKDTree(positions[gb_indices], boxsize=box)
     distance_to_gb, _ = gb_tree.query(positions[bulk_indices], k=1)
-    chosen_bulk = bulk_indices[np.argsort(distance_to_gb)[::-1]][: min(bulk_references, len(bulk_indices))]
+    eligible_bulk_mask = distance_to_gb >= bulk_min_distance
+    eligible_bulk = bulk_indices[eligible_bulk_mask]
+    eligible_distances = distance_to_gb[eligible_bulk_mask]
+    if len(eligible_bulk) < bulk_references:
+        raise ValueError(
+            f"Only {len(eligible_bulk)} zero-energy bulk candidates are at least "
+            f"{bulk_min_distance:.3f} A from a nonzero Wagih site; requested {bulk_references}. "
+            "Try a smaller --bulk-min-distance."
+        )
+    chosen_bulk = eligible_bulk[np.argsort(eligible_distances)[::-1]][:bulk_references]
     bulk_distance_by_idx = {int(idx): float(distance_to_gb[pos]) for pos, idx in enumerate(bulk_indices)}
 
     selected: list[dict[str, object]] = []
@@ -163,6 +179,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--energy-column")
     parser.add_argument("--samples", type=int, default=1000)
     parser.add_argument("--bulk-references", type=int, default=50)
+    parser.add_argument(
+        "--bulk-min-distance",
+        type=float,
+        default=8.0,
+        help="Minimum distance in Angstrom from a bulk reference to the nearest nonzero Wagih site.",
+    )
     parser.add_argument("--seed", type=int, default=500)
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
@@ -171,7 +193,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     rows, box, columns, selected_energy = read_dump(args.dump, args.energy_column)
-    selected = select_rows(rows, box, args.samples, args.bulk_references, args.seed)
+    selected = select_rows(rows, box, args.samples, args.bulk_references, args.seed, args.bulk_min_distance)
     write_csv(args.output, selected)
     gb_count = sum(1 for row in rows if row["wagih_delta_e_kj_mol"] != 0.0)
     bulk_count = len(rows) - gb_count
@@ -179,6 +201,7 @@ def main() -> None:
     print(f"Used energy column: {selected_energy}")
     print(f"Nonzero Wagih GB-like sites: {gb_count}")
     print(f"Zero-energy bulk candidates: {bulk_count}")
+    print(f"Bulk minimum distance: {args.bulk_min_distance} A")
     print(f"Wrote {len(selected)} selected sites to {args.output}")
 
 

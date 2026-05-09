@@ -22,6 +22,7 @@ POTENTIAL="${POTENTIAL:-data/potentials/PtAu.eam.alloy}"
 WAGIH_DUMP="${WAGIH_DUMP:?Set WAGIH_DUMP to the Au_Pt_20nm_GB_segregation.dump path}"
 SAMPLES="${SAMPLES:-1000}"
 BULK_REFERENCES="${BULK_REFERENCES:-50}"
+BULK_MIN_DISTANCE="${BULK_MIN_DISTANCE:-8.0}"
 
 echo "Project: ${PROJECT_DIR}"
 echo "Scratch run directory: ${RUN_DIR}"
@@ -29,6 +30,7 @@ echo "LAMMPS command: ${LMP_CMD}"
 echo "Alloy: ${SOLVENT}(${SOLUTE})"
 echo "Wagih dump: ${WAGIH_DUMP}"
 echo "Samples/bulk refs: ${SAMPLES} / ${BULK_REFERENCES}"
+echo "Bulk min distance from Wagih nonzero sites: ${BULK_MIN_DISTANCE} A"
 echo "Potential: ${POTENTIAL}"
 
 python3 - <<'PY'
@@ -62,6 +64,7 @@ python3 scripts/select_wagih_dump_deltae_sites.py \
   --dump "${WAGIH_DUMP}" \
   --samples "${SAMPLES}" \
   --bulk-references "${BULK_REFERENCES}" \
+  --bulk-min-distance "${BULK_MIN_DISTANCE}" \
   --output "${DATA_DIR}/${WORKFLOW_NAME}_deltae_sites.csv"
 
 echo "Step 3/4: write and run substitution Delta E jobs"
