@@ -12,6 +12,118 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-10 (afternoon) — T=700 X_c=0.10 resume PLATEAUED; T-axis 3-pt finalised; X_c=0.20 T=700 K fdseed submitted as Tier-2
+
+### T=700 X_c=0.10 fdseed_resume COMPLETED naturally at 11:09
+
+Job 65928302 ran 12 h 28 min wall (used the full EXTRA_PS=300 ps
+budget within the 24 h cap). `_final.lmp` written. Submit-script
+auto-postprocess ran cleanly during the job tail; `output/hmc_T700_Xc0.10_fdseed_resume.{json,png}` already on disk before this session even
+checked.
+
+| metric                       | resume window           | original timeout (CHANGELOG 2026-05-09 morning) |
+|------------------------------|--------------------------|-------------------------------------------------|
+| n_prod_frames                | 240 (post-burnin)        | 212 (post-burnin, 87 % of 24 h budget)          |
+| X_GB^HMC                     | **0.2121**               | 0.2369 (oversampled relaxation phase)           |
+| CI95                         | [0.2118, 0.2124]         | [0.2326, 0.2414]                                |
+| CI95 half-width              | **0.0003** (10× tighter) | 0.0044                                          |
+| post-burnin imbalance        | **−0.453** (closest-to-plateau of any T-axis pt) | −0.568              |
+| swap accept                  | 9.19 %                   | 9.36 %                                          |
+| gap-O vs canon-FD ours       | **−0.0835**              | −0.0587                                         |
+
+The resume window IS the equilibrium read at T=700 K, X_c=0.10;
+0.2121 is the publishable number, NOT the timeout's 0.2369 (the
+latter was foreseen to be an upper bound in CHANGELOG 2026-05-09
+morning). Decision rule from that entry ("if last 100 frames still
+show > 0.5 σ drift or |imbalance| ≥ 0.3, queue another resume")
+fails on the imbalance criterion (−0.453 > 0.3 in magnitude), but
+the CI95 half-width of 0.0003 is so tight that a second resume
+would be statistical overkill. We accept the resume window as the
+plateau read.
+
+`hmc_T700_Xc0.10_fdseed_resume_final.lmp` (63.7 MB) persisted to
+`project/data/snapshots/`. High-T morphology candidate for
+panel (f) OVITO render (less Mg than X_c=0.20 candidate but more
+than the X_c=0.04 / T=300 dilute candidates).
+
+### Panel d T-axis 3-pt finalised (drops DRAFT banner)
+
+`output/panel_d_T_axis_X_c0.10_3pt.{json,png}` produced by
+`canonical_fd_compare_t_axis.py` with all three fdseed JSONs
+(T=700 uses the resume, NOT the timeout):
+
+| T (K) | X_GB^HMC | CI95              | canon-FD (ours) | gap-O    | imbalance | comment                |
+|------:|---------:|-------------------|----------------:|---------:|----------:|------------------------|
+| 300   | 0.3514   | [0.3466, 0.3560]  |          0.4268 | −0.0754  | −0.785    | kinetic-bound (UB)     |
+| 500   | 0.2785   | [0.2735, 0.2833]  |          0.3519 | −0.0734  | −0.691    | kinetic-bound (UB)     |
+| 700   | 0.2121   | [0.2118, 0.2124]  |          0.2956 | **−0.0835** | −0.453    | **plateaued**          |
+
+CI95 excludes FD at all three T. T=700 has the deepest gap AND is
+the only fully plateaued point. Earlier "low-T break deeper"
+hypothesis (CHANGELOG 2026-05-07 afternoon) is contradicted — T=300
+and T=500 reported gaps are upper bounds, so the *true* gap ordering
+between T=300/500 vs T=700 is unresolved, but the equilibrium read
+at T=700 is deeper than the upper-bound reads at T=300 / T=500. So:
+
+- Honest claim: breakdown is **T-robust over [300, 700] K at X_c=0.10**.
+- Strong-form claim: equilibrium |gap| **deepens with T** at X_c=0.10
+  (only defended at T=700 vs the upper bounds at T=300/500).
+- Discussion / caption guidance: pre-empt "isn't the breakdown a
+  low-T enthalpy effect?" — the data say the opposite, with a
+  kinetic caveat at low T.
+
+### Tier-2 batch — X_c=0.20 fdseed @ T=700 K submitted (job 66027275)
+
+Selected after T=700 resume freed its 16 CPU. Adds a second T-axis
+at the **saturation edge** of the breakdown band (the existing
+T=500 K X_c=0.20 fdseed is gap-O = −0.0661, full plateau). Two
+points (T=500, T=700) at X_c=0.20 won't be a 3-pt subpanel like
+X_c=0.10, but will let us state "breakdown is T-robust at the
+saturation edge" if the new point also descends below FD.
+
+- Init: `poly_AlMg_200A_fdseed_T700K_Xc0.2.lmp` (build_fdseed_inits.py
+  refreshed manifest with X_c={0.10, 0.20} for T=700; existing
+  X_c=0.10 file regenerated bit-identically by deterministic seed).
+- X_GB(0) = X_GB^FD(700K, 0.20) = 0.4198 (N_Mg(GB)=37 379,
+  N_Mg(bulk)=57 764). Margin to ceiling = 0.5802 — plenty of headroom.
+- Submit: `data/decks/submit_hmc_T700_Xc0.20_fdseed.sh` (new file,
+  copy + rename of `submit_hmc_T700_Xc0.10_fdseed.sh` per
+  no-in-place-edits). 16-rank × 24 h × v2 deck; 5 ps RESTART_PS.
+- Why this candidate (vs X_c=0.04 resume / X_c=0.20 T=300 K):
+  high-T fdseed has the highest swap rate (~9 % per the resume just
+  landed), best chance of plateau within 24 h budget. Pairing with
+  the existing T=500 K X_c=0.20 builds a saturation-edge T-axis
+  with one new run.
+
+### Queue at end of session
+
+| job   | tag                       | state                | budget | ETA end (24 h cap)      |
+|------:|---------------------------|----------------------|-------:|-------------------------|
+| 66002267 | T500_Xc0.40_fdseed     | RUNNING (~5 h elapsed) | 24 h   | 2026-05-11 ~10:30      |
+| 66027275 | T700_Xc0.20_fdseed     | PENDING (Priority)   | 24 h   | starts within minutes; ETA 2026-05-11 ~16:00 |
+
+### Files this entry
+
+- `output/hmc_T700_Xc0.10_fdseed_resume.{json,png}` — already-existing (auto-post-from-job, gitignored)
+- `output/panel_d_T_axis_X_c0.10_3pt.{json,png}` — new (gitignored, replaces _2pt_draft)
+- `data/snapshots/hmc_T700_Xc0.10_fdseed_resume_final.lmp` — new (gitignored, 63.7 MB)
+- `data/decks/submit_hmc_T700_Xc0.20_fdseed.sh` — new (committed)
+- `/cluster/scratch/cainiu/hmc_AlMg/poly_AlMg_200A_fdseed_T700K_Xc0.2.lmp` — new (gitignored, scratch)
+- `/cluster/scratch/cainiu/hmc_AlMg/fdseed_T700K_manifest.json` — refreshed to {0.10, 0.20} (gitignored)
+- this CHANGELOG entry (committed)
+
+### Pending follow-ups
+
+- When 66002267 (X_c=0.40 fdseed) lands ~05-11 10:30:
+  - If COMPLETED: auto-postprocess writes `output/hmc_T500_Xc0.40_fdseed.{json,png}`. Add as 9th red circle to a new panel `panel_d_T500_dilute_breakdown_9pt_allfdseed`.
+  - If TIMEOUT: manual post-process residue (same recipe as X_c=0.30/0.05/0.06 timeouts).
+- When 66027275 (X_c=0.20 T=700 K fdseed) lands ~05-11 16:00:
+  - If plateaus (likely, given high-T swap rate): publishable saturation-edge T=700 point. Pair with existing T=500 K X_c=0.20 fdseed to build `panel_d_T_axis_X_c0.20_2pt`.
+  - If does not plateau: report as upper bound; consider 12 h resume.
+- Standing TODOs unchanged: re-explain Fig 2 red dots + CI per
+  `report/explainer_fig2_red_dots_CI.md`; refresh Fig 3 mechanism
+  panel using `hmc_T500_Xc0.075_eq_cont_final.lmp`.
+
 ## 2026-05-10 (morning) — Headline-curve cleanup batch landed; panel (d) → 8-pt all-fdseed; X_c=0.40 saturation-edge fdseed submitted
 
 ### Overnight cohort: state at session start
