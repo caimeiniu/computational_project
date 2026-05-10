@@ -12,6 +12,74 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-10 (evening) — Tier-3 fills the 16-CPU quota headroom: X_c=0.04 fdseed RESUME submitted
+
+### Context: noticed earlier "32 CPU allocated" miscount
+
+After submitting Tier-2 (T=700 X_c=0.20 fdseed, job 66027275) I told
+the user "both 32 CPU now allocated" and called it a wrap. That was
+wrong — the public-QOS hard cap is 48 CPU/user
+(`reference_euler_quota.md`), so with two 16-rank jobs running, 16
+CPU was still free. User flagged the miscount; we picked a Tier-3
+candidate to fill the headroom.
+
+### Job submitted: X_c=0.04 fdseed RESUME at T=500 K (job 66066111)
+
+Selected because:
+
+- **Highest report leverage** of the open candidates: X_c=0.04 is one
+  of the three kinetic-caveat dilute points in the 8-pt panel (d)
+  all-fdseed (CHANGELOG 2026-05-10 morning). If this resume
+  plateaus, the dilute-edge of the headline figure becomes a plateau
+  read instead of an upper bound and the caption simplifies.
+- **Highest plateau probability** of the open candidates:
+  imbalance −0.469 starting condition is more favourable than
+  X_c=0.05 (−0.557) or X_c=0.06 (−0.622) at the same T. Direct
+  analogue to the T=700 X_c=0.10 resume that just landed (started
+  −0.568, plateaued to −0.453 in 12.5 h, CI95 half-width 0.0003).
+- **Zero new artefacts needed**: .rst2 already on scratch
+  (16:09, 2 min before original write_data); resume deck is a
+  copy + rename of `submit_hmc_T700_Xc0.10_fdseed_resume.sh` with
+  T/XC/RSTFILE/FD_PRED updated.
+
+| metric                  | value                                        |
+|-------------------------|----------------------------------------------|
+| Submit script           | `data/decks/submit_hmc_T500_Xc0.04_fdseed_resume.sh` (new) |
+| RSTFILE                 | `hmc_T500_Xc0.04_fdseed.rst2` (16:09 mtime — newer than .rst1 at 15:51) |
+| EXTRA_PS                | 300 (uses 24 h budget; analogous to T=700 X_c=0.10 resume) |
+| Auto-postprocess        | Yes — writes `output/hmc_T500_Xc0.04_fdseed_resume.{json,png}` |
+| Original window's stats | Kept in `output/hmc_T500_Xc0.04_fdseed.json` (untouched) |
+
+### Queue at end of session — all 48 CPU allocated
+
+| job   | tag                                  | state              | budget | ETA end (24 h cap)      |
+|------:|--------------------------------------|--------------------|-------:|-------------------------|
+| 66002267 | T=500 X_c=0.40 fdseed             | RUNNING (12 h elapsed) | 24 h | 2026-05-11 ~10:30      |
+| 66027275 | T=700 X_c=0.20 fdseed             | RUNNING (7 h elapsed)  | 24 h | 2026-05-11 ~16:00      |
+| 66066111 | T=500 X_c=0.04 fdseed_resume      | PENDING (Priority) | 24 h   | 2026-05-11 ~22:00 if starts shortly |
+
+### Files this entry
+
+- `data/decks/submit_hmc_T500_Xc0.04_fdseed_resume.sh` — new (committed)
+- this CHANGELOG entry (committed)
+
+### Pending follow-ups (combined)
+
+When the three jobs land tomorrow:
+
+| job ID    | scenario       | follow-up |
+|-----------|----------------|-----------|
+| 66002267  | COMPLETED      | Add as 9th red circle → `panel_d_T500_dilute_breakdown_9pt_allfdseed`. |
+| 66002267  | TIMEOUT        | Manual post-process residue (same recipe as X_c=0.30 / 0.05 / 0.06). |
+| 66027275  | plateaus       | Pair with existing T=500 K X_c=0.20 fdseed → `panel_d_T_axis_X_c0.20_2pt`. |
+| 66027275  | does not plateau | Report as upper bound; consider 12 h resume. |
+| 66066111  | plateaus       | Refresh panel (d) 8-pt by substituting `hmc_T500_Xc0.04_fdseed_resume.json` for the original; drop the dilute-edge upper-bound caveat from the caption. |
+| 66066111  | does not plateau | Report combined-window estimate from original + resume; keep upper-bound framing. |
+
+Standing TODOs unchanged: re-explain Fig 2 red dots + CI per
+`report/explainer_fig2_red_dots_CI.md`; refresh Fig 3 mechanism
+panel using `hmc_T500_Xc0.075_eq_cont_final.lmp`.
+
 ## 2026-05-10 (afternoon) — T=700 X_c=0.10 resume PLATEAUED; T-axis 3-pt finalised; X_c=0.20 T=700 K fdseed submitted as Tier-2
 
 ### T=700 X_c=0.10 fdseed_resume COMPLETED naturally at 11:09
