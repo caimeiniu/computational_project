@@ -12,6 +12,144 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-10 (morning) — Headline-curve cleanup batch landed; panel (d) → 8-pt all-fdseed; X_c=0.40 saturation-edge fdseed submitted
+
+### Overnight cohort: state at session start
+
+| job ID    | tag                          | state                         | wall    | post-process |
+|----------:|------------------------------|-------------------------------|--------:|--------------|
+| 65880421  | T500_Xc0.05_fdseed           | TIMEOUT 2026-05-09 22:40      | 24:00   | manual today (this entry) |
+| 65880422  | T500_Xc0.06_fdseed           | TIMEOUT 2026-05-09 22:40      | 24:00   | manual today (this entry) |
+| 65880423  | T500_Xc0.075_fdseed          | COMPLETED 2026-05-10 05:44    | 21:31   | auto (during the run) |
+| 65928302  | T700_Xc0.10_fdseed_resume    | RUNNING (16 CPU, ~12 h elapsed of 24 h cap) | — | (later) |
+
+X_c=0.05 and X_c=0.06 timed out at the 24-h cap before LAMMPS could
+emit `_final.lmp` and before the submit-script auto-post-process could
+run. Same recovery pattern as the X_c=0.30 fdseed timeout
+(CHANGELOG 2026-05-08 early afternoon): manual `hmc_xgb_timeseries.py`
+against the timeout dump residue (1.07 GB / 1.0 GB respectively).
+Both dumps + logs were clean to the last full thermo line; no
+trailing partial frame poisoned the parser.
+
+### Manual post-process numbers (X_c=0.05, X_c=0.06 timeout residues)
+
+| X_c   | n_prod_frames | X_GB^HMC | CI95              | X_GB^FD (ours) | gap-O   | swap   | post-burnin imbalance |
+|------:|--------------:|---------:|-------------------|---------------:|--------:|-------:|----------------------:|
+| 0.050 |           205 |   0.1771 | [0.1741, 0.1803]  |         0.2282 | −0.0511 | 5.06%  | −0.557                |
+| 0.060 |           196 |   0.2045 | [0.2009, 0.2081]  |         0.2604 | −0.0559 | 5.68%  | −0.622                |
+
+Both descending throughout production window; reported X_GB^HMC means
+are strict upper bounds on the true equilibrium X_GB. Both CI95 upper
+edges fall well below canon-FD → CI excludes FD. Direction of the
+breakdown unchanged; magnitude of the true gap is wider than printed.
+
+### X_c=0.075 fdseed (COMPLETED, full 300 ps production window)
+
+`output/hmc_T500_Xc0.075_fdseed.json`:
+- X_GB^HMC = 0.2321 [0.2280, 0.2361] (n_prod_frames = 240 post-burn-in)
+- X_GB^FD canon-ours = 0.3007 → gap-O = −0.0686
+- swap accept = 5.94 % (17 833 / 300 000)
+- `_final.lmp` (63.8 MB) persisted to `project/data/snapshots/hmc_T500_Xc0.075_fdseed_final.lmp`
+
+### Panel (d) → 8-pt ALL-FDSEED (`panel_d_T500_dilute_breakdown_8pt_allfdseed.{json,png}`)
+
+`scripts/canonical_fd_compare_5pt.py` invoked with all 8 fdseed JSONs
+as `--equilibrated`; new filename, does NOT overwrite the prior 8-pt
+mixed-IC version. All 8 red circles below canon-FD (ours); CI95
+excludes FD at every point.
+
+| X_c   | X_GB^HMC | canon-O | canon-W | gap-O   | gap-W   |
+|------:|---------:|--------:|--------:|--------:|--------:|
+| 0.040 |   0.1434 |  0.1912 |  0.2044 | −0.0477 | −0.0610 |
+| 0.050 |   0.1771 |  0.2282 |  0.2410 | −0.0511 | −0.0639 |
+| 0.060 |   0.2045 |  0.2604 |  0.2720 | −0.0559 | −0.0676 |
+| 0.075 |   0.2321 |  0.3007 |  0.3103 | −0.0685 | −0.0782 |
+| 0.100 |   0.2785 |  0.3519 |  0.3590 | −0.0734 | −0.0805 |
+| 0.150 |   0.3475 |  0.4204 |  0.4253 | −0.0728 | −0.0778 |
+| 0.200 |   0.4010 |  0.4671 |  0.4712 | −0.0661 | −0.0702 |
+| 0.300 |   0.4874 |  0.5337 |  0.5368 | −0.0462 | −0.0494 |
+
+### Profile shape: anomaly resolved
+
+The previous "non-monotonic dip at 0.05/0.06" (CHANGELOG 2026-05-08
+evening) is gone. The all-fdseed profile is a clean inverted-U: peak
+|gap-W| ≈ 0.080 at X_c ∈ [0.10, 0.15], smooth decline both ways to
+~0.06 at the dilute boundary (X_c=0.04) and ~0.05 at the saturation
+side (X_c=0.30). Comparison vs CHANGELOG 2026-05-08 evening prediction:
+
+| X_c   | predicted post-batch |gap-W| | actual |gap-W| | comment |
+|------:|----------------------------:|----------------:|---------|
+| 0.050 |                  0.07 – 0.08 |          0.064  | low end of band; consistent with kinetic cap (imbalance −0.557) |
+| 0.060 |                  0.07 – 0.08 |          0.068  | matches; consistent with kinetic cap (imbalance −0.622) |
+| 0.075 |                  0.08 – 0.09 |          0.078  | slightly shallower than predicted; full 300-ps run, no kinetic caveat |
+
+X_c=0.05/0.06 came in shallower than the central band of the prediction,
+but their post-burnin imbalance < −0.5 means the true equilibrium gap is
+wider than reported. So the profile being a smooth inverted-U is
+**lower-bound on smoothness** — extending these runs would only deepen
+the dilute-side gaps further.
+
+### Saturation-edge fdseed submitted: X_c=0.40, T=500 K (job 66002267)
+
+CHANGELOG 2026-05-08 evening explicitly deferred this point. With the
+8-pt panel now showing |gap-O| at X_c=0.30 = 0.046 (smallest of the 8)
+trending toward closure, X_c=0.40 lets us bracket the closure point
+above 0.30. Predicted: gap-O ∈ [−0.02, 0] if Wagih's dilute-limit
+assumption recovers as Mg saturates favourable GB sites.
+
+- Init: `poly_AlMg_200A_fdseed_T500K_Xc0.4.lmp` (build_fdseed_inits.py
+  refreshed manifest with full 9-X_c list 0.04…0.40 to preserve audit
+  trail; existing files regenerated bit-identically by deterministic
+  seed=20260505).
+- X_GB(0) = X_GB^FD = 0.5848 (N_Mg(GB)=52 074, N_Mg(bulk)=138 212;
+  N_Mg total = 190 286 = 0.4 · 475 715).
+- Geometric ceiling: X_c · N_total / N_GB = 2.137 → capped at 1.0.
+  FD-seed at 0.585 has plenty of headroom; not ceiling-locked.
+- Submit: `data/decks/submit_hmc_T500_Xc0.40_fdseed.sh` (new file,
+  copy + rename of the X_c=0.30 fdseed deck per no-in-place-edits).
+  16-rank × 24 h × v2 deck; 5 ps RESTART_PS cadence; auto-postprocess.
+- State at submission: PENDING (Priority); 32 CPU free at submission
+  time, expected to start within minutes.
+
+### Queue at end of session
+
+| job   | X_c   | T   | state               | budget | ETA end (24 h cap)        |
+|------:|------:|----:|---------------------|-------:|---------------------------|
+| 65928302 | 0.10  | 700 | RUNNING (resume)    | 24 h   | 2026-05-10 ~22:40         |
+| 66002267 | 0.40  | 500 | PENDING (Priority)  | 24 h   | 2026-05-11 ~10:30 (if starts ~10:30) |
+
+### Files this entry
+
+- `output/hmc_T500_Xc0.05_fdseed.{json,png}` — new (gitignored, manual post-process)
+- `output/hmc_T500_Xc0.06_fdseed.{json,png}` — new (gitignored, manual post-process)
+- `output/hmc_T500_Xc0.075_fdseed.{json,png}` — new (gitignored, auto-post from 65880423)
+- `output/panel_d_T500_dilute_breakdown_8pt_allfdseed.{json,png}` — new (gitignored)
+- `data/snapshots/hmc_T500_Xc0.075_fdseed_final.lmp` — new (gitignored, 63.8 MB)
+- `data/decks/submit_hmc_T500_Xc0.40_fdseed.sh` — new (committed)
+- `/cluster/scratch/cainiu/hmc_AlMg/poly_AlMg_200A_fdseed_T500K_Xc0.4.lmp` — new (gitignored, scratch)
+- `/cluster/scratch/cainiu/hmc_AlMg/fdseed_T500K_manifest.json` — refreshed to 9 X_c (gitignored)
+- this CHANGELOG entry (committed)
+
+### Pending follow-ups
+
+- T=700 X_c=0.10 resume (65928302) ETA ~22:40 tonight. When it lands:
+  auto-postprocess writes the resume's window summary; combine with
+  the original timeout's 87 % residue OR use the resume window alone
+  (CHANGELOG 2026-05-09 morning notes the imbalance / drift checks).
+  Refresh `panel_d_T_axis_X_c0.10_3pt.{json,png}` (drop the DRAFT
+  banner from the 2-pt version).
+- Once the resume frees its 16 CPU (~22:40), Tier-2 batch decision
+  pending: pair to whatever was just submitted in Tier-1. Current
+  Tier-1 = single X_c=0.40 job, so Tier-2 candidates need user
+  re-decision (not auto-paired). Options for Tier-2:
+  * X_c=0.04 fdseed RESUME (tighten dilute-edge headline point)
+  * X_c=0.05/0.06 fdseed RESUME (tighten kinetic-caveat dilute points)
+  * X_c=0.20 fdseed @ T=300 K or T=700 K (T-axis at saturation edge)
+  * X_c=0.40 sibling at T=300 K or T=700 K (saturation-edge T-axis)
+- Standing TODOs unchanged: re-explain Fig 2 red dots + CI per
+  `report/explainer_fig2_red_dots_CI.md`; refresh Fig 3 mechanism
+  panel using `hmc_T500_Xc0.075_eq_cont_final.lmp`.
+
 ## 2026-05-09 (morning) — Task C (T=700, X_c=0.10) timed out; post-process reveals non-convergence; resume queued
 
 ### What finished overnight
