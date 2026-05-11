@@ -12,6 +12,102 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-11 (late evening) — Dilute-arm break-point sweep: X_c=0.03 + X_c=0.01 fdseed submitted
+
+### Trigger
+
+User: "现在0.04的已经平衡了对吧,那我们要跑一下0.03的吗,这个break的点会在哪."
+
+X_c=0.04 plateau confirmed (CI95 hw 0.00009, Q1->Q5 drift -0.0011, gap_O
+= -0.0601). The headline 9-pt panel (d) has no dilute point below
+X_c=0.04; the question of where the break point sits — i.e., the
+smallest X_c at which HMC and canon-FD become statistically
+indistinguishable — is open. Two competing predictions:
+
+| mechanism                          | gap_O at X_c=0.03 | gap_O at X_c=0.01 | break X_c        |
+|------------------------------------|------------------:|------------------:|------------------|
+| Mg-Mg pair density (∝ X_GB^FD²)    |           -0.037 |            -0.005 | 0.01-0.02        |
+| Linear extrap from (0.04, 0.10) slope |        -0.056 |            -0.048 | <0 (never closes) |
+
+The two scenarios give a factor-of-1.5+ difference in gap at X_c=0.03
+and an order-of-magnitude difference at X_c=0.01.
+
+### Two jobs submitted (user requested X_c=0.03 + X_c=0.01 sweep)
+
+`build_fdseed_inits.py --T 500 --xc-list 0.01,0.03,0.04,0.05,0.06,0.075,0.10,0.15,0.20,0.30,0.40`
+(deterministic seed=20260505; existing X_c get regenerated bit-
+identically, two new X_c added). Per-X_c FD-seed values written to
+`/cluster/scratch/cainiu/hmc_AlMg/fdseed_T500K_manifest.json`:
+
+| X_c   | X_GB^FD canon-ours | N_Mg(GB) | N_Mg(bulk) | total Mg = X_c · N_total | margin to ceiling |
+|------:|-------------------:|---------:|-----------:|-------------------------:|------------------:|
+| 0.010 |             0.0526 |    4 683 |         74 |                   4 757  |            0.0008 |
+| 0.030 |             0.1493 |   13 294 |        977 |                  14 271  |            0.0110 |
+
+| job ID    | tag                              | T (K) | X_c   | FD pred | submit script                                       | state at submit |
+|----------:|----------------------------------|------:|------:|--------:|-----------------------------------------------------|-----------------|
+| 66200505  | T500_Xc0.03_fdseed               | 500   | 0.03  | 0.1493  | data/decks/submit_hmc_T500_Xc0.03_fdseed.sh (new)   | PD              |
+| 66200508  | T500_Xc0.01_fdseed               | 500   | 0.01  | 0.0526  | data/decks/submit_hmc_T500_Xc0.01_fdseed.sh (new)   | PD              |
+
+Both 16-rank × 24 h × `hmc_AlMg_v2.lammps` deck, PROD_PS=300, RESTART_PS=5,
+auto-postprocess to `output/<stub>.{json,png}`. Both decks copied from
+`submit_hmc_T500_Xc0.04_fdseed.sh` per no-in-place-script-edits.
+
+X_c=0.01 caveats documented inline in the deck:
+- closed-box margin to ceiling only 0.0008 (vs the 0.02 "viable
+  threshold" rule of thumb from the X_c=0.04 deck); the descent room
+  from FD to 0 is still 0.0526, so mass-conservation does NOT pin the
+  reading — breakdown is still observable if it persists
+- swap rate expected ~2 % (lowest of any HMC point we've run; scales
+  with sqrt(X_GB^FD)); plateau in 24 h unlikely → plan for a resume
+- N_Mg total = 4 757 only; block-bootstrap noise floor sets CI95 hw
+  ≈ 0.0001 (same order as X_c=0.04 plateau)
+
+### Queue at end of session
+
+| job   | tag                         | state                | budget | ETA end (24 h cap)      |
+|------:|-----------------------------|----------------------|-------:|-------------------------|
+| 66167087 | T500_Xc0.40_fdseed_resume| RUNNING (3 h elapsed) | 24 h   | 2026-05-12 ~18:30          |
+| 66167088 | T700_Xc0.20_fdseed_resume| RUNNING (3 h elapsed) | 24 h   | 2026-05-12 ~18:30          |
+| 66167089 | T500_Xc0.30_fdseed_resume| RUNNING (3 h elapsed) | 24 h   | 2026-05-12 ~18:30          |
+| 66200505 | T500_Xc0.03_fdseed       | PENDING (Priority)   | 24 h   | starts 2026-05-12 ~evening when first resume ends |
+| 66200508 | T500_Xc0.01_fdseed       | PENDING (Priority)   | 24 h   | starts 2026-05-12 ~evening when second resume ends |
+
+Two PD slots = 32 CPU, exceeds the 48 CPU public QOS cap so they will
+not start until the three RUNNING resumes free up CPU (≥1 of them must
+end before the first PD picks up). The two PD jobs will run sequentially
+ish — the second only starts when a second RUNNING job ends. Worst case
+the dilute-arm reads land 2026-05-13 evening.
+
+### Files this entry
+
+- `data/decks/submit_hmc_T500_Xc0.03_fdseed.sh` — new (committed)
+- `data/decks/submit_hmc_T500_Xc0.01_fdseed.sh` — new (committed)
+- `/cluster/scratch/cainiu/hmc_AlMg/poly_AlMg_200A_fdseed_T500K_Xc0.03.lmp` — new (scratch)
+- `/cluster/scratch/cainiu/hmc_AlMg/poly_AlMg_200A_fdseed_T500K_Xc0.01.lmp` — new (scratch)
+- `/cluster/scratch/cainiu/hmc_AlMg/fdseed_T500K_manifest.json` — refreshed (11 entries; existing 9 regenerated identically by deterministic seed) (scratch)
+- this CHANGELOG entry (committed)
+
+### Pending follow-ups
+
+When 66200505 / 66200508 land 2026-05-13:
+
+| scenario at X_c=0.03                           | follow-up |
+|-------------------------------------------------|-----------|
+| plateau (imb -> >-0.3) and gap ≈ -0.037         | pair-density physics confirmed; break point near X_c=0.01-0.02 → maybe one more sweep at X_c=0.02 |
+| plateau but gap ≈ -0.056 (linear-extrap regime) | breakdown does not fade with X_GB^FD² → physics surprise; deeper sweep to X_c=0.005 |
+| UB (likely)                                     | queue X_c=0.03 fdseed_resume next batch; combined-window estimate gives intermediate read |
+
+| scenario at X_c=0.01                           | follow-up |
+|-------------------------------------------------|-----------|
+| plateau with gap CI95 spanning 0 (i.e. |gap|<0.005) | dilute-limit FD recovery confirmed; this IS the break point |
+| plateau with gap < -0.005 (CI95 excludes 0)     | breakdown has a non-pair-density floor; bigger physics story |
+| UB (likely; lowest swap rate of any HMC point)  | queue X_c=0.01 fdseed_resume next batch |
+
+Standing TODOs unchanged: re-explain Fig 2 red dots + CI per
+`report/explainer_fig2_red_dots_CI.md`; refresh Fig 3 mechanism panel
+using `hmc_T500_Xc0.075_eq_cont_final.lmp`.
+
 ## 2026-05-11 (late evening) — Report figure 00 (headline) refreshed for 2026-05-12 advisor meeting
 
 ### Trigger
