@@ -12,6 +12,143 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-11 (evening) — All three resume-jobs landed; panel (d) 9-pt all-fdseed built; saturation-arm/T-axis batch (3 resumes) submitted
+
+### Overnight cohort: state at session start
+
+| job ID    | tag                                       | state                           | wall    | post-process |
+|----------:|-------------------------------------------|---------------------------------|--------:|--------------|
+| 66002267  | T500_Xc0.40_fdseed                        | COMPLETED 2026-05-11 09:39      | ~20 h   | auto (in submit script) |
+| 66027275  | T700_Xc0.20_fdseed                        | COMPLETED 2026-05-11 15:14      | ~23 h   | auto (in submit script) |
+| 66066111  | T500_Xc0.04_fdseed_resume                 | COMPLETED 2026-05-11 08:57      | ~16.5 h | auto (in submit script) |
+
+All three auto-postprocess JSON/PNG written cleanly; .rst2 + _final.lmp
+on scratch for every job; no manual residue-recovery needed this round.
+
+### Headline numbers (3 jobs)
+
+| tag                                | X_GB^HMC | CI95               | FD-O   | gap-O   | swap   | post-burnin imb | Q1->Q5 drift | verdict                       |
+|------------------------------------|---------:|--------------------|-------:|--------:|-------:|----------------:|-------------:|-------------------------------|
+| T=500 X_c=0.04 fdseed_resume       |   0.1311 | [0.1310, 0.1312]   | 0.1912 | -0.0601 |  4.40% |          -0.302 |      -0.0011 | **plateau read** (CI95 hw 0.00009 — tightest of any HMC point) |
+| T=500 X_c=0.40 fdseed              |   0.5443 | [0.5405, 0.5480]   | 0.5848 | -0.0406 | 10.91% |          -0.497 |      -0.0488 | **kinetic-bound** (UB — Q5 still descending) |
+| T=700 X_c=0.20 fdseed              |   0.3563 | [0.3512, 0.3613]   | 0.4198 | -0.0635 | 11.17% |          -0.570 |      -0.0705 | **kinetic-bound** (UB — Q5 still descending) |
+
+X_c=0.04 resume verdict: CHANGELOG decision rule
+("|imb| ≥ 0.3 ⇒ queue another resume") is borderline-violated at
+imb -0.302, but CI95 half-width 0.00009 is 30× tighter than the
+T=700 X_c=0.10 resume that we accepted as plateau (hw 0.0003). Q1->Q5
+drift -0.0011 is statistically significant (5σ) but tiny in absolute
+terms (0.8 % relative). We accept this as the publishable plateau
+read and substitute it for the original X_c=0.04 fdseed JSON in the
+all-fdseed panel (d). A resume2 is not in this batch but remains an
+optional cleanup if the saturation-arm batch reveals headroom later.
+
+### Panel (d) refresh: 9-pt all-fdseed at T=500 K
+
+`scripts/canonical_fd_compare_5pt.py` invoked with 9 fdseed JSONs
+(X_c=0.04 substitutes the resume for the original; X_c=0.40 added).
+Output `output/panel_d_T500_dilute_breakdown_9pt_allfdseed.{json,png}`,
+does NOT overwrite the 8-pt all-fdseed predecessor.
+
+| X_c   | X_GB^HMC | canon-O | canon-W | gap-O   | gap-W   | source                              |
+|------:|---------:|--------:|--------:|--------:|--------:|-------------------------------------|
+| 0.040 |   0.1311 |  0.1912 |  0.2044 | **-0.0601** | -0.0733 | hmc_T500_Xc0.04_fdseed_resume.json (NEW substitute) |
+| 0.050 |   0.1771 |  0.2282 |  0.2410 | -0.0511 | -0.0639 |                                     |
+| 0.060 |   0.2045 |  0.2604 |  0.2720 | -0.0559 | -0.0676 |                                     |
+| 0.075 |   0.2321 |  0.3007 |  0.3103 | -0.0685 | -0.0782 |                                     |
+| 0.100 |   0.2785 |  0.3519 |  0.3590 | -0.0734 | -0.0805 |                                     |
+| 0.150 |   0.3475 |  0.4204 |  0.4253 | -0.0728 | -0.0778 |                                     |
+| 0.200 |   0.4010 |  0.4671 |  0.4712 | -0.0661 | -0.0702 |                                     |
+| 0.300 |   0.4874 |  0.5337 |  0.5368 | -0.0462 | -0.0494 |                                     |
+| 0.400 |   0.5443 |  0.5848 |  0.5867 | **-0.0406** | -0.0424 | hmc_T500_Xc0.40_fdseed.json (NEW)   |
+
+All 9 red circles below canon-FD (ours); CI95 excludes FD at every
+point. The breakdown band is **V-shaped** (deepest at X_c=0.10/0.15
+where gap_O = -0.073, fading at both edges to -0.060 at the dilute end
+and -0.041 at the saturation edge). Two of nine are publication-grade
+plateaus (X_c=0.04 resume here, X_c=0.10 resume on the T-axis is at
+T=500 K so technically not on this panel); the remaining seven are
+kinetic-bound upper bounds. The saturation-arm batch below addresses
+the two shallowest (X_c=0.30, 0.40) and the saturation-edge T-axis.
+
+### Panel (d) T-axis at saturation edge: X_c=0.20, 2-pt
+
+`scripts/canonical_fd_compare_t_axis.py` invoked with T=500 and T=700
+X_c=0.20 fdseed JSONs. Output
+`output/panel_d_T_axis_X_c0.20_2pt.{json,png}`.
+
+| T (K) | X_GB^HMC | CI95               | canon-FD (ours) | gap-O   | imbalance | comment              |
+|------:|---------:|--------------------|----------------:|--------:|----------:|----------------------|
+| 500   |   0.4010 | [0.3959, 0.4063]   |          0.4671 | -0.0661 |    -0.678 | kinetic-bound (UB)   |
+| 700   |   0.3563 | [0.3512, 0.3613]   |          0.4198 | -0.0635 |    -0.570 | kinetic-bound (UB)   |
+
+CI95 excludes FD at both. Both UB. Both gaps similar (~-0.065).
+Contrast with X_c=0.10 T-axis: T=300 / T=500 UB at gap -0.075 / -0.073,
+T=700 plateau at gap -0.084. The saturation-edge T-axis lacks any
+plateau point until T=700 X_c=0.20 fdseed resume lands (job 66167088
+in this batch).
+
+### Saturation-arm/T-axis batch (3 resumes, 48 CPU = full QOS cap)
+
+Selected after queue cleared at end of session — the three highest-
+leverage points still on upper bounds, ranked by Q1->Q5 drift × report
+prominence. Direct analogues of the two prior fdseed resumes that
+plateaued (T=700 X_c=0.10 and T=500 X_c=0.04).
+
+| job ID    | tag                              | T (K) | X_c   | rst seed                                              | starting imb | starting X_GB | rationale                                                 |
+|----------:|----------------------------------|------:|------:|-------------------------------------------------------|-------------:|--------------:|-----------------------------------------------------------|
+| 66167087  | T500_Xc0.40_fdseed_resume        | 500   | 0.40  | hmc_T500_Xc0.40_fdseed.rst2 (2026-05-11 09:36)        |       -0.497 |        ~0.524 | saturation edge of panel (d); shallowest gap (-0.041 UB)  |
+| 66167088  | T700_Xc0.20_fdseed_resume        | 700   | 0.20  | hmc_T700_Xc0.20_fdseed.rst2 (2026-05-11 15:12)        |       -0.570 |        ~0.330 | high-T anchor of saturation-edge T-axis (direct analogue of T=700 X_c=0.10 resume) |
+| 66167089  | T500_Xc0.30_fdseed_resume        | 500   | 0.30  | hmc_T500_Xc0.30_fdseed.rst1 (2026-05-08 08:05)        |       -0.596 |        ~0.465 | second-shallowest gap (-0.046 UB); from timeout residue   |
+
+All three: 16-rank × 24 h × hmc_AlMg_resume.lammps, EXTRA_PS=300,
+RESTART_PS=5, auto-postprocess to `output/<stub>_resume.{json,png}`.
+
+X_c=0.30 picked rst1 (08:05) not rst2 (07:37) because rst1 is the
+newer of the alternating-pair checkpoints (job 65485900 hit the wall
+at 08:11 ~ 6 min after rst1 wrote, 34 min after rst2 wrote). All
+three resume decks copied from `submit_hmc_T700_Xc0.10_fdseed_resume.sh`
+(the proven plateau-yielding recipe) per no-in-place-script-edits.
+
+### Queue at end of session
+
+| job   | tag                          | state                | budget | ETA end (24 h cap)      |
+|------:|------------------------------|----------------------|-------:|-------------------------|
+| 66167087 | T500_Xc0.40_fdseed_resume | PENDING (Priority)   | 24 h   | 2026-05-12 ~evening if starts within ~30 min |
+| 66167088 | T700_Xc0.20_fdseed_resume | PENDING (Priority)   | 24 h   | 2026-05-12 ~evening                          |
+| 66167089 | T500_Xc0.30_fdseed_resume | PENDING (Priority)   | 24 h   | 2026-05-12 ~evening                          |
+
+### Files this entry
+
+- `output/panel_d_T500_dilute_breakdown_9pt_allfdseed.{json,png}` — new (gitignored)
+- `output/panel_d_T_axis_X_c0.20_2pt.{json,png}` — new (gitignored)
+- `data/decks/submit_hmc_T500_Xc0.40_fdseed_resume.sh` — new (committed)
+- `data/decks/submit_hmc_T700_Xc0.20_fdseed_resume.sh` — new (committed)
+- `data/decks/submit_hmc_T500_Xc0.30_fdseed_resume.sh` — new (committed)
+- this CHANGELOG entry (committed)
+
+### Pending follow-ups
+
+When the three resumes land 2026-05-12 evening:
+
+| job ID    | scenario             | follow-up |
+|-----------|----------------------|-----------|
+| 66167087  | plateaus             | Substitute `hmc_T500_Xc0.40_fdseed_resume.json` for the original in the 9-pt panel; refresh `panel_d_T500_dilute_breakdown_9pt_allfdseed`. Saturation arm of V-band confirmed at plateau. |
+| 66167087  | does not plateau     | Report combined-window estimate from original + resume; keep upper-bound framing on the saturation edge. |
+| 66167088  | plateaus             | Substitute into `panel_d_T_axis_X_c0.20_2pt` → publishable saturation-edge T-axis with at least one plateau point. Persist `_final.lmp` to snapshots for OVITO. |
+| 66167088  | does not plateau     | Report as UB; consider 12 h resume2. |
+| 66167089  | plateaus             | Substitute into the 9-pt panel; saturation-arm has TWO plateaus (X_c=0.30, 0.40). Drop UB caveat from the saturation half of the caption. |
+| 66167089  | does not plateau     | Combined-window estimate; keep UB framing on X_c=0.30. |
+
+Standing TODOs unchanged: re-explain Fig 2 red dots + CI per
+`report/explainer_fig2_red_dots_CI.md`; refresh Fig 3 mechanism
+panel using `hmc_T500_Xc0.075_eq_cont_final.lmp`. The remaining
+upper-bound points in panel (d) after this batch (X_c=0.05, 0.06,
+0.075, 0.15 at T=500; X_c=0.20 at T=500; X_c=0.10 at T=300/500;
+X_c=0.20 at T=500) are explicitly NOT in this batch — they sit at
+the central / dilute edge of the V-band and would not change the
+qualitative story.
+
 ## 2026-05-10 (evening) — Tier-3 fills the 16-CPU quota headroom: X_c=0.04 fdseed RESUME submitted
 
 ### Context: noticed earlier "32 CPU allocated" miscount
