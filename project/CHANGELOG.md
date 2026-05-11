@@ -12,6 +12,84 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-11 (late evening) — Report figure 00 (headline) refreshed for 2026-05-12 advisor meeting
+
+### Trigger
+
+User: "报告里面的00图重画一个版本,明天我要去见老师,想先给他看一下,问问他的意见."
+
+The previous `report/figures/00_headline_hmc_vs_wagih_T500.png` (2026-05-02
+evening, simplified to 3-row legend after user feedback "10个 legend, 非常的
+杂乱, 这个图只是要证明 break 了就行了") shows 6 X_c points across mixed IC
+classes: 1 fdseed-verify plateau (X_c=0.05), 5 preseg UB ▽ (X_c=0.075-0.30),
+1 multistart UB □ (X_c=0.10). Methodology drifted to fdseed-only between
+2026-05-07 and 2026-05-11; the headline curve is now 9 fdseed points at
+T=500 K covering X_c ∈ [0.04, 0.40] (panel (d) 9-pt all-fdseed,
+CHANGELOG 2026-05-11 evening).
+
+### What changed
+
+New script `scripts/report_headline_T500_9pt.py` (copy + rename of
+`canonical_fd_compare_5pt_with_multistart.py` per no-in-place-edits).
+Keeps the 2026-05-02 minimal-legend recipe but with updated point
+classification:
+
+- 1 plateau ● at X_c=0.04 (fdseed_resume, CI95 hw 0.00009; the only
+  X_c at T=500 K that has crossed the |imb| < 0.3 plateau threshold)
+- 8 UB ▽ at X_c={0.05, 0.06, 0.075, 0.10, 0.15, 0.20, 0.30, 0.40}
+  (fdseed; post-burnin mean used, same as the 9-pt panel (d) reading,
+  NOT trajectory end value — UB markers co-locate with panel (d) red
+  circles)
+- single canon-FD (ours, n=500) reference curve; KS p=0.89 vs Wagih
+  n=82,646 (Fig 4) → Wagih band omitted
+
+### Output
+
+| file                                                                                  | role          | committed |
+|---------------------------------------------------------------------------------------|---------------|-----------|
+| `scripts/report_headline_T500_9pt.py`                                                 | new figure-00 driver | yes  |
+| `report/figures/00_headline_hmc_vs_wagih_T500_9pt_2026-05-11.png`                     | new headline figure  | yes  |
+| `output/00_headline_hmc_vs_wagih_T500_9pt_2026-05-11.json`                            | traceability JSON    | gitignored |
+| `report/figures/00_headline_hmc_vs_wagih_T500.png`                                    | OLD figure preserved | unchanged |
+
+### Visual summary (for the advisor)
+
+| X_c   | X_GB^HMC | canon-FD (ours) | gap_O   | imbalance | class    |
+|------:|---------:|-----------------:|---------:|----------:|----------|
+| 0.040 |   0.1311 |           0.1912 | -0.0601 |    -0.302 | plateau ● |
+| 0.050 |   0.1771 |           0.2282 | -0.0511 |    -0.557 | UB ▽     |
+| 0.060 |   0.2045 |           0.2604 | -0.0559 |    -0.622 | UB ▽     |
+| 0.075 |   0.2321 |           0.3007 | -0.0685 |    -0.627 | UB ▽     |
+| 0.100 |   0.2785 |           0.3519 | -0.0734 |    -0.691 | UB ▽     |
+| 0.150 |   0.3475 |           0.4204 | -0.0728 |    -0.687 | UB ▽     |
+| 0.200 |   0.4010 |           0.4671 | -0.0661 |    -0.678 | UB ▽     |
+| 0.300 |   0.4874 |           0.5337 | -0.0462 |    -0.596 | UB ▽     |
+| 0.400 |   0.5443 |           0.5848 | -0.0406 |    -0.497 | UB ▽     |
+
+9 of 9 points sit below Wagih FD across X_c ∈ [0.04, 0.40]; the gap
+is V-shaped (deepest at X_c=0.10/0.15 ≈ -0.073, fading at both edges
+to -0.060 dilute and -0.041 saturation). 8 of 9 are still UB (true
+equilibrium even lower than shown); the saturation-arm resume batch
+(jobs 66167087/88/89, lands 2026-05-12 evening) is expected to convert
+X_c=0.30, X_c=0.40 to plateaus and to publish a saturation-edge T=700
+plateau on the T-axis. The figure is forward-compatible — refresh the
+PNG after the batch lands by substituting the relevant resume JSONs
+into `--plateau` / `--upper-bound`.
+
+### Files this entry
+
+- `scripts/report_headline_T500_9pt.py` — new (committed)
+- `report/figures/00_headline_hmc_vs_wagih_T500_9pt_2026-05-11.png` — new (committed)
+- this CHANGELOG entry (committed)
+
+### Pending follow-ups
+
+- 2026-05-12 morning advisor meeting; collect feedback on the figure
+  (style, presentation, claim wording) and log to a new CHANGELOG
+  entry after the meeting.
+- When saturation-arm batch lands 2026-05-12 evening, decide whether
+  to regenerate the 00 figure with X_c=0.30/0.40 promoted to plateau.
+
 ## 2026-05-11 (evening) — All three resume-jobs landed; panel (d) 9-pt all-fdseed built; saturation-arm/T-axis batch (3 resumes) submitted
 
 ### Overnight cohort: state at session start
