@@ -12,6 +12,101 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-12 (morning) — Overnight saturation-arm/T-axis resume1 trio landed (all still UB); X_c=0.30 resume2 submitted to fill the 16-CPU slot
+
+### Trigger
+
+User: "工作目录在Computational_modeling,可以再提交一个任务."
+
+Quota at session start: 32/48 CPU used by the dilute-arm pair
+(66200505 X_c=0.03 RUNNING 6 h, 66200508 X_c=0.01 RUNNING 5 h, both
+24 h cap). 16 CPU free → room for exactly one more 16-rank
+hmc_AlMg_resume.lammps job.
+
+Three overnight resume1 jobs all completed cleanly (no timeout this
+round, _final.lmp written for all three; auto-postprocess produced
+fresh `_resume.json` for each):
+
+| job ID    | tag                                | wall    | end time     | result file                                |
+|----------:|------------------------------------|--------:|--------------|--------------------------------------------|
+| 66167089  | T500_Xc0.30_fdseed_resume          | 11:15:28 | 2026-05-12 04:08 | output/hmc_T500_Xc0.30_fdseed_resume.json  |
+| 66167087  | T500_Xc0.40_fdseed_resume          | 12:15:42 | 2026-05-12 05:08 | output/hmc_T500_Xc0.40_fdseed_resume.json  |
+| 66167088  | T700_Xc0.20_fdseed_resume          | 12:21:52 | 2026-05-12 05:14 | output/hmc_T700_Xc0.20_fdseed_resume.json  |
+
+### Resume1 readings (all still UB)
+
+Quartile drift is signed Q5−Q1 (a positive value here means the
+trajectory is rebounding above its post-burnin mean rather than
+sitting flat); imbalance_signed is fwd/(fwd+rev) − rev/(fwd+rev),
+threshold |imb| < 0.3 for plateau.
+
+| tag                       | x_GB^HMC (CI95)              | gap vs FD | imb_signed | drift Q1→Q5 | accept | classification |
+|---------------------------|-------------------------------|----------:|-----------:|-------------:|-------:|----------------|
+| T500_Xc0.30_resume1       | 0.4613 [0.4609, 0.4616]      | -0.0724  |    -0.604 |       +0.003 | 9.95 %  | UB (descent room recovered: was 0.4874 from original timeout, dropped 0.026, but Q5 rebounded above Q4 → bounces around descending mean, not plateaued) |
+| T500_Xc0.40_resume1       | 0.5209 [0.5207, 0.5211]      | -0.0639  |    -0.423 |       +0.006 | 10.64 % | UB (was 0.5443 from original; gap deepened by 0.023; closer to plateau threshold than X_c=0.30 but Q5 also rebounds) |
+| T700_Xc0.20_resume1       | 0.3261 [0.3258, 0.3264]      | -0.0937  |    -0.460 |       +0.001 | 10.99 % | UB (gap is the deepest of any HMC point we have; Q5−Q1 = +0.001 looks plateau-like but imb still > 0.3) |
+
+All three are now strictly tighter upper bounds than the panel (d)
+all-fdseed 9-pt headline (CHANGELOG 2026-05-11 evening), but no
+class change yet. Headline figure 00 stays as 1 plateau ● + 8 UB ▽
+until at least one of these converts.
+
+### Decision: which point gets the 16-CPU slot today?
+
+Three candidates, each is the natural single-job extension of the
+respective resume1:
+
+| candidate          | starting imb | descent room left | headline payoff |
+|--------------------|--------------|--------------------|-----------------|
+| T500_Xc0.30 resume2 | -0.604 (deepest) | high              | saturation interior; biggest panel-d effect |
+| T500_Xc0.40 resume2 | -0.423           | medium            | saturation edge; pairs with X_c=0.30 |
+| T700_Xc0.20 resume2 | -0.460 (drift ~0) | low              | T-axis at 700 K; would give T=700 K dual point with X_c=0.10 |
+
+Picked **T500_Xc0.30 resume2** (per user choice via AskUserQuestion):
+deepest residual imbalance → most descent room → best single use of
+the 16-CPU slot. The other two remain pending follow-ups (likely
+batch-submitted later when the dilute-arm pair frees up CPU).
+
+### Job submitted
+
+| job ID    | tag                              | T (K) | X_c   | FD pred | submit script                                            | state at submit |
+|----------:|----------------------------------|------:|------:|--------:|----------------------------------------------------------|-----------------|
+| 66261260  | T500_Xc0.30_fdseed_resume2       | 500   | 0.30  | 0.5337  | data/decks/submit_hmc_T500_Xc0.30_fdseed_resume2.sh (new) | PD (Priority — sits at 48-CPU cap; starts when first dilute-arm job ends ~04:08–05:09 next day) |
+
+`hmc_AlMg_resume.lammps`, EXTRA_PS=300, RESTART_PS=5, 16-rank × 24 h.
+Restart seed is `hmc_T500_Xc0.30_fdseed_resume.rst2` (mtime 04:08, the
+end-of-resume1 checkpoint; rst1 is at 03:56). Output stub
+`hmc_T500_Xc0.30_fdseed_resume2`; auto-postprocess to
+`output/hmc_T500_Xc0.30_fdseed_resume2.{json,png}`. New deck copied
+from `submit_hmc_T500_Xc0.30_fdseed_resume.sh` per
+no-in-place-script-edits; only header comment, RSTFILE, OUTSTUB, and
+job-name updated.
+
+### Files this entry
+
+- `data/decks/submit_hmc_T500_Xc0.30_fdseed_resume2.sh` — new (committed)
+- this CHANGELOG entry (committed)
+
+### Pending follow-ups
+
+When 66261260 lands (ETA ~2026-05-13 evening, since it has to wait
+for one of the dilute-arm jobs to free CPU first):
+
+| scenario at X_c=0.30 resume2                           | follow-up |
+|--------------------------------------------------------|-----------|
+| plateau (\|imb\| < 0.3 AND \|drift\| < 0.003)            | promote X_c=0.30 from ▽ to ● in panel (d); refresh figure 00; saturation interior anchor settled |
+| imb shrinks (e.g. -0.4 ish) but still UB; gap deepens further | queue X_c=0.30 resume3 for next session; if gap pushes below -0.10 the breakdown band gets dramatically wider on the right |
+| imb stays near -0.6, mean roughly unchanged             | physics surprise — resume not buying convergence at this X_c. Reconsider whether saturation interior needs a different IC strategy (e.g. TI from X_c=0.40 plateau). |
+
+Outstanding from yesterday (unchanged):
+- X_c=0.40 resume2 — queue when CPU frees up (likely tomorrow).
+- T=700 X_c=0.20 resume2 — closest to plateau of the three, but lowest priority; queue after X_c=0.30/0.40.
+- X_c=0.03 + X_c=0.01 fdseed (66200505/66200508) — still RUNNING; their break-point readings drive whether the dilute arm gets extended to X_c=0.005 or sealed off at 0.01.
+- Standing TODOs: re-explain Fig 2 red dots + CI per
+  `report/explainer_fig2_red_dots_CI.md`; refresh Fig 3 mechanism panel
+  using `hmc_T500_Xc0.075_eq_cont_final.lmp`; collect advisor feedback
+  from today's meeting.
+
 ## 2026-05-11 (late evening) — Dilute-arm break-point sweep: X_c=0.03 + X_c=0.01 fdseed submitted
 
 ### Trigger
