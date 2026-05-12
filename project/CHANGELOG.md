@@ -12,6 +12,87 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-12 (afternoon) — Pt(Au) second-alloy pipeline scaffolded; Wagih DB has the exact matching reference for KS test
+
+### Trigger
+
+User: "根据现在的Al-Mg构建另一个3D polycrystal Au-Pt, 新建一个文件夹存放
+相关的脚本和文件, 目标是也构建一个和Wagih的同分布的3D polycrystal."
+Scope clarification: "最终生成一个和wagih一样的结构, KS验证同分布以后就
+准备交给同事继续接下来的工作了." → set up full pipeline through KS test,
+then hand off.
+
+### Direction flipped Au(Pt) → Pt(Au) after tar inventory
+
+Initial plan was Au-host, Pt-solute (Au(Pt)). After downloading O'Brien
+2017 PtAu.eam.alloy from NIST, tar grep on
+`/cluster/scratch/cainiu/wagih_zenodo/learning_segregation_energies.tar.bz2`
+found Wagih's matching reference at
+`Pt/Au_2017--OBrien-C-J-Barr-C-M-Price-P-M-et-al--Pt-Au/Pt_Au_20nm_GB_segregation.dump`
+— i.e. **Pt-host with Au-solute computed with the same O'Brien 2017 EAM**.
+No Au-host counterpart with this potential surfaced in the first 30
+matches. Confirmed direction switch with user and flipped everything to
+Pt(Au) so the KS comparison is apples-to-apples (same potential, same
+direction) rather than cross-direction extrapolation.
+
+### Files added (new folder `project/PtAu/`, mirrors Al-Mg layout)
+
+- `data/potentials/PtAu.eam.alloy` (875 KB, O'Brien 2017, downloaded from
+  NIST). Header confirms `2 Pt Au`, Pt eq. lattice 3.9764 Å, Au eq.
+  lattice 4.1537 Å.
+- `data/decks/anneal_PtAu.lammps` — copy of `anneal_AlMg.lammps` with
+  `pair_style eam/fs` → `eam/alloy`, defaults `EL1=Pt, EL2=Au`,
+  `MASS1=195.0900, MASS2=196.9665`, `T_HOLD=816` (= 0.4·T_melt(Pt=2041 K)).
+- `data/decks/submit_anneal_PtAu_100A.sh` — 16-rank SLURM submit,
+  scratch dir `prototype_PtAu_100A`, 6 h budget (vs 4 h for Al-Mg — extra
+  cool ps because higher T_hold).
+- `data/decks/submit_delta_e_PtAu_100A.sh` — n=500 sampling, auto-runs
+  `gb_identify.py --lattice-a 3.9764` if mask missing.
+- `scripts/sample_delta_e_PtAu.py` — copy of canonical
+  `scripts/sample_delta_e.py` with `pair_style eam/fs` → `eam/alloy` at
+  line 454 and `_DEFAULT_ELEMENTS = ("Pt","Au")`. Syntax + --help verified.
+- `README.md` — teammate handoff doc with pipeline commands, parameter
+  table, KS reference extraction recipe.
+
+### Generic scripts reused verbatim (no edits)
+
+`project/scripts/{generate_polycrystal,gb_identify,fit_delta_e_spectrum,
+fermi_dirac_predict,compare_vs_wagih,bootstrap_vs_wagih}.py` — all are
+already alloy-agnostic via CLI flags. Per the
+`feedback_no_in_place_script_edits` memory rule, only the two files that
+hardcode `pair_style eam/fs` (the canonical sampler + the Al-Mg deck)
+were copied.
+
+### Polycrystal generated and validated
+
+```
+python project/scripts/generate_polycrystal.py \
+  --structure fcc --box 100 --grains 8 --lattice-a 3.9764 \
+  --structure-seed 1 --types 2 --out poly_Pt_100A_8g.lmp
+```
+
+Wrote `/cluster/scratch/cainiu/prototype_PtAu_100A/poly_Pt_100A_8g.lmp`:
+**62,096 atoms** in 100×100×100 Å, 8 grains, 2.4% deficit from GB
+close-pair removal (vs 1.6% for Al-Mg prototype — slightly higher because
+smaller lattice constant gives denser packing → more close pairs to
+remove). Type-1 only, x/y/z fully cover the box, density 0.0621 Å⁻³
+(ideal 0.0636 = 4/a³).
+
+### Holds before sbatch
+
+User signoff pending before submitting the anneal job. Files / parameters
+visible above for review. All canonical Al-Mg infrastructure untouched.
+
+### Pending follow-ups
+
+- Submit `submit_anneal_PtAu_100A.sh` after sign-off (~1 h on 16 cores).
+- After anneal: `gb_identify.py` (auto via delta_e shell) → sample_delta_e
+  (~15 min) → fit (seconds) → KS test against extracted Wagih dump.
+- Extract Wagih reference from tar (small surgical extract, ~10–50 MB
+  out of the 3.8 GB archive — `tar -xjf ... <single-path>` is fast).
+- Update `reference_wagih_si.md` memory with the Pt(Au) entry once we
+  have read Wagih's SI Fig 4 / Fig 9 panel for the reported (μ, σ, α).
+
 ## 2026-05-12 (morning) — Overnight saturation-arm/T-axis resume1 trio landed (all still UB); X_c=0.30 resume2 submitted to fill the 16-CPU slot
 
 ### Trigger
