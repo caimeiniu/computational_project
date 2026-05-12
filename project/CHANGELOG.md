@@ -24,16 +24,68 @@ then hand off.
 
 ### Direction flipped Au(Pt) → Pt(Au) after tar inventory
 
-Initial plan was Au-host, Pt-solute (Au(Pt)). After downloading O'Brien
-2017 PtAu.eam.alloy from NIST, tar grep on
+Initial plan was Au-host, Pt-solute (Au(Pt)) because Au is the larger,
+softer atom and the "big host, small solute" framing is the usual default
+for size-mismatch-driven segregation. After downloading O'Brien 2017
+PtAu.eam.alloy from NIST, a tar grep on
 `/cluster/scratch/cainiu/wagih_zenodo/learning_segregation_energies.tar.bz2`
-found Wagih's matching reference at
-`Pt/Au_2017--OBrien-C-J-Barr-C-M-Price-P-M-et-al--Pt-Au/Pt_Au_20nm_GB_segregation.dump`
-— i.e. **Pt-host with Au-solute computed with the same O'Brien 2017 EAM**.
-No Au-host counterpart with this potential surfaced in the first 30
-matches. Confirmed direction switch with user and flipped everything to
-Pt(Au) so the KS comparison is apples-to-apples (same potential, same
-direction) rather than cross-direction extrapolation.
+returned 30 Au/Pt-matching paths — every one of them under `Pt/...`. The
+specific match for our EAM is
+`Pt/Au_2017--OBrien-C-J-Barr-C-M-Price-P-M-et-al--Pt-Au/Pt_Au_20nm_GB_segregation.dump`,
+i.e. **Pt-host with Au-solute computed with the same O'Brien 2017 EAM
+file we just downloaded**. A second, longer-running grep finalized later
+in the session confirmed **no `Au/` host directory exists at all** in
+Wagih's database — the alloy is one-directional in the tar, Pt(Au) only.
+
+**Implication:** sticking with Au(Pt) would have left the KS-test step
+with no per-site Wagih reference; only the SI-reported (μ, σ, α) for the
+Au-host panel (if any) could be compared, and even those would be on a
+potential we don't have on disk. Flipping to Pt(Au) makes the KS
+comparison apples-to-apples — same potential file, same host/solute
+direction, direct `scipy.stats.ks_2samp` on per-site arrays. Confirmed
+the switch with user before any file edits were finalized; rolled the
+folder name `AuPt/` → `PtAu/` (host-first convention matching `AlMg`),
+the polycrystal from Au at a=4.1537 Å → Pt at a=3.9764 Å (EAM-equilibrium
+lattices read from the file, not literature room-T values), and all
+defaults inside the deck + driver. See
+[[reference_wagih_zenodo_layout]] memory for the general "grep tar
+before picking host direction" rule learned from this incident.
+
+### Why pair_style flips: eam/alloy vs eam/fs
+
+Both are EAM (Embedded Atom Method) in LAMMPS with the same total-energy
+form, `E = Σ F_i(ρ_i) + ½ Σ φ_ij(r_ij)` (embedding energy of atom i in
+background density ρ_i, plus pair term). The **only** difference is how
+ρ_i is constructed:
+
+| pair_style | ρ_j contribution depends on | density functions per system | file ext |
+|---|---|---|---|
+| `eam/alloy` (Daw-Baskes setfl) | element of neighbor j only | one ρ per element | `.eam.alloy` |
+| `eam/fs` (Finnis-Sinclair extended setfl) | elements of **both** i and j | one ρ per **(i, j) pair** | `.eam.fs` |
+
+`eam/fs` has an extra layer of freedom (asymmetric Al→Mg vs Mg→Al
+densities); `eam/alloy` collapses that to a single per-element function.
+For single-element systems they're mathematically equivalent — the
+distinction only matters in alloys. Etymology: Daw & Baskes proposed EAM
+in 1984 from effective-medium theory; Finnis & Sinclair independently
+proposed the FS form the **same year** from tight-binding 2nd-moment
+arguments, with the embedding function constrained to `F(ρ) ∝ −√ρ`. LAMMPS
+exposes both as separate `pair_style` strings because the **file formats
+differ** — `eam/fs` files carry the extra per-pair ρ columns that
+`eam/alloy` files don't.
+
+**Consequence for us:** Mendelev 2009 Al-Mg was fit in FS form
+(`Al-Mg.eam.fs`); O'Brien 2017 PtAu was fit in standard setfl
+(`PtAu.eam.alloy`). LAMMPS will refuse to read one with the other's
+pair_style — file column counts don't match. So the Pt(Au) deck and
+driver MUST switch `pair_style eam/fs` → `eam/alloy`. The Python pipeline
+(`generate_polycrystal.py`, `gb_identify.py`, `fit_delta_e_spectrum.py`,
+…) is alloy-agnostic — only the LAMMPS-facing strings change. Concretely:
+- `anneal_AlMg.lammps:61` ↔ `anneal_PtAu.lammps:70`
+- `sample_delta_e.py:454` ↔ `sample_delta_e_PtAu.py:466` (line shifted by added context in the docstring)
+
+That's the entire substantive code delta. Everything else is parameter
+defaults (Au→Pt elements, masses, lattice, T_hold) plus rename plumbing.
 
 ### Files added (new folder `project/PtAu/`, mirrors Al-Mg layout)
 
@@ -78,16 +130,23 @@ smaller lattice constant gives denser packing → more close pairs to
 remove). Type-1 only, x/y/z fully cover the box, density 0.0621 Å⁻³
 (ideal 0.0636 = 4/a³).
 
-### Holds before sbatch
+### Anneal submitted (job 66279426)
 
-User signoff pending before submitting the anneal job. Files / parameters
-visible above for review. All canonical Al-Mg infrastructure untouched.
+After user sign-off: `sbatch submit_anneal_PtAu_100A.sh` → job
+**66279426 anneal_PtAu_100A PENDING**. All 48 CPU of the public QOS cap
+are currently held by three RUNNING `hmc_AlMg` jobs (X_c=0.30 resume2,
+X_c=0.01 fdseed, X_c=0.03 fdseed); the PtAu anneal queues until one of
+them releases its 16-rank slot. Earliest natural release is in ~14 h
+when X_c=0.03 hits its 24 h cap.
+
+Commit: `f42ab35` on branch `cainiu` (7 files, 8185 insertions). Not
+pushed.
 
 ### Pending follow-ups
 
-- Submit `submit_anneal_PtAu_100A.sh` after sign-off (~1 h on 16 cores).
-- After anneal: `gb_identify.py` (auto via delta_e shell) → sample_delta_e
-  (~15 min) → fit (seconds) → KS test against extracted Wagih dump.
+- Anneal job 66279426 starts → on completion auto-process (per
+  [[feedback_no_poll_jobs]]): gb_identify (auto via delta_e shell) →
+  sample_delta_e (~15 min) → fit (seconds) → KS test.
 - Extract Wagih reference from tar (small surgical extract, ~10–50 MB
   out of the 3.8 GB archive — `tar -xjf ... <single-path>` is fast).
 - Update `reference_wagih_si.md` memory with the Pt(Au) entry once we
