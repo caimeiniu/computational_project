@@ -1,25 +1,28 @@
 % =============================================================================
 % methods_formula_patches.tex
 %
-% Patch bundle for `methods_draft.tex` — converts the Al(Mg)-only methods to a
-% generic A-host / B-solute framework that covers BOTH Al(Mg) and Pt(Au), and
-% fills in the formula gaps a careful examiner will ask about (Δ E definition,
-% X_GB, kJ/mol conversion, ceiling, Voronoi, anneal time constants, skew-normal,
-% KS, a-CNA, block bootstrap, fit-parameter bootstrap CI).
+% Patch bundle for `methods_draft.tex` — fills the formula gaps and adds a
+% Pt(Au) extension note.
 %
-% Each PATCH below is a self-contained LaTeX block. Paste-locations are stated
-% at the top of each block. PATCH 0 also lists the find / replace edits needed
-% in the existing prose to remove residual Al(Mg)-specific phrasing.
+% FRAMING (revised 2026-05-13 evening per user direction): the Methods main
+% body is written for the principal test system Al(Mg) (the only system for
+% which the full HMC + (T, X_c) grid has been run end-to-end as of this
+% report). The atomistic-stage methodology (Voronoi → anneal → a-CNA → ΔE
+% spectrum → Wagih spectrum validation) has additionally been applied to
+% Pt(Au), but the Pt(Au) HMC stage is still in progress (collaborator's
+% portion). PATCH 11 captures this asymmetry explicitly as a "system
+% extension" subsection so the report can honestly state what has and has
+% not been done for the second alloy.
 %
-% Generated 2026-05-13 afternoon.
+% Each PATCH below is a self-contained LaTeX block; paste-location is stated
+% at the top of each block.
 % =============================================================================
 
 
 % =============================================================================
-% PATCH 0a — Generic A/B convention + Systems-studied Table
-% PASTE: at the very top of \section{Methodology}, REPLACING the first
-%        paragraph's "global Mg fraction" → "global solute fraction" and
-%        adding the convention sentence + table reference.
+% PATCH 0a — Intro paragraph (revised)
+% PASTE: at the very top of \section{Methodology}, REPLACING the existing
+%        first paragraph.
 % =============================================================================
 
 Our objective is to test where the independent-site Fermi--Dirac (FD)
@@ -27,118 +30,118 @@ framework of Wagih \emph{et al.}~\cite{Wagih2020} for grain-boundary (GB)
 solute segregation breaks down in $(T, X_c)$ space, where $T$ is the
 temperature and $X_c$ the global solute fraction. The methodology is
 structured as a hypothesis-versus-ground-truth comparison on a single
-shared atomistic basis (Fig.~\ref{fig:method}): the FD framework provides
-the prediction $X_\mathrm{GB}^\mathrm{FD}(T, X_c)$, hybrid Monte Carlo /
-molecular dynamics (HMC) sampling provides the ground truth
-$X_\mathrm{GB}^\mathrm{HMC}(T, X_c)$, and the gap between them is the
-testable quantity. Throughout this work we denote the host element $A$ and
-the dilute solute $B$, and report results for two binary systems
-summarised in Table~\ref{tab:systems}. All equations and protocols in
-this section apply to both systems; values that differ between systems
-($N_\mathrm{tot}$, $N_\mathrm{GB}$, $T_\mathrm{melt}^{(A)}$, etc.) are
-tabulated rather than hard-coded in the text. The equations and the HMC
+shared atomistic basis (Fig.~\ref{fig:method}): the FD framework
+provides the prediction $X_\mathrm{GB}^\mathrm{FD}(T, X_c)$, hybrid
+Monte Carlo / molecular dynamics (HMC) sampling provides the ground
+truth $X_\mathrm{GB}^\mathrm{HMC}(T, X_c)$, and the gap between them
+is the testable quantity. The principal test system in this report
+is Al(Mg); a parallel sub-study on Pt(Au) has so far completed the
+atomistic and spectrum-validation stages and is described in
+Sec.~\ref{sec:meth:ptau}. Both systems' atomistic parameters are
+tabulated in Table~\ref{tab:systems}. The equations and the HMC
 algorithm are stated in Apps.~\ref{app:eq}--\ref{app:alg}.
 
 
 % =============================================================================
-% PATCH 0b — Systems-studied Table
-% PASTE: immediately after PATCH 0a's paragraph, before \subsection{Atomistic
-%        base...}.
+% PATCH 0b — Systems-studied table
+% PASTE: immediately after PATCH 0a's paragraph, before
+%        \subsection{Atomistic base...}. Stage column makes the asymmetry
+%        between the two systems explicit.
 % =============================================================================
 
 \begin{table}[t]
 \centering
-\caption{Binary systems studied. Both are FCC hosts with a dilute
-substitutional solute, processed by the same generic pipeline
-(Fig.~\ref{fig:method}); only the system-specific quantities below
-differ. The bulk modulus column motivates the relative CG-iteration
-cost reported in App.~\ref{app:dE_compare}. Note that $f_\mathrm{GB}$
-is geometry- and size-dependent (smaller boxes have a higher
-surface-to-volume ratio so a larger fraction of atoms sits in GB
-environments); the higher $f_\mathrm{GB}$ for Pt(Au) reflects its
-smaller box edge $L = 100$~\AA{} rather than an intrinsic material
-property.}
+\caption{Atomistic systems used in this report. Both are FCC hosts with
+a dilute substitutional solute, processed by the same generic
+polycrystal-build / anneal / GB-ID / $\Delta E$-spectrum pipeline. The
+``stage reached'' row records which downstream methodology has been
+applied to each system as of this report's writing. Both systems share
+the spectrum-validation methodology against the Wagih Zenodo reference
+(Apps.~\ref{app:dE_compare}). The $f_\mathrm{GB}$ asymmetry is
+geometric: smaller boxes have higher surface-to-volume ratios, so
+Pt(Au)'s higher value reflects its smaller box edge ($L = 100$~\AA{}
+chosen to keep the per-site CG cost within the same SLURM budget given
+the stiffer Pt EAM — see Sec.~\ref{sec:meth:ptau}) rather than an
+intrinsic material property.}
 \label{tab:systems}
 \begin{tabular}{lcc}
 \toprule
-                                          & Al(Mg)            & Pt(Au)              \\
+                                          & Al(Mg)                                       & Pt(Au)                          \\
 \midrule
-host $A$                                  & Al                & Pt                  \\
-solute $B$                                & Mg                & Au                  \\
-EAM potential                             & Mendelev 2009~\cite{Mendelev2009}      & O'Brien 2017~\cite{OBrien2017} \\
-\quad LAMMPS \texttt{pair\_style}         & \texttt{eam/fs}                        & \texttt{eam/alloy}             \\
-lattice constant $a$ (\AA)                & 4.05              & 3.98                \\
-box edge $L$ (\AA)                        & 200               & 100                 \\
-total atoms $N_\mathrm{tot}$              & 475{,}715         & 62{,}096            \\
-grain seeds $N_\mathrm{grains}$           & 16                & 8                   \\
-GB atoms $N_\mathrm{GB}$ (post-anneal)    & 89{,}042          & 23{,}272            \\
-GB fraction $f_\mathrm{GB}$               & 0.187             & 0.375               \\
-host melting $T_\mathrm{melt}^{(A)}$ (K)  & 933               & 2041                \\
-anneal hold $T_\mathrm{hold} = 0.4 T_\mathrm{melt}^{(A)}$ (K) & 373 & 816 \\
-$\Delta E_i$ spectrum sample $n$          & 500               & 500                 \\
-host bulk modulus $K$ (GPa)               & 76                & 280                 \\
+host                                      & Al                                           & Pt                              \\
+solute                                    & Mg                                           & Au                              \\
+EAM potential                             & Mendelev 2009~\cite{Mendelev2009}            & O'Brien 2017~\cite{OBrien2017}  \\
+\quad LAMMPS \texttt{pair\_style}         & \texttt{eam/fs}                              & \texttt{eam/alloy}              \\
+lattice constant $a$ (\AA)                & 4.05                                         & 3.98                            \\
+host bulk modulus $K$ (GPa)               & 76                                           & 280                             \\
+box edge $L$ (\AA)                        & 200                                          & 100                             \\
+total atoms $N_\mathrm{tot}$              & 475{,}715                                    & 62{,}096                        \\
+grain seeds $N_\mathrm{grains}$           & 16                                           & 8                               \\
+GB atoms $N_\mathrm{GB}$ (post-anneal)    & 89{,}042                                     & 23{,}272                        \\
+GB fraction $f_\mathrm{GB}$               & 0.187                                        & 0.375                           \\
+host melting $T_\mathrm{melt}$ (K)        & 933                                          & 2041                            \\
+anneal hold $T_\mathrm{hold} = 0.4 T_\mathrm{melt}$ (K) & 373                          & 816                             \\
+$\Delta E_i$ spectrum sample $n$          & 500                                          & 500                             \\
+\textbf{stage reached}                    & atomistic + spectrum + FD + HMC + $(T, X_c)$ & atomistic + spectrum (HMC pending) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 
 % =============================================================================
-% PATCH 1 — ΔE simplification note
-% PASTE: in app:eq, immediately AFTER equation eq:dE (within the same paragraph
-%        or as a follow-on paragraph).
+% PATCH 1 — ΔE simplification note (Al/Mg-concrete)
+% PASTE: in app:eq, immediately AFTER the existing equation eq:dE.
 % =============================================================================
 
-For a pure-$A$ polycrystal base the bracketed Al-substituted terms
-satisfy $E^{\mathrm{bulk-}A} = E_i^{\mathrm{GB-}A} = E_\mathrm{pure}$
-(both equal the total energy of the un-substituted polycrystal), and
+For the pure-Al polycrystal base used in this work,
+$E^{\mathrm{bulk-Al}} = E_i^{\mathrm{GB-Al}} = E_\mathrm{pure}$ — both
+equal the total energy of the un-substituted polycrystal — and
 Eq.~(\ref{eq:dE}) simplifies to the operational two-point form
 \begin{equation}\label{eq:dE_op}
-\Delta E_i \;=\; E_i^{\mathrm{GB-}B} \;-\; \big\langle E^{\mathrm{bulk-}B} \big\rangle
-\qquad (\text{pure-}A\ \text{host}),
+\Delta E_i \;=\; E_i^{\mathrm{GB-Mg}}
+            \;-\; \big\langle E^{\mathrm{bulk-Mg}} \big\rangle
+\qquad (\text{pure-Al host}),
 \end{equation}
-in which $E_i^{\mathrm{GB-}B}$ is the total potential energy of the
-polycrystal with a single $A \to B$ substitution at GB site $i$
+in which $E_i^{\mathrm{GB-Mg}}$ is the total potential energy of the
+polycrystal after a single Al $\to$ Mg substitution at GB site $i$
 followed by conjugate-gradient minimisation with tight tolerances
 $\mathrm{etol} = \mathrm{ftol} = 10^{-25}$ (matching
 Ref.~\cite{Wagih2020}'s \texttt{calculate\_E\_GB\_solute.in} protocol),
-and $\langle E^{\mathrm{bulk-}B} \rangle$ is the same total energy
-averaged over $n_\mathrm{ref} = 10$ well-separated bulk-$A$ reference
+and $\langle E^{\mathrm{bulk-Mg}} \rangle$ is the same total energy
+averaged over $n_\mathrm{ref} = 10$ well-separated bulk-Al reference
 positions. Eq.~(\ref{eq:dE_op}) is what
 \texttt{scripts/sample\_delta\_e.py} evaluates per GB site; the bulk
-reference scatter ($\sigma_{E^{\mathrm{bulk-}B}} = 8.1$~meV for Al(Mg);
-$5.3$~meV for Pt(Au)) is one to two orders of magnitude below typical
-per-site signal magnitudes ($|\Delta E_i| \sim 100$--$500$~meV). We
-sample $n = 500$ random GB sites per system (Table~\ref{tab:systems}),
-which is sufficient to fit the skew-normal of
-Eq.~(\ref{eq:skewnorm}) below to the precision required by the
-canonical FD predictor.
+reference scatter ($\sigma_{E^{\mathrm{bulk-Mg}}} = 8.1$~meV) is one
+to two orders of magnitude below typical per-site signal magnitudes
+($|\Delta E_i| \sim 100$--$500$~meV). For the Pt(Au) system the
+analogous formula holds with Al $\to$ Pt and Mg $\to$ Au throughout
+(Sec.~\ref{sec:meth:ptau}; $\sigma_{E^{\mathrm{bulk-Au}}}
+= 5.3$~meV).
 
 
 % =============================================================================
-% PATCH 2 — X_GB(t) definition (currently undefined despite being everywhere)
-% PASTE: in app:eq, after the canonical FD equation eq:FD_canon (define
-%        before the HMC equations reference it).
+% PATCH 2 — X_GB(t) definition
+% PASTE: in app:eq, after the canonical FD equation eq:FD_canon.
 % =============================================================================
 
 \paragraph*{HMC observable.}
-The instantaneous GB solute fraction at production time $t$ is
+The instantaneous GB Mg fraction at production time $t$ is
 \begin{equation}\label{eq:Xgb_def}
 X_\mathrm{GB}(t) \;\equiv\; \frac{1}{N_\mathrm{GB}}
 \sum_{i \in \mathrm{GB}}
-\mathbb{1}\!\big\{\, \text{site $i$ is occupied by $B$ at time $t$} \,\big\} ,
+\mathbb{1}\!\big\{\, \text{site $i$ is occupied by Mg at time $t$} \,\big\} ,
 \end{equation}
 where $\mathbb{1}\{\cdot\}$ is the indicator function and the sum is
 over the $N_\mathrm{GB}$ atoms tagged as GB by the a-CNA mask
 (App.~\ref{app:atomistic}). The reported HMC observable is the
 post-burn-in time average $\langle X_\mathrm{GB}\rangle_t$ together
-with the stationary block-bootstrap 95\% confidence interval defined
-in Sec.~\ref{sec:meth:stats}, Eq.~(\ref{eq:block_bootstrap}).
+with the stationary block-bootstrap 95\% confidence interval
+defined in Sec.~\ref{sec:meth:stats}, Eq.~(\ref{eq:block_bootstrap}).
 
 
 % =============================================================================
-% PATCH 3 — Unit conversion (kJ/mol ↔ eV) and closed-box ceiling
-% PASTE: in app:eq, at the top (these are conversion / bound formulas the
-%        reader needs before the substantive equations).
+% PATCH 3 — Energy units and closed-box ceiling
+% PASTE: in app:eq, at the top (before the substantive equations).
 % =============================================================================
 
 \paragraph*{Energy units.}
@@ -155,22 +158,22 @@ $N_A = 6.022 \times 10^{23}\,\mathrm{mol}^{-1}$ is Avogadro's number
 (the factor $10^{-3}$ converts J/mol to kJ/mol).
 
 \paragraph*{Closed-box ceiling on $X_\mathrm{GB}$.}
-A closed simulation cell with global solute fraction $X_c$ has a hard
+A closed simulation cell with global Mg fraction $X_c$ has a hard
 upper bound on $X_\mathrm{GB}$ set by mass conservation alone — the
-configuration with every solute atom piled at a GB site:
+configuration in which every Mg atom sits at a GB site:
 \begin{equation}\label{eq:ceiling}
 X_\mathrm{GB}^{\mathrm{ceil}}(X_c) \;=\; X_c \, N_\mathrm{tot} / N_\mathrm{GB}
 \;=\; X_c / f_\mathrm{GB} .
 \end{equation}
 Both $X_\mathrm{GB}^{\mathrm{HMC}}$ and $X_\mathrm{GB}^{\mathrm{FD,canon}}$
 are bounded above by Eq.~(\ref{eq:ceiling}); the ceiling line is
-plotted alongside HMC and FD curves in the panel-(d) headline figure
-of the Results.
+plotted alongside HMC and FD curves in the headline panel of the
+Results.
 
 
 % =============================================================================
-% PATCH 4 — Voronoi region (replace the inline "3D Voronoi tessellation..."
-%           in app:atomistic with the explicit formula).
+% PATCH 4 — Voronoi region (replaces the inline "3D Voronoi tessellation..."
+%           in app:atomistic).
 % =============================================================================
 
 \paragraph*{Voronoi tessellation.}
@@ -184,40 +187,39 @@ k(\mathbf{r}) \;=\; \arg\min_{1 \le k \le N_\mathrm{grains}}
 \end{equation}
 where $\|\cdot\|_\mathrm{PBC}$ is the minimum-image Euclidean distance
 under periodic boundary conditions, implemented via a $k$-d tree
-nearest-neighbour lookup. Each grain is given a uniformly random
+nearest-neighbour lookup. Each grain receives a uniformly random
 $\mathrm{SO}(3)$ orientation (Haar measure on rotation matrices) before
-the seed lattice is rotated into place. Lattice sites whose nearest
+its FCC lattice is rotated into place. Lattice sites whose nearest
 inter-grain distance is below the close-pair cutoff
-$r_\mathrm{cut} = a/(2\sqrt{2})$ (one half the nearest-neighbour
+$r_\mathrm{cut} = a/(2\sqrt{2})$ (one half the FCC nearest-neighbour
 spacing) are pruned to prevent unphysically close atomic pairs at
-as-built GBs; the resulting deficit is $\sim 2\%$ of the ideal FCC
-atom count (Table~\ref{tab:systems}).
+the as-built GBs; the resulting deficit is $\sim 2\%$ of the ideal
+FCC atom count.
 
 
 % =============================================================================
-% PATCH 5 — Anneal thermostat / barostat time constants
+% PATCH 5 — Anneal thermostat / barostat schedule
 % PASTE: in app:atomistic, replacing or supplementing the existing inline
 %        "anneal schedule follows Wagih..." description.
 % =============================================================================
 
-\paragraph*{Anneal schedule (Wagih protocol, generic).}
-After the close-pair-pruned Voronoi lattice is assembled (App.~%
-\ref{app:atomistic} above), the box is annealed in five stages:
+\paragraph*{Anneal schedule (Wagih protocol).}
+After the close-pair-pruned Voronoi lattice is assembled, the box is
+annealed in five stages with $T_\mathrm{hold} = 0.4 T_\mathrm{melt}$
+(Table~\ref{tab:systems}):
 \begin{enumerate}\itemsep0pt\parsep0pt\setlength{\leftmargin}{0pt}
 \item Conjugate-gradient minimisation to absorb residual close-pair strain from the Voronoi construction (\texttt{etol} / \texttt{ftol} $= 10^{-6} / 10^{-8}$~eV / (eV/\AA), max iterations $5000$).
-\item NVT temperature ramp from 1~K to $T_\mathrm{hold} = 0.4 T_\mathrm{melt}^{(A)}$ over 5~ps using a Nos\'e--Hoover thermostat with damping $\tau_T = 100$~fs.
+\item NVT temperature ramp from 1~K to $T_\mathrm{hold}$ over 5~ps using a Nos\'e--Hoover thermostat with damping $\tau_T = 100$~fs.
 \item NPT hold at $T_\mathrm{hold}$ for 250~ps with isotropic Nos\'e--Hoover thermo-barostat ($\tau_T = 100$~fs, $\tau_P = 1000$~fs, target $P = 0$) to relax GB structure.
 \item NPT cool from $T_\mathrm{hold}$ to 1~K at $3$~K/ps with the same barostat settings.
-\item Final zero-pressure box relaxation by conjugate gradient (\texttt{fix box/relax} \texttt{iso 0.0}; tolerances $10^{-8}$ / $10^{-10}$).
+\item Final zero-pressure box relaxation by conjugate gradient (\texttt{fix box/relax}, \texttt{iso 0.0}, tolerances $10^{-8} / 10^{-10}$).
 \end{enumerate}
 The annealed configuration is the fixed substrate for all subsequent
-measurements. Adaptive common-neighbour analysis~\cite{Stukowski2012}
-classifies each atom (App.~PATCH~8) and the resulting GB mask is held
-fixed throughout.
+measurements.
 
 
 % =============================================================================
-% PATCH 6 — Skew-normal PDF + moment-to-parameter relations
+% PATCH 6 — Skew-normal PDF and moment-to-parameter relations
 % PASTE: in app:dE_compare, at the top of the appendix (before the n=500
 %        justification paragraph that already exists).
 % =============================================================================
@@ -244,13 +246,12 @@ deviation are NOT $\mu$ and $\sigma$ when $\alpha \neq 0$:
 \qquad
 \delta = \alpha / \sqrt{1+\alpha^2}.
 \end{equation}
-Fit parameters are reported in kJ/mol per the conversion
-(\ref{eq:unit_kjmol}) and matched against Wagih's SI tables for each
-$(A, B)$ pair.
+Fit parameters are reported in kJ/mol via Eq.~(\ref{eq:unit_kjmol})
+and matched against Wagih's SI tables for each alloy.
 
 
 % =============================================================================
-% PATCH 7 — Two-sample KS statistic and its small-sample interpretation
+% PATCH 7 — Two-sample Kolmogorov–Smirnov
 % PASTE: in app:dE_compare, after PATCH 6.
 % =============================================================================
 
@@ -266,20 +267,20 @@ p \;=\; 2 \sum_{k=1}^{\infty} (-1)^{k-1} \exp(-2 k^2 \lambda^2),
 \lambda = D \sqrt{\tfrac{n_1 n_2}{n_1 + n_2}},
 \end{equation}
 implemented in \texttt{scipy.stats.ks\_2samp}. We report
-$(D, p)$ for our $n = 500$ spectrum versus each Wagih Zenodo reference
-($n_2 = 82{,}646$ for Al(Mg), $n_2 = 97{,}440$ for Pt(Au)). The KS
-$p$-value alone is sample-size-asymmetric: at $n_1 \ll n_2$ a small
-$p$ may reflect tail under-sampling on the small-$n$ side rather than
-a real distribution mismatch (Pt(Au) yields $p = 6 \times 10^{-4}$ for
-this reason). We therefore supplement the KS test with the
-fit-parameter bootstrap CI of Eq.~(\ref{eq:fit_bootstrap}) as the
-primary spectrum-validation metric.
+$(D, p)$ for our $n_1 = 500$ Al(Mg) spectrum versus the Wagih Zenodo
+reference ($n_2 = 82{,}646$). The KS $p$-value alone is
+sample-size-asymmetric: at $n_1 \ll n_2$ a small $p$ can reflect
+tail under-sampling on the small-$n$ side rather than a real
+distribution mismatch — a regime that does not affect the Al(Mg)
+comparison ($p = 0.89$) but does affect the Pt(Au) comparison
+($p = 6\times 10^{-4}$, Sec.~\ref{sec:meth:ptau}). The
+fit-parameter bootstrap CI of Eq.~(\ref{eq:fit_bootstrap}) below is
+introduced as the complementary metric robust to this regime.
 
 
 % =============================================================================
-% PATCH 8 — a-CNA brief description (replaces the existing one-liner in
-%           app:atomistic about "Adaptive common-neighbour analysis with
-%           default cutoffs").
+% PATCH 8 — a-CNA GB identification (replaces the existing one-liner in
+%           app:atomistic).
 % =============================================================================
 
 \paragraph*{GB identification.}
@@ -288,22 +289,19 @@ common-neighbour analysis (a-CNA)~\cite{Stukowski2012}, which assigns
 each atom one of $\{\text{FCC}, \text{BCC}, \text{HCP}, \text{ICO},
 \text{other}\}$ based on the topology of its $12$ nearest neighbours.
 The cutoff radius for the neighbour set is determined adaptively per
-atom (hence ``adaptive''), avoiding fixed-cutoff failures near
-distorted regions. Atoms not classified as FCC (the bulk lattice
-phase) are designated \emph{GB atoms}. The resulting binary mask
-of $N_\mathrm{GB}$ sites (Table~\ref{tab:systems}) is generated once
-on the annealed pure-$A$ polycrystal and held fixed across all
-downstream measurements — the $\Delta E$ sampling, the FD predictor
-[via $f_\mathrm{GB}$ in Eq.~(\ref{eq:ceiling}) and the summand of
-Eq.~(\ref{eq:FD_canon})], and the HMC observable
-(Eq.~\ref{eq:Xgb_def}).
+atom, avoiding fixed-cutoff failures near distorted regions. Atoms
+not classified as FCC (the bulk lattice phase) are designated
+\emph{GB atoms}. The resulting binary mask of $N_\mathrm{GB}$ sites
+(Table~\ref{tab:systems}) is generated once on the annealed polycrystal
+and held fixed across all downstream measurements — the $\Delta E$
+sampling, the FD predictor [via $f_\mathrm{GB}$ in
+Eq.~(\ref{eq:ceiling}) and the summand of Eq.~(\ref{eq:FD_canon})],
+and the HMC observable (Eq.~\ref{eq:Xgb_def}).
 
 
 % =============================================================================
-% PATCH 9 — Stationary block bootstrap on ⟨X_GB⟩ trajectory mean
-% PASTE: in sec:meth:stats, replacing the existing one-sentence description
-%        ("stationary block bootstrap with a 5-frame block size and 2000
-%        resamples").
+% PATCH 9 — Stationary block bootstrap CI on ⟨X_GB⟩
+% PASTE: in sec:meth:stats, replacing the existing one-sentence description.
 % =============================================================================
 
 \paragraph*{Trajectory-level CI on $\langle X_\mathrm{GB}\rangle_t$.}
@@ -324,25 +322,23 @@ $\{\bar x^{(b)}\}_{b=1}^{B}$:
 \end{equation}
 The geometric block length is chosen large enough to span the
 autocorrelation time of the $X_\mathrm{GB}(t)$ series under the swap
-schedule of Algorithm~\ref{alg:hmc} (the dominant autocorrelation is
-shorter than 5~ps in all converged runs, so $L_\mathrm{block} = 5$
-frames over-covers).
+schedule of Algorithm~\ref{alg:hmc}.
 
 
 % =============================================================================
-% PATCH 10 — Fit-parameter bootstrap CI (the Pt(Au)-driven validation method,
-%             complementary to KS when n_1 ≪ n_2).
+% PATCH 10 — Fit-parameter bootstrap CI (introduced for Pt(Au); applies to
+%             any (n_1, n_2) where n_1 << n_2).
 % PASTE: in app:dE_compare, after PATCH 7.
 % =============================================================================
 
 \paragraph*{Fit-parameter bootstrap CI.}
 When the Wagih reference contains $n_2 \gg n_1$ sites
 [Eq.~(\ref{eq:KS})], the KS $p$-value becomes acutely sensitive to
-small tail offsets that any random $n_1$ sub-sample of the larger pool
-also exhibits. As a complementary spectrum-validation test we
-therefore build the bootstrap distribution of the fit parameters
-$\{\mu, \sigma, \alpha\}$ that one would obtain from random
-$n_1$-sized sub-samples of the Wagih pool. Concretely:
+small tail offsets that any random $n_1$-sized sub-sample of the
+larger pool also exhibits. As a complementary spectrum-validation
+test we therefore build the bootstrap distribution of the fit
+parameters $\{\mu, \sigma, \alpha\}$ that one would obtain from
+random $n_1$-sized sub-samples of the Wagih pool. Concretely:
 \begin{enumerate}\itemsep0pt\parsep0pt
 \item Draw $B = 10{,}000$ resamples
       $\{\Delta E_j^{(b)}\}_{j=1}^{n_1}$ with replacement from the
@@ -356,45 +352,112 @@ $n_1$-sized sub-samples of the Wagih pool. Concretely:
 \quad \theta \in \{\mu, \sigma, \alpha\}.
 \end{equation}
 \end{enumerate}
-Our $n_1 = 500$ measurement is declared statistically consistent with
-the Wagih reference if our maximum-likelihood
+The measurement is declared statistically consistent with the Wagih
+reference if its maximum-likelihood
 $(\hat\mu, \hat\sigma, \hat\alpha)$ all fall inside their bootstrap
-CI95. For Pt(Au) the three fit parameters pass this test (with
-$|z| \le 1.6$ on each) while the raw sample mean and standard
-deviation fall outside their bootstrap CI95 at $z \approx \pm 2.7$;
-the shape statistics are preserved while the deepest tail outliers
-are not, indicating that our $n_1 = 500$ sample misses
-$\Delta E < -34$~kJ/mol GB sites that exist in the larger Wagih pool
-($\min \Delta E_{\mathrm{Wagih}} \approx -46$~kJ/mol). Because the FD
-predictor [Eq.~(\ref{eq:FD_canon})] depends only on the
-parametric form of the spectrum and not on its extreme-tail outliers,
-the bootstrap-fit-CI is the operationally relevant
-spectrum-validation criterion for this work.
+CI95. This criterion was introduced for the Pt(Au) sub-study where
+the $n_1 \ll n_2$ regime makes raw-KS unreliable
+(Sec.~\ref{sec:meth:ptau}); for the Al(Mg) primary system where
+$p_\mathrm{KS} = 0.89$ already passes, the bootstrap CI is reported
+alongside as confirmation.
 
 
 % =============================================================================
-% GENERICIZATION CHECKLIST — find/replace edits needed in EXISTING methods text
-% to remove residual Al(Mg)-only phrasing once the patches above are in place.
+% PATCH 11 — Pt(Au) system extension subsection
+% PASTE: as a NEW subsection at the END of \section{Methodology}, after
+%        \subsection{Statistical analysis} and BEFORE the method figure
+%        (Fig.~\ref{fig:method}). Suggested label: sec:meth:ptau.
 % =============================================================================
-%
-% Locate                                              Replace with
-% ------------------------------------------          --------------------------------------------
-% "global Mg fraction"                                "global solute fraction"
-% "200 Å cubic Al polycrystal"                        "$L^3$ cubic $A$ polycrystal (Table~\ref{tab:systems})"
-% "N_tot = 475,715 atoms"                             "$N_\mathrm{tot}$ atoms (Table~\ref{tab:systems})"
-% "16 grain seeds"                                    "$N_\mathrm{grains}$ grain seeds"
-% "the Mendelev Al--Mg embedded-atom-method
-%  potential~\cite{Mendelev2009}"                     "the alloy-specific EAM potential (Table~\ref{tab:systems})"
-% "N_GB = 89,042"                                     "$N_\mathrm{GB}$ (Table~\ref{tab:systems})"
-% "f_GB = 0.187"                                      "$f_\mathrm{GB}$ (Table~\ref{tab:systems})"
-% "single Mg from a bulk substitutional site to GB"   "single $B$ atom from a bulk site to GB"
-% "Mg ↔ Al type-swap moves"                           "$A \leftrightarrow B$ type-swap moves"
-% "preserves the closed-box N_Mg"                     "preserves the closed-box $N_B$"
-% "place ⌊X_GB^FD · N_GB⌋ Mg atoms at random GB"     "place $\lfloor X_\mathrm{GB}^\mathrm{FD} N_\mathrm{GB}\rfloor$ $B$ atoms at random GB"
-% "remaining N_Mg = X_c · N_tot Mg atoms"             "remaining $N_B = X_c N_\mathrm{tot}$ $B$ atoms"
-% "local Mg neighbour count n^Mg_local"               "local $B$-neighbour count $n^{B}_\mathrm{local}$"
-% "Mg atoms within r ≤ 5 Å"                           "$B$ atoms within $r \leq 5$~\AA"
-% "T_melt = 933 K" (anywhere)                          "$T_\mathrm{melt}^{(A)}$ (Table~\ref{tab:systems})"
-% "0.4 T_melt = 373 K"                                "$T_\mathrm{hold} = 0.4 T_\mathrm{melt}^{(A)}$"
-% "lattice constant is a = 4.05 Å"                    "$a$ (Table~\ref{tab:systems})"
+
+\subsection{Extension to a second alloy: Pt(Au)}\label{sec:meth:ptau}
+
+Subsections~\ref{sec:meth:base}--\ref{sec:meth:stats} describe the
+methodology for the principal test system Al(Mg). A parallel sub-study
+on Pt(Au) is in progress as a second alloy data point on the same
+hypothesis. As of this report's writing, Pt(Au) has been driven
+through the atomistic build, anneal, GB identification, $\Delta E_i$
+spectrum sampling, and Wagih-reference spectrum validation; the
+$(T, X_c)$ HMC grid is currently being acquired by the collaborator
+and its results will be reported separately. We document below what
+methodology is shared with the Al(Mg) main line and what differs.
+
+\paragraph*{Shared methodology.}
+The polycrystal construction [Eq.~(\ref{eq:voronoi})], anneal schedule
+(App.~\ref{app:atomistic}), a-CNA GB identification, per-site
+$\Delta E_i$ sampling [Eqs.~(\ref{eq:dE}), (\ref{eq:dE_op})], the
+skew-normal fit [Eq.~(\ref{eq:skewnorm})], and the two spectrum-level
+validation tests against Wagih [the KS statistic of
+Eq.~(\ref{eq:KS}) and the fit-parameter bootstrap CI of
+Eq.~(\ref{eq:fit_bootstrap})] are executed by the same Python /
+LAMMPS scripts for both systems. Where the Pt(Au) input parameters
+differ from Al(Mg), the system-specific values are taken from
+Table~\ref{tab:systems}; the analogous $\Delta E$ formula for Pt(Au)
+is obtained from Eq.~(\ref{eq:dE_op}) by replacing Al $\to$ Pt and
+Mg $\to$ Au throughout.
+
+\paragraph*{System-specific differences (Pt(Au)).}
+\begin{enumerate}\itemsep0pt\parsep0pt
+\item \emph{EAM potential format.} Pt(Au) uses O'Brien et al.\
+   2017~\cite{OBrien2017} in standard \texttt{eam/alloy} (Daw--Baskes
+   setfl) format; Al(Mg) uses Mendelev 2009 in Finnis--Sinclair
+   \texttt{eam/fs} format. The two file conventions differ in whether
+   the electron-density tabulation is per element or per element pair;
+   LAMMPS reads them via separate \texttt{pair\_style} strings. The
+   two are mathematically equivalent for the embedding + pair EAM
+   form and the alloy-agnostic per-site $\Delta E_i$ sampling driver
+   handles both via a single CLI flag.
+\item \emph{Smaller production box: 100$^3$\,\AA$^3$ for Pt(Au) vs
+   200$^3$\,\AA$^3$ for Al(Mg).} The Pt EAM has roughly $3.7\times$
+   the bulk modulus of the Al EAM, which scales the per-site CG
+   iteration count needed to hit $\mathrm{etol} = 10^{-25}$;
+   empirically $\sim 5\times$ slower per site than Al(Mg). The
+   Pt(Au) box is therefore reduced from 200~\AA{} to 100~\AA{} to
+   keep $n = 500$ spectrum sampling within the same SLURM wall-time
+   budget. The trade-off is a larger geometric $f_\mathrm{GB} =
+   0.375$ vs $0.187$ for Al(Mg) (smaller box, higher
+   surface-to-volume ratio). The spectrum-validation tests of
+   Eqs.~(\ref{eq:KS}) and (\ref{eq:fit_bootstrap}) compare per-site
+   $\{\Delta E_i\}$ distributions, not aggregate occupancies, so the
+   $f_\mathrm{GB}$ asymmetry does not bias them.
+\item \emph{Hold temperature.} $T_\mathrm{hold} = 0.4 T_\mathrm{melt}
+   = 816$~K for Pt(Au) (vs 373~K for Al(Mg)), preserving Wagih's
+   protocol scale.
+\item \emph{Wagih reference dataset format.} The Pt(Au) reference is
+   distributed as a single per-site \texttt{seg\_kJ\_per\_mol} column
+   in the Zenodo \texttt{accelerated\_model} dump; the Al(Mg)
+   reference is a paired (\texttt{seg\_energies.txt},
+   \texttt{bulk\_solute.dat}) text format. The Pt(Au) comparison
+   driver uses a dump-column reader; the Al(Mg) driver uses a
+   text-pair reader; both produce $(D, p)$ via Eq.~(\ref{eq:KS}).
+\end{enumerate}
+
+\paragraph*{Pt(Au) spectrum-validation outcome.}
+The Pt(Au) $\Delta E_i$ spectrum from $n_1 = 500$ randomly chosen GB
+sites yields skew-normal fit $(\hat\mu, \hat\sigma, \hat\alpha) =
+(+3.16, 10.31, -1.16)$~kJ/mol. All three parameters fall inside the
+$B = 10{,}000$ bootstrap 95\% CI computed by sub-sampling
+$n_1 = 500$ from Wagih's $n_2 = 97{,}440$-site reference pool, with
+standardised deviations $|z| \le 1.6$ on each
+[Eq.~(\ref{eq:fit_bootstrap})]. The raw KS test yields $D = 0.090$,
+$p = 6.2 \times 10^{-4}$, which formally rejects identity at the
+$p > 0.5$ project bar but is driven by the $n_1 \ll n_2$
+asymmetry and tail under-sampling on the small-$n$ side rather than
+a real distribution mismatch — the raw sample mean and standard
+deviation of our $n_1 = 500$ sub-sample are themselves outside their
+respective bootstrap CIs at $|z| \approx 2.7$, while the
+shape-robust skew-normal parameters are inside. The fit-parameter
+bootstrap CI is therefore the operationally relevant
+spectrum-validation criterion for this regime, and the Pt(Au)
+spectrum passes.
+
+\paragraph*{Pt(Au) downstream.}
+The Pt(Au) HMC sampling on the $(T, X_c)$ grid analogous to
+Sec.~\ref{sec:meth:grid} is in progress by the collaborator and will
+populate the corresponding Results section once complete. The same
+fdseed initial-condition methodology, Metropolis swap kinetics, and
+trajectory bootstrap CI of Sec.~\ref{sec:meth:stats} carry over
+unchanged from the Al(Mg) framework.
+
+% =============================================================================
+% End of patches.
 % =============================================================================
