@@ -12,6 +12,75 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-13 (late morning) — Pt(Au) anneal landed + ΔE_seg sampling running; T=800 K Al-Mg two-IC convergence-test pair submitted; Wagih DB tar inventory correction
+
+### Pt(Au) pipeline state
+
+Anneal job 66279426 completed cleanly overnight (2026-05-12 23:14 → 2026-05-13 00:14, 1 h wall, well under 6 h budget). Auto-process kicked in this morning:
+- T_HOLD = 816 K stable at ±5 K, PE relaxed monotonically -304986 → -331344 eV over 28 ps shown, volume settled at ~1004500 Å³ (~2.5% expansion). Final force_max = 3.34 eV/Å (tight CG minimum). 62,096 atoms preserved.
+- gb_identify auto-ran inside the ΔE_seg submit script. Result: 23,272 GB atoms (f_GB = 0.375 — high vs Wagih's 19% because our 100³ Å box has a higher GB-to-bulk surface ratio than Wagih's 200³ Å; KS compares the per-site distribution, not f_GB, so this is fine).
+- ΔE_seg sampling job 66391849 submitted, RUNNING on eu-a2p-321 (started 2026-05-13 10:32 CEST).
+
+### Wagih reference dump extracted, KS scripts written
+
+- `Pt_Au_20nm_GB_segregation.dump` (24 MB, 508,951 atoms, 97,440 GB sites) surgically extracted from the 4 GB tar at `/cluster/scratch/.../accelerated_model/Pt/Au_2017--OBrien.../`. Per-site ΔE_seg distribution: mean -4.14 kJ/mol, std 9.02, range [-46, +28]. (For comparison, Al(Mg) Wagih ref: mean -6.81 kJ/mol, std 15.85 — Pt(Au) is weaker and tighter, consistent with smaller size mismatch and similar noble-metal bonding.)
+- `project/PtAu/scripts/compare_vs_wagih_PtAu.py` and `bootstrap_vs_wagih_PtAu.py` written + syntax-validated. They read the dump's `seg_kJ_per_mol` column directly (bulk atoms = 0 filtered). Different load path from Al(Mg) compare scripts because the smaller `seg_energies_*.txt + bulk_solute_*.dat` text-pair format only exists for Al(Mg) under `machine_learning_notebook/`. No canonical script edited per no-in-place-script-edits.
+
+### Wagih DB tar inventory: previous "one-directional" claim was WRONG
+
+The 2026-05-12 audit concluded Pt-Au was Pt-host only based on a partial grep that missed the `Au/` entries. A full `tar -tjf | grep -iE "Pt.*Au|Au.*Pt"` on 2026-05-13 returned 30+ paths covering BOTH directions for the O'Brien 2017 EAM (and for the older Foiles/Adams EAMs). Practical impact: zero — Pt(Au) is still a fine choice and our KS reference is the matching direction. But the database-shape premise was wrong; the [[reference_wagih_zenodo_layout]] memory and `project/PtAu/CHANGELOG.md` both updated.
+
+### T=800 K Al-Mg two-IC convergence test submitted (advisor's suggestion)
+
+User's question (translated): "advisor suggested running higher-T brackets where random-Mg and GB-seeded-Mg converge to the same state — why? structural consistency, or something else?"
+
+**Why**: it's primarily a sampler-ergodicity diagnostic, NOT structural-consistency. At T=500 K, HMC swap acceptance is ~10% and the energy landscape has many metastable basins — the chain may not fully equilibrate within 24 h × 16 ranks, so the "X_GB^HMC < X_GB^FD" breakdown signal could in principle be sampler failure rather than physics. The advisor's high-T bracket is the standard MCMC convergence test (Gelman-Rubin spirit): start two chains from very different ICs (one above FD, one below), and check whether they converge to the same per-site occupation distribution at a T where ergodicity is plausible. If yes → HMC is correct → low-T breakdown findings are real. If no → fundamental sampling problem.
+
+**Parameter choice rationale**:
+- T = 800 K (0.86 × T_melt(Al=933 K)) — well above existing T=700 K data, comfortably below GB-premelting risk (T=900 K = 0.96 T_melt is too close to melting). kT(800)/kT(500) = 1.6 → swap rate substantially higher.
+- X_c = 0.10 — central pivot of the T-axis subsweep; plateau ● already established at both T=500 K and T=700 K with fdseed IC; this completes the trio at T=800 K.
+- IC bracket: fdseed (X_GB(0) = X_GB^FD = 0.2734, descends or stays) + random (X_GB(0) = X_c = 0.10, ascends from below).
+
+**Inits built (scratch)**:
+- `poly_AlMg_200A_fdseed_T800K_Xc0.1.lmp` via `build_fdseed_inits.py --T 800 --xc-list 0.10 --seed 20260505`. X_GB^FD = 0.2734 (vs T=500 K's 0.3519, 22% weaker as thermodynamically expected). X_bulk^FD = 0.0601. N_Mg = 47,572.
+- `poly_AlMg_200A_random_Xc0.1.lmp` via `pre_segregate.py --xc 0.10 --xgb-init 0.10 --seed 20260513`. X_GB(0) = 0.1000 = X_bulk(0) (uniform).
+- New manifest `fdseed_T800K_manifest.json` (1 entry).
+
+**Jobs submitted**:
+
+| job ID    | tag                          | T (K) | X_c   | IC start X_GB | submit script (new) |
+|----------:|------------------------------|------:|------:|--------------:|----------------------|
+| 66395279  | hmc_AlMg_T800_Xc0.10_fdseed  | 800   | 0.10  | 0.2734 (= FD) | data/decks/submit_hmc_T800_Xc0.10_fdseed.sh |
+| 66395323  | hmc_AlMg_T800_Xc0.10_random  | 800   | 0.10  | 0.1000 (= X_c)| data/decks/submit_hmc_T800_Xc0.10_random.sh |
+
+Both 16-rank × 24 h × `hmc_AlMg_v2.lammps`, PROD_PS=300, RESTART_PS=5, auto-postprocess to `output/<stub>.{json,png}`. Both PENDING because Pt(Au) sampling 66391849 currently holds 16 ranks; will start when Pt(Au) ends. Combined wait+run: jobs ought to land 2026-05-14 ~10:00 CEST.
+
+### Quota state at end of session
+
+Pt(Au) sampling 66391849 (16) + Al-Mg pair 66395279/66395323 (32) = 48 = full quota. Per user's "留一个任务额度给Pt(Au)" — once Pt(Au) sampling lands, the 16 freed CPUs are reserved for any Pt(Au) follow-up (resume, KS post-process); the Al-Mg pair will then occupy the other 32 slots.
+
+### Files this entry
+
+- `data/decks/submit_hmc_T800_Xc0.10_fdseed.sh` — new
+- `data/decks/submit_hmc_T800_Xc0.10_random.sh` — new
+- `project/PtAu/scripts/compare_vs_wagih_PtAu.py` — committed earlier in session
+- `project/PtAu/scripts/bootstrap_vs_wagih_PtAu.py` — committed earlier
+- `project/PtAu/CHANGELOG.md` — committed earlier + updated
+- `project/PtAu/README.md` — KS commands updated
+- `/cluster/scratch/cainiu/hmc_AlMg/poly_AlMg_200A_fdseed_T800K_Xc0.1.lmp` — new (scratch)
+- `/cluster/scratch/cainiu/hmc_AlMg/poly_AlMg_200A_random_Xc0.1.lmp` — new (scratch)
+- `/cluster/scratch/cainiu/hmc_AlMg/fdseed_T800K_manifest.json` — new (scratch)
+- `/cluster/scratch/cainiu/wagih_zenodo/learning_segregation_energies/segregation_spectra_database_accelerated_model/Pt/Au_2017--OBrien-...--Pt-Au/Pt_Au_20nm_GB_segregation.dump` — extracted (scratch)
+
+### Pending follow-ups
+
+- **Pt(Au) sampling 66391849 lands** → auto-process: `fit_delta_e_spectrum.py` for (μ, σ, α), `fermi_dirac_predict.py` for T-curves, `compare_vs_wagih_PtAu.py` for KS test against Wagih dump. Pass bar p > 0.5.
+- **T=800 K Al-Mg pair 66395279/66395323 lands** (~2026-05-14): two-IC convergence diagnostic. Outcomes:
+  - Both reach same X_GB^∞ ≈ 0.2734 (= FD) → ergodicity confirmed AND no breakdown at T=800 K (FD recovered at high T, breakdown is low-T specific).
+  - Both reach same X_GB^∞ < 0.2734 → ergodicity confirmed AND breakdown persists at high T (different physics story).
+  - X_GB^∞ disagreement → HMC not yet ergodic at T=800 K; queue resumes for both.
+- Standing TODOs: re-explain Fig 2 red dots + CI per `report/explainer_fig2_red_dots_CI.md`; refresh Fig 3 mechanism panel using `hmc_T500_Xc0.075_eq_cont_final.lmp`.
+
 ## 2026-05-12 (afternoon) — Pt(Au) second-alloy pipeline scaffolded; Wagih DB has the exact matching reference for KS test
 
 ### Trigger

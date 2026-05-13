@@ -19,22 +19,31 @@ alloy-agnostic Python scripts in `project/scripts/` are reused verbatim.
 
 ---
 
-## Current status (2026-05-12, 14:30 CEST)
+## Current status (2026-05-13, 11:00 CEST)
 
 | Stage | Status |
 |---|---|
 | Polycrystal generated | done — `poly_Pt_100A_8g.lmp` (62,096 atoms, 100³ Å, 8 grains) at `/cluster/scratch/cainiu/prototype_PtAu_100A/` |
-| Anneal | submitted as SLURM job `66279426` (`anneal_PtAu_100A`), PENDING — see queue note below |
-| GB identification | not started (auto-runs inside the ΔE_seg submit script) |
-| Per-site ΔE_seg sampling (n=500) | not started |
-| Skew-normal (μ, σ, α) fit | not started |
-| Wagih reference extraction from tar | not started |
-| KS test vs Wagih per-site array | not started |
+| Anneal | done — SLURM job `66279426` finished 2026-05-13 00:14 (1 h wall, T_HOLD=816 K stable, force_max 3.34 eV/Å, 62,096 atoms preserved) |
+| GB identification | done — 23,272 GB atoms (f_GB = 0.375; high vs Wagih's 19% because our 100³ Å box has higher GB-to-bulk surface ratio than Wagih's 200³ Å) |
+| Per-site ΔE_seg sampling (n=500) | RUNNING — SLURM job `66391849` (started 2026-05-13 10:32 CEST, ~15 min ETA, 4 h budget) |
+| Skew-normal (μ, σ, α) fit | pending — auto-runs after sampling lands |
+| Wagih reference extraction from tar | done — `Pt_Au_20nm_GB_segregation.dump` (24 MB, 508,951 atoms, 97,440 GB sites) extracted at `/cluster/scratch/.../accelerated_model/Pt/Au_2017--OBrien.../` |
+| KS test vs Wagih per-site array | pending — `compare_vs_wagih_PtAu.py` + `bootstrap_vs_wagih_PtAu.py` written and syntax-validated |
 
-**Queue note.** The anneal job is queued behind three RUNNING Al(Mg) HMC
-jobs that currently saturate the Euler public-QOS hard cap of 48 CPU per
-user (each holds 16 ranks). Earliest natural release is ~14 h after
-submission, when the Al(Mg) `X_c=0.03` HMC job hits its 24 h wall.
+**Queue note.** The anneal cleared its queue at 2026-05-12 23:14 CEST after the Al(Mg) `X_c=0.30 fdseed_resume` job (66261260) released its 16-rank slot. Sampling job 66391849 launched immediately on 2026-05-13 10:32 CEST when CPU was free.
+
+### Wagih database has BOTH Pt(Au) AND Au(Pt) for our EAM (correction)
+
+A full `tar -tjf | grep -iE "Pt.*Au|Au.*Pt"` on 2026-05-13 returned
+30+ paths covering BOTH directions for the O'Brien 2017 EAM (also for
+the older Foiles/Adams EAMs). The 2026-05-12 conclusion that "the
+database is one-directional, Pt(Au) only" was based on a partial grep
+that missed the `Au/...` entries. **Practical impact: zero — Pt(Au)
+remains a fine choice, and the KS comparison is on the matched
+direction's reference. But the Au(Pt)-also-viable fact is recorded
+here so future-me does not propagate the wrong premise.** See
+[[reference_wagih_zenodo_layout]] memory (also corrected).
 
 ---
 
