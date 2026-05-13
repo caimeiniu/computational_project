@@ -102,10 +102,29 @@ tar -xjf learning_segregation_energies.tar.bz2 \
     learning_segregation_energies/segregation_spectra_database_accelerated_model/Pt/Au_2017--OBrien-C-J-Barr-C-M-Price-P-M-et-al--Pt-Au/Pt_Au_20nm_GB_segregation.dump
 ```
 
-Then KS-test via the same approach used for Al(Mg) — see
-`project/scripts/compare_vs_wagih.py` for the Al(Mg) template; adapt the
-dump-parser to read Wagih's per-site E_GB column. Project pass bar: KS p > 0.5
-("spectrum-level indistinguishable", per `feedback_ks_test` memory).
+Then run the Pt(Au) compare driver (parses the dump's `seg_kJ_per_mol`
+column directly — no separate bulk-energy file needed because Wagih
+already converted to ΔE_seg in kJ/mol):
+
+```bash
+WAGIH_DUMP=/cluster/scratch/$USER/wagih_zenodo/learning_segregation_energies/segregation_spectra_database_accelerated_model/Pt/Au_2017--OBrien-C-J-Barr-C-M-Price-P-M-et-al--Pt-Au/Pt_Au_20nm_GB_segregation.dump
+
+python "$PROJECT/PtAu/scripts/compare_vs_wagih_PtAu.py" \
+    --ours-npz "$SCRATCH/delta_e_results_n500_PtAu_100A_tight.npz" \
+    --wagih-dump "$WAGIH_DUMP" \
+    --out-png  "$PROJECT/PtAu/output/compare_vs_wagih_PtAu_100A.png" \
+    --out-json "$PROJECT/PtAu/output/compare_vs_wagih_PtAu_100A.json"
+
+python "$PROJECT/PtAu/scripts/bootstrap_vs_wagih_PtAu.py" \
+    --ours-npz "$SCRATCH/delta_e_results_n500_PtAu_100A_tight.npz" \
+    --wagih-dump "$WAGIH_DUMP" \
+    --out-json "$PROJECT/PtAu/output/bootstrap_vs_wagih_PtAu_100A.json"
+```
+
+Project pass bar: KS p > 0.5 ("spectrum-level indistinguishable", per
+`feedback_ks_test` memory). For Al(Mg) we got D=0.026, p=0.89 with
+n=500 ours vs n=82,646 Wagih; expect a similar order for Pt(Au) if
+the pipelines align.
 
 ## What's left for the teammate
 
@@ -117,8 +136,9 @@ The remaining steps are wall-time-bound execution:
 2. **`sbatch submit_delta_e_PtAu_100A.sh`** — auto-runs `gb_identify.py` if
    the mask is missing, then n=500 sampling (~15 min, 4 h budget). Produces
    `delta_e_results_n500_PtAu_100A_tight.npz`.
-3. **Fit + KS test** — run `fit_delta_e_spectrum.py` and adapt
-   `compare_vs_wagih.py` to read the extracted Pt(Au) Wagih dump.
+3. **Fit + KS test** — run `fit_delta_e_spectrum.py` for the (μ, σ, α)
+   skew-normal fit, then `compare_vs_wagih_PtAu.py` for the KS test
+   against the Wagih dump (commands above).
 4. **Sanity-check** the (μ, σ, α) against Wagih's SI Fig 4 panel for Pt(Au)
    (Wagih's superscript `Au^N` on the panel labels which SI reference number
    for the EAM; for O'Brien 2017 that is the same potential we used).
@@ -131,6 +151,11 @@ The remaining steps are wall-time-bound execution:
 | `sample_delta_e_PtAu.py` | `pair_style eam/fs` → `eam/alloy` (line 454 of the canonical script); `_DEFAULT_ELEMENTS = ("Al","Mg")` → `("Pt","Au")`; `_DEFAULT_MASSES = (26.9815, 24.3050)` → `(195.0900, 196.9665)`; docstring + CLI defaults updated |
 | `submit_anneal_PtAu_100A.sh` | scratch dir `prototype_AlMg_100A` → `prototype_PtAu_100A`; deck path; T_HOLD; vars EL1/EL2/MASS1/MASS2 passed explicitly; 4 h → 6 h budget (higher T_hold → more cool ps) |
 | `submit_delta_e_PtAu_100A.sh` | scratch dir; driver path; --elements/--masses passed explicitly; gb_identify auto-fallback uses --lattice-a 3.9764 (Pt) instead of 4.05 (Al) |
+| `compare_vs_wagih_PtAu.py` | new file; `load_wagih(seg.txt + bulk.dat)` → `load_wagih_dump(dump)` reading `seg_kJ_per_mol` column directly. The Pt(Au) reference lives in the accelerated_model dump (already in kJ/mol per site, bulk atoms = 0), not in the smaller `seg_energies_*.txt + bulk_solute_*.dat` pair that exists only for Al(Mg) under `machine_learning_notebook/`. |
+| `bootstrap_vs_wagih_PtAu.py` | new file; same `load_wagih_dump` adapter as `compare_vs_wagih_PtAu.py`; otherwise identical to the Al(Mg) bootstrap script. |
 
-No canonical script (`project/scripts/sample_delta_e.py`, `project/data/decks/anneal_AlMg.lammps`)
-was modified, per the no-in-place-script-edits rule.
+No canonical script (`project/scripts/sample_delta_e.py`,
+`project/scripts/compare_vs_wagih.py`,
+`project/scripts/bootstrap_vs_wagih.py`,
+`project/data/decks/anneal_AlMg.lammps`) was modified, per the
+no-in-place-script-edits rule.
