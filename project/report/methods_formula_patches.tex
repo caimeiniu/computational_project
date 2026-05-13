@@ -109,7 +109,9 @@ $\mathrm{etol} = \mathrm{ftol} = 10^{-25}$ (matching
 Ref.~\cite{Wagih2020}'s \texttt{calculate\_E\_GB\_solute.in} protocol),
 and $\langle E^{\mathrm{bulk-Mg}} \rangle$ is the same total energy
 averaged over $n_\mathrm{ref} = 10$ well-separated bulk-Al reference
-positions. Eq.~(\ref{eq:dE_op}) is what
+positions. The sign convention follows Wagih: $\Delta E_i < 0$ means
+GB site $i$ is energetically favourable for Mg (segregating); $\Delta
+E_i > 0$ disfavoured. Eq.~(\ref{eq:dE_op}) is what
 \texttt{scripts/sample\_delta\_e.py} evaluates per GB site; the bulk
 reference scatter ($\sigma_{E^{\mathrm{bulk-Mg}}} = 8.1$~meV) is one
 to two orders of magnitude below typical per-site signal magnitudes
@@ -203,10 +205,13 @@ FCC atom count.
 %        "anneal schedule follows Wagih..." description.
 % =============================================================================
 
-\paragraph*{Anneal schedule (Wagih protocol).}
-After the close-pair-pruned Voronoi lattice is assembled, the box is
-annealed in five stages with $T_\mathrm{hold} = 0.4 T_\mathrm{melt}$
-(Table~\ref{tab:systems}):
+\paragraph*{Anneal schedule.}
+The five-stage decomposition and the choice $T_\mathrm{hold} = 0.4
+T_\mathrm{melt}$ (Table~\ref{tab:systems}) follow Wagih~\cite{Wagih2020};
+the explicit damping constants, CG tolerances, and the 3 K/ps cool
+rate below are project-specific choices that reproduce Wagih's
+end-state to within the bulk reference scatter of
+Eq.~(\ref{eq:dE_op}).
 \begin{enumerate}\itemsep0pt\parsep0pt\setlength{\leftmargin}{0pt}
 \item Conjugate-gradient minimisation to absorb residual close-pair strain from the Voronoi construction (\texttt{etol} / \texttt{ftol} $= 10^{-6} / 10^{-8}$~eV / (eV/\AA), max iterations $5000$).
 \item NVT temperature ramp from 1~K to $T_\mathrm{hold}$ over 5~ps using a Nos\'e--Hoover thermostat with damping $\tau_T = 100$~fs.
@@ -307,22 +312,27 @@ and the HMC observable (Eq.~\ref{eq:Xgb_def}).
 \paragraph*{Trajectory-level CI on $\langle X_\mathrm{GB}\rangle_t$.}
 Let $\{x_t\}_{t=1}^{n}$ be the post-burn-in $X_\mathrm{GB}(t)$ frames
 sampled at 1~ps spacing (the first 20\% of frames are dropped as
-burn-in; $n \approx 240$ for our default 300~ps production). The
-stationary block bootstrap of Politis \& Romano~\cite{Politis1994}
-generates $B = 2000$ replicate samples $\{x_t^{(b)}\}_{t=1}^{n}$ by
-concatenating blocks of random geometric length with mean
-$L_\mathrm{block} = 5$ frames, sampled with replacement from
-$\{x_t\}$. Each replicate yields a bootstrap mean $\bar x^{(b)}$, and
-the 95\% CI is the empirical $[2.5, 97.5]$ percentile range of
+burn-in; $n \approx 240$ for our default 300~ps production). We
+compute the 95\% CI on $\langle X_\mathrm{GB}\rangle_t$ via the moving
+block bootstrap of K\"unsch~\cite{Kunsch1989}: at each of $B = 2000$
+replicates, $n_b = \lfloor n / L_b \rfloor$ overlapping blocks of fixed
+length $L_b = 5$ frames are drawn uniformly at random (with
+replacement) from $\{x_t\}$ and concatenated into a replicate series
+$\{x_t^{(b)}\}_{t=1}^{n_b L_b}$, whose mean $\bar x^{(b)}$ is recorded.
+The 95\% CI is the empirical $[2.5, 97.5]$ percentile range of
 $\{\bar x^{(b)}\}_{b=1}^{B}$:
 \begin{equation}\label{eq:block_bootstrap}
 \mathrm{CI}_{95\%}\!\left(\langle X_\mathrm{GB}\rangle_t\right)
 \;=\; \Big[\, q_{2.5}\!\left(\{\bar x^{(b)}\}\right), \;
               q_{97.5}\!\left(\{\bar x^{(b)}\}\right) \,\Big].
 \end{equation}
-The geometric block length is chosen large enough to span the
-autocorrelation time of the $X_\mathrm{GB}(t)$ series under the swap
-schedule of Algorithm~\ref{alg:hmc}.
+The block length $L_b = 5$~frames is approximately twice the
+integrated autocorrelation time of $X_\mathrm{GB}(t)$ under the swap
+schedule of Algorithm~\ref{alg:hmc}. For trajectories too short to
+support the block bootstrap ($n < 2 L_b$), the CI falls back to the
+Wald approximation $\bar x \pm 1.96 \, s_{\bar x}$ with
+$s_{\bar x} = s/\sqrt{n}$ — a regime not entered by any of the
+runs reported in this work.
 
 
 % =============================================================================
@@ -397,15 +407,13 @@ Mg $\to$ Au throughout.
 
 \paragraph*{System-specific differences (Pt(Au)).}
 \begin{enumerate}\itemsep0pt\parsep0pt
-\item \emph{EAM potential format.} Pt(Au) uses O'Brien et al.\
+\item \emph{EAM file format.} Pt(Au) uses O'Brien et al.\
    2017~\cite{OBrien2017} in standard \texttt{eam/alloy} (Daw--Baskes
-   setfl) format; Al(Mg) uses Mendelev 2009 in Finnis--Sinclair
-   \texttt{eam/fs} format. The two file conventions differ in whether
-   the electron-density tabulation is per element or per element pair;
-   LAMMPS reads them via separate \texttt{pair\_style} strings. The
-   two are mathematically equivalent for the embedding + pair EAM
-   form and the alloy-agnostic per-site $\Delta E_i$ sampling driver
-   handles both via a single CLI flag.
+   setfl); Al(Mg) uses Mendelev 2009 in Finnis--Sinclair
+   \texttt{eam/fs}. The two are equivalent EAM embedding + pair forms
+   reading per-element vs per-element-pair density tabulations;
+   alloy-agnostic at the $\Delta E$-sampling driver level via
+   a single CLI flag.
 \item \emph{Smaller production box: 100$^3$\,\AA$^3$ for Pt(Au) vs
    200$^3$\,\AA$^3$ for Al(Mg).} The Pt EAM has roughly $3.7\times$
    the bulk modulus of the Al EAM, which scales the per-site CG
