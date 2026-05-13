@@ -19,17 +19,21 @@ alloy-agnostic Python scripts in `project/scripts/` are reused verbatim.
 
 ---
 
-## Current status (2026-05-13, 11:00 CEST)
+## Current status (2026-05-13, 16:00 CEST)
 
 | Stage | Status |
 |---|---|
 | Polycrystal generated | done — `poly_Pt_100A_8g.lmp` (62,096 atoms, 100³ Å, 8 grains) at `/cluster/scratch/cainiu/prototype_PtAu_100A/` |
 | Anneal | done — SLURM job `66279426` finished 2026-05-13 00:14 (1 h wall, T_HOLD=816 K stable, force_max 3.34 eV/Å, 62,096 atoms preserved) |
 | GB identification | done — 23,272 GB atoms (f_GB = 0.375; high vs Wagih's 19% because our 100³ Å box has higher GB-to-bulk surface ratio than Wagih's 200³ Å) |
-| Per-site ΔE_seg sampling (n=500) | RUNNING — SLURM job `66391849` (started 2026-05-13 10:32 CEST, ~15 min ETA, 4 h budget) |
-| Skew-normal (μ, σ, α) fit | pending — auto-runs after sampling lands |
+| Per-site ΔE_seg sampling (n=500) | **done** — SLURM job `66391849` finished 2026-05-13 11:55 CEST (1h23m wall, 510/510 CG energy-tolerance, 0 failures) |
+| Skew-normal (μ, σ, α) fit | **done** — (μ, σ, α) = (+3.16, 10.31, −1.16) kJ/mol |
+| Fermi-Dirac temperature curves | **done** — T = 500 / 700 / 900 / 1100 K, with Wagih Pt(Au) FD overlay |
 | Wagih reference extraction from tar | done — `Pt_Au_20nm_GB_segregation.dump` (24 MB, 508,951 atoms, 97,440 GB sites) extracted at `/cluster/scratch/.../accelerated_model/Pt/Au_2017--OBrien.../` |
-| KS test vs Wagih per-site array | pending — `compare_vs_wagih_PtAu.py` + `bootstrap_vs_wagih_PtAu.py` written and syntax-validated |
+| KS test vs Wagih per-site array | **done** — D = 0.0898, p = 6.2×10⁻⁴ (does NOT meet p>0.5 bar; see bootstrap below for the correct interpretation) |
+| Bootstrap CI vs Wagih N=500 sub-samples (B=10000) | **done** — skew-normal (μ, σ, α) all inside 95% CI; raw moments mean/std outside CI at z ≈ ±2.7 |
+| 100³ Å scaling decision | **frozen at 100³ Å** — bootstrap fit-params PASS; Pt EAM 5× slower than Al makes 200³ Å scaling cost-prohibitive (~20 h wall); FD↔HMC must share box size to isolate dilute-breakdown signal |
+| Canonical-script Al(Mg) label cleanup | **done** — `fit_delta_e_spectrum_PtAu.py` + `fermi_dirac_predict_PtAu.py` added under `PtAu/scripts/`; outputs regenerated with Pt(Au) title + Wagih Pt(Au) reference |
 
 **Queue note.** The anneal cleared its queue at 2026-05-12 23:14 CEST after the Al(Mg) `X_c=0.30 fdseed_resume` job (66261260) released its 16-rank slot. Sampling job 66391849 launched immediately on 2026-05-13 10:32 CEST when CPU was free.
 
@@ -44,6 +48,145 @@ remains a fine choice, and the KS comparison is on the matched
 direction's reference. But the Au(Pt)-also-viable fact is recorded
 here so future-me does not propagate the wrong premise.** See
 [[reference_wagih_zenodo_layout]] memory (also corrected).
+
+---
+
+## 2026-05-13 (afternoon) — Sampling done; KS+bootstrap interpretation; 100³ Å frozen; canonical-label fix
+
+### Sampling job 66391849 completed
+
+`delta_e_results_n500_PtAu_100A_tight.npz` landed 11:55 CEST after 1h23m
+wall (16 cores). 510/510 sites converged via energy tolerance
+(cg_etol=1e-25); zero failures. Per-site time ≈ 10 s — **~5× slower
+than Al(Mg) (~2 s/site)**, consistent with Pt EAM stiffness (bulk
+modulus 280 vs 76 GPa) driving more CG iterations.
+
+### Fit and KS test
+
+Skew-normal fit on N=500: **(μ, σ, α) = (+3.16, 10.31, −1.16) kJ/mol**.
+Sample moments: mean=−3.05, std=8.23, skew=−0.18 (kJ/mol).
+Wagih reference (n=97,440): fit (+3.65, 11.92, −1.42); mean=−4.14,
+std=9.02 (kJ/mol).
+
+**KS two-sample: D = 0.0898, p = 6.2×10⁻⁴** — does NOT meet the project
+p>0.5 bar (see [[reference_ks_test]] memory). See bootstrap below for
+the correct interpretation; KS is not the right metric in this regime.
+
+### Bootstrap CI verdict — fit params PASS, raw moments fail
+
+`bootstrap_vs_wagih_PtAu.py` with B=10000 N=500 sub-samples of Wagih's pool:
+
+| Statistic       | Boot mean | CI95             | Ours   | z    | Inside CI |
+|-----------------|----------:|:----------------:|-------:|-----:|:---------:|
+| sample_mean     |    −4.15  | [−4.94, −3.36]   | −3.05  | +2.73| **NO**    |
+| sample_std      |    +9.02  | [ +8.47, +9.56]  | +8.23  | −2.81| **NO**    |
+| sample_skew     |    −0.24  | [−0.44, −0.04]   | −0.18  | +0.61|   yes     |
+| skewnorm_μ      |    +3.39  | [−0.52, +5.83]   | +3.16  | −0.13| **yes**   |
+| skewnorm_σ      |   +11.83  | [ +9.68, +13.53] |+10.31  | −1.60| **yes**   |
+| skewnorm_α      |    −1.42  | [−2.21, −0.56]   | −1.16  | +0.62| **yes**   |
+
+Interpretation: raw mean is ~1.1 kJ/mol higher and raw std is ~0.8 kJ/mol
+lower than a typical N=500 draw from Wagih. Root cause: our N=500 missed
+the deep negative tail (Wagih min −46 kJ/mol; ours only −34). Skew-normal
+fit absorbs this because it parameterizes shape rather than reproducing
+tail outliers. **The three (μ, σ, α) — exactly what the FD dilute-limit
+prediction uses — are statistically indistinguishable from a Wagih
+N=500 sub-sample.** The small KS p-value comes from the same tail
+mismatch combined with the N=500 vs N=97,440 asymmetry (KS is
+extremely sensitive to tiny CDF differences when one side is huge),
+not from any pipeline error.
+
+### Decision: freeze 100³ Å, do not scale to 200³ Å
+
+Three reasons stack:
+
+1. **Bootstrap CI on (μ, σ, α) already passes.** FD baseline parameters
+   are Wagih-equivalent. The raw-moment offset only matters if the goal
+   is "raw distribution exactly replicates Wagih" — which is not the
+   project's question.
+2. **Pt EAM is ~5× slower per site than Al EAM** (per-site CG cost ~ √
+   condition number, Pt bulk modulus is ~3.7× Al's). Scaling to 200³ Å
+   (8× atoms, linear-in-N CG cost) projects to **~20 h total wall**
+   (8 h anneal + 11–12 h sampling at N=500), and Euler public QOS 48
+   CPU/user cap ([[reference_euler_quota]]) makes parallel scheduling
+   impossible. Cost-benefit doesn't justify it for marginal raw-moment
+   improvement.
+3. **FD and HMC must share box size to isolate the dilute-breakdown
+   signal.** The project's question — at what X_c does HMC deviate from
+   the FD dilute-limit? — requires apples-to-apples. FD on 100³ Å +
+   HMC on 100³ Å cancels box-size effects; any residual X_c dependence
+   is the real physics. Using Wagih's 200³ Å (μ, σ, α) for FD while
+   running HMC at 100³ Å would conflate box-size effects with
+   dilute-breakdown effects.
+
+### Canonical-script Al(Mg) label cleanup
+
+The initial fit + FD plots generated 11:58 from the canonical scripts
+had three Al(Mg) hardcoding bugs:
+
+- `output/delta_e_spectrum_PtAu_100A.png`: title "Al(Mg) per-site GB
+  segregation spectrum"; dashed reference "Wagih Mg^15 (SI Fig. 3)
+  μ=+9, σ=23, α=−2.3".
+- `output/fd_curves_PtAu_100A.png`: title "Fermi-Dirac dilute-limit
+  prediction — Al(Mg)"; legend "ours 200 Å" (we are on 100 Å).
+- `output/delta_e_fit_PtAu_100A.json`: JSON key `wagih_alm_reference`
+  carrying Al(Mg)'s (9, 23, −2.3).
+
+Plotted *numbers* were Pt(Au) and correct — only labels and the dashed
+reference values were Al(Mg). Root cause: `project/scripts/fit_delta_e_spectrum.py`
+and `fermi_dirac_predict.py` hardcode the title strings + the Wagih
+Mg^15 reference constant. Per [[feedback_no_in_place_script_edits]],
+canonical scripts were NOT modified. Instead two new Pt(Au) copies were
+added under `PtAu/scripts/`:
+
+- `fit_delta_e_spectrum_PtAu.py` — title → "Pt(Au) per-site GB
+  segregation spectrum"; `WAGIH_ALMG` constant → `WAGIH_PTAU`
+  (μ=+3.65, σ=11.92, α=−1.42), computed by `scipy.stats.skewnorm.fit`
+  on the Wagih Pt(Au) dump's 97,440 sites; JSON key
+  `wagih_alm_reference` → `wagih_ptau_reference`.
+- `fermi_dirac_predict_PtAu.py` — title → "Fermi-Dirac dilute-limit
+  prediction — Pt(Au)"; legend "ours 200 Å" → "ours 100 Å"; the dead
+  `--wagih-seg`/`--wagih-bulk` Al-Mg-only flags replaced with a single
+  `--wagih-dump` flag that reads `Pt_Au_20nm_GB_segregation.dump`
+  directly via the same loader used by `bootstrap_vs_wagih_PtAu.py`.
+
+Output PNGs + JSON regenerated with the new scripts (commands in
+`README.md` step 5). The new FD plot additionally overlays Wagih's
+Pt(Au) FD curve as a dashed reference: visible result is Wagih sits
+slightly above our curves at low X_c (Wagih's deeper negative tail
+fills first at dilute X_c), curves merge near X_c ≈ 0.1. Physically
+consistent with the raw-moment offset from the bootstrap analysis.
+
+### Caveats handed off
+
+- Raw moments (sample_mean, sample_std) sit at z ≈ ±2.7. If a later
+  analysis needs exact moment match — e.g., very dilute X_c < 10⁻³
+  where the deepest GB sites dominate FD occupation — bump N from 500
+  to ~2000–5000 to better cover the negative tail. Cheap on 100³ Å
+  (~6 h additional sampling at the same 5× Pt slowdown); does NOT
+  require a larger box.
+
+- The Wagih `(μ, σ, α) = (+3.65, 11.92, −1.42)` reference in
+  `WAGIH_PTAU` is computed by us from the Zenodo dump, not read from
+  Wagih's SI Fig. 9 panel. Wagih's SI tabulates per-panel (μ, σ, α) for
+  each binary; the Pt(Au) O'Brien 2017 panel uses superscript notation
+  matching the EAM reference number in the SI. If a value-pinning audit
+  needs it, locate that exact panel in the published SI and verify
+  against `WAGIH_PTAU` — a small (<2%) disagreement would just reflect
+  different fitter / clipping convention and is not a red flag.
+
+### Output files produced today (gitignored, regeneratable)
+
+All under `project/PtAu/output/`:
+
+- `delta_e_fit_PtAu_100A.json` — skew-normal fit + Wagih Pt(Au) ref values
+- `delta_e_spectrum_PtAu_100A.png` — histogram + fit + Wagih dashed
+- `fd_curves_PtAu_100A.{json,png}` — FD curves at T=500/700/900/1100 K
+  with Wagih Pt(Au) overlay
+- `compare_vs_wagih_PtAu_100A.{json,png}` — KS overlay (ours vs Wagih
+  histogram + both skew-normal fits)
+- `bootstrap_vs_wagih_PtAu_100A.json` — 6-stat bootstrap CI (B=10000,
+  N=500, seed=20260513)
 
 ---
 

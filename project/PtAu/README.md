@@ -21,14 +21,18 @@ project/PtAu/
 │       ├── submit_anneal_PtAu_100A.sh      # SLURM submit for 10³ nm³ prototype
 │       └── submit_delta_e_PtAu_100A.sh     # SLURM submit for n=500 sampling
 ├── scripts/
-│   └── sample_delta_e_PtAu.py              # copy with pair_style eam/alloy
-├── output/                                  # fits + figures (empty until run)
+│   ├── sample_delta_e_PtAu.py              # copy with pair_style eam/alloy
+│   ├── fit_delta_e_spectrum_PtAu.py        # copy with Pt(Au) title + Wagih Pt(Au) ref values
+│   ├── fermi_dirac_predict_PtAu.py         # copy with Pt(Au) title + "100 Å" legend + --wagih-dump
+│   ├── compare_vs_wagih_PtAu.py            # new; KS driver reading dump's seg_kJ_per_mol
+│   └── bootstrap_vs_wagih_PtAu.py          # new; bootstrap CI driver reading the same dump
+├── output/                                  # fits + figures (gitignored)
+├── CHANGELOG.md                             # decisions + status log (reverse chronological)
 └── README.md                                # this file
 ```
 
-Generic scripts used verbatim from `project/scripts/`:
-`generate_polycrystal.py`, `gb_identify.py`, `fit_delta_e_spectrum.py`,
-`fermi_dirac_predict.py`, `compare_vs_wagih.py`, `bootstrap_vs_wagih.py`.
+Generic scripts used verbatim from `project/scripts/` (alloy-agnostic via CLI flags):
+`generate_polycrystal.py`, `gb_identify.py`.
 
 ## Parameters
 
@@ -50,6 +54,7 @@ Generic scripts used verbatim from `project/scripts/`:
 ```bash
 SCRATCH=/cluster/scratch/$USER/prototype_PtAu_100A
 PROJECT=/cluster/home/$USER/Computational_modeling/project
+WAGIH_DUMP=/cluster/scratch/$USER/wagih_zenodo/learning_segregation_energies/segregation_spectra_database_accelerated_model/Pt/Au_2017--OBrien-C-J-Barr-C-M-Price-P-M-et-al--Pt-Au/Pt_Au_20nm_GB_segregation.dump
 mkdir -p "$SCRATCH" && cd "$SCRATCH"
 
 # ----- Step 1: polycrystal (login node, ~1 min) — ALREADY DONE -----
@@ -72,13 +77,16 @@ sbatch "$PROJECT/PtAu/data/decks/submit_anneal_PtAu_100A.sh"
 sbatch "$PROJECT/PtAu/data/decks/submit_delta_e_PtAu_100A.sh"
 
 # ----- Step 5: fit + predict (login node, seconds) -----
-python "$PROJECT/scripts/fit_delta_e_spectrum.py" \
+# Pt(Au)-specific copies — canonical scripts in project/scripts/ are
+# unchanged (they hardcode Al(Mg) title + Wagih Mg^15 reference).
+python "$PROJECT/PtAu/scripts/fit_delta_e_spectrum_PtAu.py" \
     --npz "$SCRATCH/delta_e_results_n500_PtAu_100A_tight.npz" \
     --out-png "$PROJECT/PtAu/output/delta_e_spectrum_PtAu_100A.png" \
     --out-json "$PROJECT/PtAu/output/delta_e_fit_PtAu_100A.json"
 
-python "$PROJECT/scripts/fermi_dirac_predict.py" \
+python "$PROJECT/PtAu/scripts/fermi_dirac_predict_PtAu.py" \
     --ours-npz "$SCRATCH/delta_e_results_n500_PtAu_100A_tight.npz" \
+    --wagih-dump "$WAGIH_DUMP" \
     --T-list 500,700,900,1100 \
     --out-png "$PROJECT/PtAu/output/fd_curves_PtAu_100A.png" \
     --out-json "$PROJECT/PtAu/output/fd_curves_PtAu_100A.json"
@@ -134,7 +142,9 @@ The remaining steps are wall-time-bound execution:
 1. **`sbatch submit_anneal_PtAu_100A.sh`** — produces
    `poly_Pt_100A_8g_annealed.lmp` (~1 h, 6 h budget).
 2. **`sbatch submit_delta_e_PtAu_100A.sh`** — auto-runs `gb_identify.py` if
-   the mask is missing, then n=500 sampling (~15 min, 4 h budget). Produces
+   the mask is missing, then n=500 sampling (~80–90 min, 4 h budget;
+   ~5× slower per site than Al(Mg) because Pt's stiffer EAM needs more
+   CG iterations to hit the tight 1e-25 energy tolerance). Produces
    `delta_e_results_n500_PtAu_100A_tight.npz`.
 3. **Fit + KS test** — run `fit_delta_e_spectrum.py` for the (μ, σ, α)
    skew-normal fit, then `compare_vs_wagih_PtAu.py` for the KS test
@@ -153,8 +163,12 @@ The remaining steps are wall-time-bound execution:
 | `submit_delta_e_PtAu_100A.sh` | scratch dir; driver path; --elements/--masses passed explicitly; gb_identify auto-fallback uses --lattice-a 3.9764 (Pt) instead of 4.05 (Al) |
 | `compare_vs_wagih_PtAu.py` | new file; `load_wagih(seg.txt + bulk.dat)` → `load_wagih_dump(dump)` reading `seg_kJ_per_mol` column directly. The Pt(Au) reference lives in the accelerated_model dump (already in kJ/mol per site, bulk atoms = 0), not in the smaller `seg_energies_*.txt + bulk_solute_*.dat` pair that exists only for Al(Mg) under `machine_learning_notebook/`. |
 | `bootstrap_vs_wagih_PtAu.py` | new file; same `load_wagih_dump` adapter as `compare_vs_wagih_PtAu.py`; otherwise identical to the Al(Mg) bootstrap script. |
+| `fit_delta_e_spectrum_PtAu.py` | copy with three substantive label changes: plot title `"Al(Mg) per-site GB segregation spectrum"` → `"Pt(Au) per-site GB segregation spectrum"`; the `WAGIH_ALMG` constant (μ=9, σ=23, α=−2.3, source `Mg^15` SI Fig. 3) → `WAGIH_PTAU` (μ=3.65, σ=11.92, α=−1.42, source `Wagih 2020 Zenodo accelerated_model Pt_Au_20nm_GB_segregation.dump`); JSON key `wagih_alm_reference` → `wagih_ptau_reference`. Pt(Au) reference values come from `scipy.stats.skewnorm.fit` on the Wagih dump's 97,440 seg_kJ_per_mol entries (the same dump used by `compare_vs_wagih_PtAu.py`). |
+| `fermi_dirac_predict_PtAu.py` | copy with two label changes: plot title `"Fermi-Dirac dilute-limit prediction — Al(Mg)"` → `"... Pt(Au)"`; legend `"ours 200 Å"` → `"ours 100 Å"` (we are on the 10³ nm³ prototype). Additionally swaps the dead `--wagih-seg`/`--wagih-bulk` flag pair (Al(Mg) seg.txt + bulk.dat format) for a single `--wagih-dump` flag that reads `Pt_Au_20nm_GB_segregation.dump` directly via the same loader as `bootstrap_vs_wagih_PtAu.py`. Default `--T-list` shifted `300,500,700,900` → `500,700,900,1100` to bracket Pt's higher T_melt. |
 
 No canonical script (`project/scripts/sample_delta_e.py`,
+`project/scripts/fit_delta_e_spectrum.py`,
+`project/scripts/fermi_dirac_predict.py`,
 `project/scripts/compare_vs_wagih.py`,
 `project/scripts/bootstrap_vs_wagih.py`,
 `project/data/decks/anneal_AlMg.lammps`) was modified, per the
