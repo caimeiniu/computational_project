@@ -53,36 +53,35 @@ algorithm are stated in Apps.~\ref{app:eq}--\ref{app:alg}.
 \centering
 \caption{Atomistic systems used in this report. Both are FCC hosts with
 a dilute substitutional solute, processed by the same generic
-polycrystal-build / anneal / GB-ID / $\Delta E$-spectrum pipeline. The
-``stage reached'' row records which downstream methodology has been
-applied to each system as of this report's writing. Both systems share
-the spectrum-validation methodology against the Wagih Zenodo reference
-(Apps.~\ref{app:dE_compare}). The $f_\mathrm{GB}$ asymmetry is
+polycrystal-build / anneal / GB-ID / $\Delta E$-spectrum pipeline.
+Al(Mg) is the principal test system and has been driven through the
+full pipeline including HMC on the $(T, X_c)$ grid
+(Sec.~\ref{sec:meth:grid}); Pt(Au) is a parallel sub-study that has
+so far completed the atomistic and spectrum-validation stages only,
+with its HMC sampling currently in progress
+(Sec.~\ref{sec:meth:ptau}). The $f_\mathrm{GB}$ asymmetry is
 geometric: smaller boxes have higher surface-to-volume ratios, so
-Pt(Au)'s higher value reflects its smaller box edge ($L = 100$~\AA{}
-chosen to keep the per-site CG cost within the same SLURM budget given
-the stiffer Pt EAM — see Sec.~\ref{sec:meth:ptau}) rather than an
+Pt(Au)'s higher value reflects its smaller box edge rather than an
 intrinsic material property.}
 \label{tab:systems}
 \begin{tabular}{lcc}
 \toprule
-                                          & Al(Mg)                                       & Pt(Au)                          \\
+                                          & Al(Mg)                            & Pt(Au)                          \\
 \midrule
-host                                      & Al                                           & Pt                              \\
-solute                                    & Mg                                           & Au                              \\
-EAM potential                             & Mendelev 2009~\cite{Mendelev2009}            & O'Brien 2017~\cite{OBrien2017}  \\
-\quad LAMMPS \texttt{pair\_style}         & \texttt{eam/fs}                              & \texttt{eam/alloy}              \\
-lattice constant $a$ (\AA)                & 4.05                                         & 3.98                            \\
-host bulk modulus $K$ (GPa)               & 76                                           & 280                             \\
-box edge $L$ (\AA)                        & 200                                          & 100                             \\
-total atoms $N_\mathrm{tot}$              & 475{,}715                                    & 62{,}096                        \\
-grain seeds $N_\mathrm{grains}$           & 16                                           & 8                               \\
-GB atoms $N_\mathrm{GB}$ (post-anneal)    & 89{,}042                                     & 23{,}272                        \\
-GB fraction $f_\mathrm{GB}$               & 0.187                                        & 0.375                           \\
-host melting $T_\mathrm{melt}$ (K)        & 933                                          & 2041                            \\
-anneal hold $T_\mathrm{hold} = 0.4 T_\mathrm{melt}$ (K) & 373                          & 816                             \\
-$\Delta E_i$ spectrum sample $n$          & 500                                          & 500                             \\
-\textbf{stage reached}                    & atomistic + spectrum + FD + HMC + $(T, X_c)$ & atomistic + spectrum (HMC pending) \\
+host                                      & Al                                & Pt                              \\
+solute                                    & Mg                                & Au                              \\
+EAM potential                             & Mendelev 2009~\cite{Mendelev2009} & O'Brien 2017~\cite{OBrien2017}  \\
+\quad LAMMPS \texttt{pair\_style}         & \texttt{eam/fs}                   & \texttt{eam/alloy}              \\
+lattice constant $a$ (\AA)                & 4.05                              & 3.98                            \\
+host bulk modulus $K$ (GPa)               & 76                                & 280                             \\
+box edge $L$ (\AA)                        & 200                               & 100                             \\
+total atoms $N_\mathrm{tot}$              & 475{,}715                         & 62{,}096                        \\
+grain seeds $N_\mathrm{grains}$           & 16                                & 8                               \\
+GB atoms $N_\mathrm{GB}$ (post-anneal)    & 89{,}042                          & 23{,}272                        \\
+GB fraction $f_\mathrm{GB}$               & 0.187                             & 0.375                           \\
+host melting $T_\mathrm{melt}$ (K)        & 933                               & 2041                            \\
+anneal hold $T_\mathrm{hold}$ (K)         & 373                               & 816                             \\
+$\Delta E_i$ spectrum sample $n$          & 500                               & 500                             \\
 \bottomrule
 \end{tabular}
 \end{table}
