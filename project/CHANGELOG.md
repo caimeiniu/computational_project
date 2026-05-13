@@ -12,6 +12,39 @@ Entries in reverse chronological order (newest first).
   visual, coin-flip analogy, formula last). Do not re-derive — read
   that file first, then re-deliver.
 
+## 2026-05-13 (afternoon) — T=800 K two-IC pair entered RUNNING on schedule; cleanup-pass TODO logged
+
+Al(Mg) increment on the morning entry. Pt(Au) afternoon work
+(sampling completion → fit → KS → bootstrap → 100³ Å decision →
+canonical-label fix → snapshot push to `origin/main` as commit
+65b739f) is fully recorded in `project/PtAu/CHANGELOG.md`'s
+2026-05-13 (afternoon) entry; this top-level CHANGELOG stays
+Al(Mg)-only per per-alloy separation.
+
+### T=800 K two-IC pair — RUNNING
+
+Both jobs (66395279 fdseed + 66395323 random) entered RUNNING at
+11:24 CEST — slightly before Pt(Au) sampling 66391849 ended (11:55).
+The three 16-rank jobs all fit simultaneously within the 48 CPU/user
+public-QOS cap, so the morning entry's "PENDING because Pt(Au)
+holds 16 ranks" expectation was overly cautious. Scheduling worked
+out without anyone having to wait.
+
+As of this entry: ~5 h wall elapsed on each; ~19 h remaining of the
+24 h budget; **expected landing ~2026-05-14 11:24 CEST**. Per the
+morning entry's "Pending follow-ups" matrix, post-process when jobs
+land will diagnose ergodicity at high T (Gelman-Rubin spirit) and
+decide whether the T=500 K dilute-breakdown finding is real physics.
+
+### Pending — TODO addition
+
+- **Pre-submission cleanup pass** before handing the repo to the
+  advisor: scrub personal scratch paths in README / submit scripts,
+  polish top-level README + audit per-alloy READMEs, prune
+  exploratory branches / one-off figures in `output/archive/`,
+  freeze a "submission" snapshot on `main`. Not started; flagged
+  for a later session.
+
 ## 2026-05-13 (late morning) — Pt(Au) anneal landed + ΔE_seg sampling running; T=800 K Al-Mg two-IC convergence-test pair submitted; Wagih DB tar inventory correction
 
 ### Pt(Au) pipeline state
