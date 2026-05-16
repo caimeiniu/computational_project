@@ -19,7 +19,13 @@ project/PtAu/
 │   └── decks/
 │       ├── anneal_PtAu.lammps              # Wagih-style anneal, eam/alloy
 │       ├── submit_anneal_PtAu_100A.sh      # SLURM submit for 10³ nm³ prototype
-│       └── submit_delta_e_PtAu_100A.sh     # SLURM submit for n=500 sampling
+│       ├── submit_delta_e_PtAu_100A.sh     # SLURM submit for n=500 sampling
+│       ├── hmc_PtAu.lammps                 # fresh HMC run deck
+│       ├── hmc_PtAu_resume.lammps          # restart-based HMC continuation deck
+│       ├── submit_hmc_PtAu_T700_bracket_jiayi.sh
+│       │                                       # 700 K lower-Xc array bracket
+│       └── submit_hmc_PtAu_T700_Xc0.10_random_resume66755862_jiayi.sh
+│                                               # resumes the 700 K, Xc=0.10 job 66755862
 ├── scripts/
 │   ├── sample_delta_e_PtAu.py              # copy with pair_style eam/alloy
 │   ├── fit_delta_e_spectrum_PtAu.py        # copy with Pt(Au) title + Wagih Pt(Au) ref values
@@ -88,6 +94,8 @@ python "$PROJECT/PtAu/scripts/fermi_dirac_predict_PtAu.py" \
     --ours-npz "$SCRATCH/delta_e_results_n500_PtAu_100A_tight.npz" \
     --wagih-dump "$WAGIH_DUMP" \
     --T-list 500,700,900,1100 \
+    --n-total 62096 \
+    --n-gb 23272 \
     --out-png "$PROJECT/PtAu/output/fd_curves_PtAu_100A.png" \
     --out-json "$PROJECT/PtAu/output/fd_curves_PtAu_100A.json"
 ```
@@ -127,6 +135,16 @@ python "$PROJECT/PtAu/scripts/bootstrap_vs_wagih_PtAu.py" \
     --ours-npz "$SCRATCH/delta_e_results_n500_PtAu_100A_tight.npz" \
     --wagih-dump "$WAGIH_DUMP" \
     --out-json "$PROJECT/PtAu/output/bootstrap_vs_wagih_PtAu_100A.json"
+
+# ----- Step 6: HMC resume for T=700 K, Xc=0.10, job 66755862 -----
+# Default continuation is 300 ps. Override with e.g. PROD_PS=600 sbatch ...
+sbatch "$PROJECT/PtAu/data/decks/submit_hmc_PtAu_T700_Xc0.10_random_resume66755862_jiayi.sh"
+
+# ----- Step 7: HMC lower-Xc bracket at 700 K -----
+# Follows the Al(Mg) FD-first scan idea, now adjusted to Pt(Au):
+# use the converged Xc=0.10 point as the high-concentration anchor and
+# run lower total-Au fractions to locate the onset of HMC/FD divergence.
+sbatch "$PROJECT/PtAu/data/decks/submit_hmc_PtAu_T700_bracket_jiayi.sh"
 ```
 
 Project pass bar: KS p > 0.5 ("spectrum-level indistinguishable", per
@@ -164,7 +182,7 @@ The remaining steps are wall-time-bound execution:
 | `compare_vs_wagih_PtAu.py` | new file; `load_wagih(seg.txt + bulk.dat)` → `load_wagih_dump(dump)` reading `seg_kJ_per_mol` column directly. The Pt(Au) reference lives in the accelerated_model dump (already in kJ/mol per site, bulk atoms = 0), not in the smaller `seg_energies_*.txt + bulk_solute_*.dat` pair that exists only for Al(Mg) under `machine_learning_notebook/`. |
 | `bootstrap_vs_wagih_PtAu.py` | new file; same `load_wagih_dump` adapter as `compare_vs_wagih_PtAu.py`; otherwise identical to the Al(Mg) bootstrap script. |
 | `fit_delta_e_spectrum_PtAu.py` | copy with three substantive label changes: plot title `"Al(Mg) per-site GB segregation spectrum"` → `"Pt(Au) per-site GB segregation spectrum"`; the `WAGIH_ALMG` constant (μ=9, σ=23, α=−2.3, source `Mg^15` SI Fig. 3) → `WAGIH_PTAU` (μ=3.65, σ=11.92, α=−1.42, source `Wagih 2020 Zenodo accelerated_model Pt_Au_20nm_GB_segregation.dump`); JSON key `wagih_alm_reference` → `wagih_ptau_reference`. Pt(Au) reference values come from `scipy.stats.skewnorm.fit` on the Wagih dump's 97,440 seg_kJ_per_mol entries (the same dump used by `compare_vs_wagih_PtAu.py`). |
-| `fermi_dirac_predict_PtAu.py` | copy with two label changes: plot title `"Fermi-Dirac dilute-limit prediction — Al(Mg)"` → `"... Pt(Au)"`; legend `"ours 200 Å"` → `"ours 100 Å"` (we are on the 10³ nm³ prototype). Additionally swaps the dead `--wagih-seg`/`--wagih-bulk` flag pair (Al(Mg) seg.txt + bulk.dat format) for a single `--wagih-dump` flag that reads `Pt_Au_20nm_GB_segregation.dump` directly via the same loader as `bootstrap_vs_wagih_PtAu.py`. Default `--T-list` shifted `300,500,700,900` → `500,700,900,1100` to bracket Pt's higher T_melt. |
+| `fermi_dirac_predict_PtAu.py` | copy with two label changes: plot title `"Fermi-Dirac dilute-limit prediction — Al(Mg)"` → `"... Pt(Au)"`; legend `"ours 200 Å"` → `"ours 100 Å"` (we are on the 10³ nm³ prototype). Additionally swaps the dead `--wagih-seg`/`--wagih-bulk` flag pair (Al(Mg) seg.txt + bulk.dat format) for a single `--wagih-dump` flag that reads `Pt_Au_20nm_GB_segregation.dump` directly via the same loader as `bootstrap_vs_wagih_PtAu.py`. Default `--T-list` shifted `300,500,700,900` → `500,700,900,1100` to bracket Pt's higher T_melt. Pt(Au) also adds optional `--n-total/--n-gb` closed-box FD curves, because HMC fixes total Au while Wagih's reservoir formula fixes bulk Au. |
 
 No canonical script (`project/scripts/sample_delta_e.py`,
 `project/scripts/fit_delta_e_spectrum.py`,

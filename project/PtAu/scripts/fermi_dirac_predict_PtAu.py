@@ -58,6 +58,63 @@ def x_gb_curve(dE_eV: np.ndarray, T: float, X_c_grid: np.ndarray) -> np.ndarray:
     return np.array([x_gb(dE_eV, T, x) for x in X_c_grid])
 
 
+def x_gb_canonical(
+    dE_eV: np.ndarray,
+    T: float,
+    X_total: float,
+    *,
+    n_total: int,
+    n_gb: int,
+) -> tuple[float, float]:
+    """Closed-box FD prediction for total solute fraction X_total.
+
+    The standard Wagih expression takes X_c as the bulk reservoir fraction.
+    HMC instead conserves the total number of solute atoms. Solve for the
+    post-segregation bulk fraction x_bulk such that
+
+        X_total*N_total = x_bulk*N_bulk + X_GB(x_bulk)*N_GB
+
+    and return (X_GB, x_bulk).
+    """
+    if X_total <= 0.0:
+        return 0.0, 0.0
+    if X_total >= 1.0:
+        return 1.0, 1.0
+    if not (0 < n_gb < n_total):
+        raise ValueError(f"Need 0 < n_gb < n_total, got n_gb={n_gb}, n_total={n_total}")
+
+    n_bulk = n_total - n_gb
+    target = X_total * n_total
+
+    def excess(x_bulk: float) -> float:
+        return n_bulk * x_bulk + n_gb * x_gb(dE_eV, T, x_bulk) - target
+
+    lo, hi = 0.0, 1.0
+    for _ in range(100):
+        mid = 0.5 * (lo + hi)
+        if excess(mid) < 0.0:
+            lo = mid
+        else:
+            hi = mid
+    x_bulk = 0.5 * (lo + hi)
+    return x_gb(dE_eV, T, x_bulk), x_bulk
+
+
+def x_gb_canonical_curve(
+    dE_eV: np.ndarray,
+    T: float,
+    X_total_grid: np.ndarray,
+    *,
+    n_total: int,
+    n_gb: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    pairs = [
+        x_gb_canonical(dE_eV, T, x, n_total=n_total, n_gb=n_gb)
+        for x in X_total_grid
+    ]
+    return np.array([p[0] for p in pairs]), np.array([p[1] for p in pairs])
+
+
 def load_ours(npz_path: Path) -> np.ndarray:
     return np.asarray(np.load(npz_path)["gb_delta_e"])  # eV
 
@@ -104,6 +161,10 @@ def main():
     p.add_argument("--Xc-min", type=float, default=1e-5)
     p.add_argument("--Xc-max", type=float, default=0.5)
     p.add_argument("--Xc-points", type=int, default=120)
+    p.add_argument("--n-total", type=int, default=None,
+                   help="Total atoms for closed-box canonical FD overlay.")
+    p.add_argument("--n-gb", type=int, default=None,
+                   help="GB atoms for closed-box canonical FD overlay.")
     p.add_argument("--out-png", required=True)
     p.add_argument("--out-json", required=True)
     args = p.parse_args()
@@ -124,8 +185,23 @@ def main():
 
     curves: dict[str, dict] = {"T": Ts, "X_c": Xc_grid.tolist(),
                                 "ours": {}, "wagih": {}}
+    have_canonical = args.n_total is not None and args.n_gb is not None
+    if have_canonical:
+        curves["X_total"] = Xc_grid.tolist()
+        curves["ours_canonical_total"] = {}
+        curves["ours_canonical_bulk"] = {}
     for T in Ts:
         curves["ours"][f"{T:g}"] = x_gb_curve(dE_ours, T, Xc_grid).tolist()
+        if have_canonical:
+            xgb_can, xbulk_can = x_gb_canonical_curve(
+                dE_ours,
+                T,
+                Xc_grid,
+                n_total=args.n_total,
+                n_gb=args.n_gb,
+            )
+            curves["ours_canonical_total"][f"{T:g}"] = xgb_can.tolist()
+            curves["ours_canonical_bulk"][f"{T:g}"] = xbulk_can.tolist()
         if have_wagih:
             curves["wagih"][f"{T:g}"] = x_gb_curve(dE_wagih, T, Xc_grid).tolist()
 
@@ -136,7 +212,10 @@ def main():
     colors = ["#1f77b4", "#2ca02c", "#ff7f0e", "#d62728", "#9467bd"]
     for T, c in zip(Ts, colors):
         ax.plot(Xc_grid, curves["ours"][f"{T:g}"], "-", color=c, lw=1.8,
-                label=f"ours 100 Å (n={dE_ours.size})  T={T:g} K")
+                label=f"ours reservoir (n={dE_ours.size})  T={T:g} K")
+        if have_canonical:
+            ax.plot(Xc_grid, curves["ours_canonical_total"][f"{T:g}"], ":", color=c, lw=1.8,
+                    label=f"ours closed box  T={T:g} K")
         if have_wagih:
             ax.plot(Xc_grid, curves["wagih"][f"{T:g}"], "--", color=c, lw=1.2,
                     alpha=0.7, label=f"Wagih (n={dE_wagih.size})  T={T:g} K")

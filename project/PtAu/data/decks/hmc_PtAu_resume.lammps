@@ -1,0 +1,59 @@
+# Resume Hybrid Monte Carlo atom-swap deck for Pt(Au) at fixed (T, X_c).
+#
+# Starts from a LAMMPS binary restart written by hmc_PtAu.lammps after the
+# equilibration stage and continues production HMC without re-randomizing the
+# solute field.
+
+variable restart       index hmc_PtAu_T700_Xc0.10_random.rst1
+variable outstub       index hmc_PtAu_T700_Xc0.10_random_resume
+variable T             index 700.0
+variable PROD_PS       index 300
+variable RESTART_PS    index 5
+variable SWAP_SEED     index 20260519
+variable SWAP_PER_STEPS index 100
+variable SWAPS_PER_CALL index 100
+variable DUMP_EVERY    index 1000
+variable POTFILE       index /cluster/home/jiayfu/computational_project/project/PtAu/data/potentials/PtAu.eam.alloy
+
+variable N_PROD        equal round(v_PROD_PS*1000)
+variable N_RESTART     equal round(v_RESTART_PS*1000)
+
+log ${outstub}.log
+
+units        metal
+atom_style   atomic
+boundary     p p p
+
+read_restart ${restart}
+
+mass         1 195.0900
+mass         2 196.9665
+
+pair_style   eam/alloy
+pair_coeff   * * ${POTFILE} Pt Au
+
+neighbor     1.0 bin
+neigh_modify every 10 delay 0 check yes
+
+timestep     0.001
+
+fix          nvt all nvt temp ${T} ${T} 0.1
+fix          hmc all atom/swap ${SWAP_PER_STEPS} ${SWAPS_PER_CALL} ${SWAP_SEED} ${T} ke yes types 1 2
+
+thermo       100
+thermo_style custom step time temp pe ke press f_hmc[1] f_hmc[2]
+
+dump         d1 all custom ${DUMP_EVERY} ${outstub}.dump id type
+dump_modify  d1 sort id
+
+restart      ${N_RESTART} ${outstub}.rst1 ${outstub}.rst2
+
+run          ${N_PROD}
+
+write_data   ${outstub}_final.lmp
+
+unfix        hmc
+unfix        nvt
+undump       d1
+
+print        "HMC_RESUME_OK outstub=${outstub} restart=${restart} T=${T} N_PROD=${N_PROD}"

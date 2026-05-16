@@ -19,6 +19,72 @@ alloy-agnostic Python scripts in `project/scripts/` are reused verbatim.
 
 ---
 
+## 2026-05-16 — HMC T=700 K, Xc=0.10 needs continuation
+
+Current HMC result from job `66755862` is not yet accepted as equilibrated:
+`X_GB=0.1876` versus FD `0.1605`, with `fwd/rev=1.237` and imbalance
+`+0.106`. Added restart-resume infrastructure for the Jiayi scratch path:
+
+- `data/decks/hmc_PtAu_resume.lammps` reads a LAMMPS binary restart and
+  continues production HMC without re-randomizing composition or rerunning
+  minimization/equilibration.
+- `data/decks/submit_hmc_PtAu_T700_Xc0.10_random_resume66755862_jiayi.sh`
+  selects the newest `hmc_PtAu_T700_Xc0.10_random.rst1/.rst2` in
+  `/cluster/scratch/jiayfu/prototype_PtAu_100A`, runs an additional
+  `PROD_PS` ps (default 300), and post-processes the original plus resumed
+  dump stream.
+- `project/scripts/hmc_xgb_timeseries.py` was filled in after being empty:
+  it now computes `X_GB(t)`, `X_bulk(t)`, tail averages, JSON summary, CSV,
+  and a PNG plot from one or more HMC dump stubs.
+
+Submit command on Euler:
+
+```bash
+sbatch /cluster/home/jiayfu/computational_project/project/PtAu/data/decks/submit_hmc_PtAu_T700_Xc0.10_random_resume66755862_jiayi.sh
+```
+
+For a longer continuation:
+
+```bash
+PROD_PS=600 sbatch /cluster/home/jiayfu/computational_project/project/PtAu/data/decks/submit_hmc_PtAu_T700_Xc0.10_random_resume66755862_jiayi.sh
+```
+
+The resumed job `66768704` finished the extra 300 ps successfully. Combined
+original+resume post-processing gives 601 frames through step 610000:
+
+| window | mean X_GB | mean X_bulk |
+|---|---:|---:|
+| block 7, steps 430000–489000 | 0.2094 | 0.0341 |
+| block 8, steps 490000–549000 | 0.2107 | 0.0333 |
+| block 9, steps 550000–610000 | 0.2103 | 0.0335 |
+
+Verdict: stop resuming this point. It is equilibrated near
+`X_GB^HMC ≈ 0.2103`, well above the original FD comparison value
+`0.1605`. Following the Al(Mg) strategy, the next Pt(Au)-specific step is
+not more runtime at `X_c=0.10`, but a lower-concentration bracket at the
+same temperature to locate the onset of divergence. Added:
+
+- `data/decks/submit_hmc_PtAu_T700_bracket_jiayi.sh`: Slurm array over
+  total Au fractions `0.005, 0.01, 0.03, 0.05, 0.07`, capped at `%3`
+  concurrent 16-rank jobs to fit the 48-core public quota. Default
+  production length is 600 ps because the `X_c=0.10` point needed about
+  that long to plateau.
+- `PtAu/scripts/summarize_hmc_scan_PtAu.py`: collects HMC JSON summaries
+  into one CSV table for the later HMC-vs-FD plot.
+- `PtAu/scripts/fermi_dirac_predict_PtAu.py`: added a closed-box FD curve
+  (`ours_canonical_total`) that solves for the bulk Au fraction under mass
+  conservation. This is the Pt(Au) adjustment to Cainiu's Al(Mg) FD-first
+  idea: compare closed-box HMC against a closed-box FD baseline, while still
+  retaining Wagih's reservoir formula for reference.
+
+Submit the bracket on Euler:
+
+```bash
+sbatch /cluster/home/jiayfu/computational_project/project/PtAu/data/decks/submit_hmc_PtAu_T700_bracket_jiayi.sh
+```
+
+---
+
 ## Current status (2026-05-13, 16:00 CEST)
 
 | Stage | Status |
