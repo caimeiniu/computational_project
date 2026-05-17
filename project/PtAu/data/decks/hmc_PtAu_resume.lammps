@@ -43,7 +43,7 @@ fix          hmc all atom/swap ${SWAP_PER_STEPS} ${SWAPS_PER_CALL} ${SWAP_SEED} 
 thermo       100
 thermo_style custom step time temp pe ke press f_hmc[1] f_hmc[2]
 
-dump         d1 all custom ${DUMP_EVERY} ${outstub}.dump id type
+dump         d1 all custom ${DUMP_EVERY} ${outstub}.dump id type x y z
 dump_modify  d1 sort id
 
 restart      ${N_RESTART} ${outstub}.rst1 ${outstub}.rst2

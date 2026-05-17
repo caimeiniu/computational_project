@@ -19,6 +19,47 @@ alloy-agnostic Python scripts in `project/scripts/` are reused verbatim.
 
 ---
 
+## 2026-05-17 — Reverse initial-condition structural check added
+
+Professor feedback: checking energy alone is insufficient; also verify
+that the structure/composition equilibrates from different initial
+conditions. Added a reverse check in which Au starts already segregated
+on GB atoms, then HMC should desegregate toward the same plateau reached
+from the homogeneous random start.
+
+New files:
+
+- `PtAu/scripts/seed_gb_solute_PtAu.py`: rewrites the annealed LAMMPS
+  data file so type-2 Au is placed preferentially on GB atoms according
+  to `gb_mask_PtAu_100A.npy`. For `X_total=0.10`, the initial
+  `X_GB` is about `0.267`, above the equilibrated random-start value
+  `0.210`, so the test is a true reverse relaxation.
+- `PtAu/data/decks/submit_hmc_PtAu_gbseed_check_jiayi.sh`: Slurm array
+  for GB-seeded checks, defaulting to `X_total=0.02` and `0.10` at
+  700 K with 600 ps production.
+- `PtAu/scripts/plot_hmc_initial_condition_check_PtAu.py`: plots
+  random-start and GB-seeded `X_GB(t)` on the same axes.
+
+Also changed the HMC dumps from `id type` to `id type x y z` so future
+outputs carry coordinates for OVITO/snapshot and local-structure checks.
+The existing `hmc_xgb_timeseries.py` still reads the same `id` and `type`
+columns and ignores the extra coordinates for composition counting.
+
+Submit on Euler:
+
+```bash
+sbatch /cluster/home/jiayfu/computational_project/project/PtAu/data/decks/submit_hmc_PtAu_gbseed_check_jiayi.sh
+```
+
+To repeat at 500 K after the 700 K check:
+
+```bash
+sbatch --export=ALL,T=500.0,XC_LIST="0.02 0.10" --array=0-1%2 \
+  /cluster/home/jiayfu/computational_project/project/PtAu/data/decks/submit_hmc_PtAu_gbseed_check_jiayi.sh
+```
+
+---
+
 ## 2026-05-17 — 700 K Pt(Au) HMC/FD breakdown bracket
 
 Following the Al(Mg) FD-first idea, the Pt(Au) 700 K scan now compares

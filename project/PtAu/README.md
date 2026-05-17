@@ -24,6 +24,8 @@ project/PtAu/
 │       ├── hmc_PtAu_resume.lammps          # restart-based HMC continuation deck
 │       ├── submit_hmc_PtAu_T700_bracket_jiayi.sh
 │       │                                       # 700 K lower-Xc array bracket
+│       ├── submit_hmc_PtAu_gbseed_check_jiayi.sh
+│       │                                       # reverse IC check: Au starts on GB
 │       └── submit_hmc_PtAu_T700_Xc0.10_random_resume66755862_jiayi.sh
 │                                               # resumes the 700 K, Xc=0.10 job 66755862
 ├── scripts/
@@ -33,7 +35,10 @@ project/PtAu/
 │   ├── compare_vs_wagih_PtAu.py            # new; KS driver reading dump's seg_kJ_per_mol
 │   ├── bootstrap_vs_wagih_PtAu.py          # new; bootstrap CI driver reading the same dump
 │   ├── summarize_hmc_scan_PtAu.py          # HMC JSONs -> scan CSV with closed-box FD
-│   └── plot_hmc_scan_PtAu.py               # scan CSV -> final 700 K HMC/FD figure
+│   ├── plot_hmc_scan_PtAu.py               # scan CSV -> final 700 K HMC/FD figure
+│   ├── seed_gb_solute_PtAu.py              # make GB-seeded initial structures
+│   └── plot_hmc_initial_condition_check_PtAu.py
+│                                               # random vs GB-seeded X_GB(t)
 ├── output/                                  # fits + figures (gitignored)
 ├── CHANGELOG.md                             # decisions + status log (reverse chronological)
 └── README.md                                # this file
@@ -160,6 +165,18 @@ python "$PROJECT/PtAu/scripts/plot_hmc_scan_PtAu.py" \
     --scan-csv "$PROJECT/PtAu/output/hmc_PtAu_T700_scan_summary.csv" \
     --out-png "$PROJECT/PtAu/output/hmc_PtAu_T700_scan.png" \
     --out-csv "$PROJECT/PtAu/output/hmc_PtAu_T700_plot_table.csv"
+
+# ----- Step 8: reverse initial-condition check -----
+# Starts with Au already preferentially on GB sites. If equilibrated, this
+# over-segregated start and the homogeneous random start should converge to
+# the same X_GB plateau.
+sbatch "$PROJECT/PtAu/data/decks/submit_hmc_PtAu_gbseed_check_jiayi.sh"
+
+python "$PROJECT/PtAu/scripts/plot_hmc_initial_condition_check_PtAu.py" \
+    --random-csv "$PROJECT/PtAu/output/hmc_PtAu_T700_Xc0.02_random_xgb_timeseries.csv" \
+    --gbseed-csv "$PROJECT/PtAu/output/hmc_PtAu_T700_Xc0.02_gbseed_xgb_timeseries.csv" \
+    --out-png "$PROJECT/PtAu/output/hmc_PtAu_T700_Xc0.02_ic_check.png" \
+    --title "Pt(Au) 700 K, X=0.02: random vs GB-seeded"
 ```
 
 Project pass bar: KS p > 0.5 ("spectrum-level indistinguishable", per
