@@ -19,6 +19,38 @@ alloy-agnostic Python scripts in `project/scripts/` are reused verbatim.
 
 ---
 
+## 2026-05-17 — 700 K Pt(Au) HMC/FD breakdown bracket
+
+Following the Al(Mg) FD-first idea, the Pt(Au) 700 K scan now compares
+closed-box HMC against a closed-box FD baseline using the same 100 Å box
+(`N_total=62096`, `N_GB=23272`). The closed-box correction matters: the
+old reservoir FD value at `X_total=0.10` was not the apples-to-apples
+baseline for a fixed-composition HMC run.
+
+Final 700 K scan:
+
+| X_total | X_GB^HMC | X_GB^FD closed | HMC - FD | HMC/FD |
+|---:|---:|---:|---:|---:|
+| 0.005 | 0.0097 | 0.0099 | -0.0002 | 0.98 |
+| 0.010 | 0.0206 | 0.0195 | +0.0011 | 1.06 |
+| 0.015 | 0.0326 | 0.0288 | +0.0038 | 1.13 |
+| 0.020 | 0.0440 | 0.0378 | +0.0062 | 1.16 |
+| 0.025 | 0.0540 | 0.0467 | +0.0074 | 1.16 |
+| 0.030 | 0.0664 | 0.0553 | +0.0111 | 1.20 |
+| 0.050 | 0.1094 | 0.0884 | +0.0211 | 1.24 |
+| 0.070 | 0.1488 | 0.1192 | +0.0296 | 1.25 |
+| 0.100 | 0.2102 | 0.1622 | +0.0480 | 1.30 |
+
+Verdict: at 700 K, closed-box FD agrees with HMC through about
+`X_total=0.01`. A measurable positive deviation starts around
+`X_total=0.015–0.02`, and breakdown is clear by `X_total=0.03`.
+
+Added `PtAu/scripts/plot_hmc_scan_PtAu.py` to render
+`PtAu/output/hmc_PtAu_T700_scan.png` and a compact plot table from the
+scan summary CSV.
+
+---
+
 ## 2026-05-16 — HMC T=700 K, Xc=0.10 needs continuation
 
 Current HMC result from job `66755862` is not yet accepted as equilibrated:

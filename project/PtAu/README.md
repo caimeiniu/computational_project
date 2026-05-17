@@ -31,7 +31,9 @@ project/PtAu/
 │   ├── fit_delta_e_spectrum_PtAu.py        # copy with Pt(Au) title + Wagih Pt(Au) ref values
 │   ├── fermi_dirac_predict_PtAu.py         # copy with Pt(Au) title + "100 Å" legend + --wagih-dump
 │   ├── compare_vs_wagih_PtAu.py            # new; KS driver reading dump's seg_kJ_per_mol
-│   └── bootstrap_vs_wagih_PtAu.py          # new; bootstrap CI driver reading the same dump
+│   ├── bootstrap_vs_wagih_PtAu.py          # new; bootstrap CI driver reading the same dump
+│   ├── summarize_hmc_scan_PtAu.py          # HMC JSONs -> scan CSV with closed-box FD
+│   └── plot_hmc_scan_PtAu.py               # scan CSV -> final 700 K HMC/FD figure
 ├── output/                                  # fits + figures (gitignored)
 ├── CHANGELOG.md                             # decisions + status log (reverse chronological)
 └── README.md                                # this file
@@ -145,6 +147,19 @@ sbatch "$PROJECT/PtAu/data/decks/submit_hmc_PtAu_T700_Xc0.10_random_resume667558
 # use the converged Xc=0.10 point as the high-concentration anchor and
 # run lower total-Au fractions to locate the onset of HMC/FD divergence.
 sbatch "$PROJECT/PtAu/data/decks/submit_hmc_PtAu_T700_bracket_jiayi.sh"
+
+python "$PROJECT/PtAu/scripts/summarize_hmc_scan_PtAu.py" \
+    "$PROJECT"/PtAu/output/hmc_PtAu_T700_Xc*_random_xgb_summary.json \
+    "$PROJECT"/PtAu/output/hmc_PtAu_T700_Xc0.10_random_resume66755862_xgb_summary.json \
+    --deltae-npz "$SCRATCH/delta_e_results_n500_PtAu_100A_tight.npz" \
+    --n-total 62096 \
+    --n-gb 23272 \
+    --out-csv "$PROJECT/PtAu/output/hmc_PtAu_T700_scan_summary.csv"
+
+python "$PROJECT/PtAu/scripts/plot_hmc_scan_PtAu.py" \
+    --scan-csv "$PROJECT/PtAu/output/hmc_PtAu_T700_scan_summary.csv" \
+    --out-png "$PROJECT/PtAu/output/hmc_PtAu_T700_scan.png" \
+    --out-csv "$PROJECT/PtAu/output/hmc_PtAu_T700_plot_table.csv"
 ```
 
 Project pass bar: KS p > 0.5 ("spectrum-level indistinguishable", per
