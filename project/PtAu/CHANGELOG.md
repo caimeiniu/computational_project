@@ -37,6 +37,9 @@ New files:
 - `PtAu/data/decks/submit_hmc_PtAu_gbseed_check_jiayi.sh`: Slurm array
   for GB-seeded checks, defaulting to `X_total=0.02` and `0.10` at
   700 K with 600 ps production.
+- `PtAu/data/decks/submit_hmc_PtAu_T700_Xc0.10_gbseed_resume_jiayi.sh`:
+  focused continuation for the high-concentration GB-seeded run if it
+  remains above the random-start plateau after the first 600 ps.
 - `PtAu/scripts/plot_hmc_initial_condition_check_PtAu.py`: plots
   random-start and GB-seeded `X_GB(t)` on the same axes.
 

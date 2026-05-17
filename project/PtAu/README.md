@@ -26,6 +26,8 @@ project/PtAu/
 │       │                                       # 700 K lower-Xc array bracket
 │       ├── submit_hmc_PtAu_gbseed_check_jiayi.sh
 │       │                                       # reverse IC check: Au starts on GB
+│       ├── submit_hmc_PtAu_T700_Xc0.10_gbseed_resume_jiayi.sh
+│       │                                       # continue slow Xc=0.10 GB-seeded run
 │       └── submit_hmc_PtAu_T700_Xc0.10_random_resume66755862_jiayi.sh
 │                                               # resumes the 700 K, Xc=0.10 job 66755862
 ├── scripts/
@@ -177,6 +179,10 @@ python "$PROJECT/PtAu/scripts/plot_hmc_initial_condition_check_PtAu.py" \
     --gbseed-csv "$PROJECT/PtAu/output/hmc_PtAu_T700_Xc0.02_gbseed_xgb_timeseries.csv" \
     --out-png "$PROJECT/PtAu/output/hmc_PtAu_T700_Xc0.02_ic_check.png" \
     --title "Pt(Au) 700 K, X=0.02: random vs GB-seeded"
+
+# If the high-concentration GB-seeded check remains above the random-start
+# plateau, continue only that run:
+sbatch "$PROJECT/PtAu/data/decks/submit_hmc_PtAu_T700_Xc0.10_gbseed_resume_jiayi.sh"
 ```
 
 Project pass bar: KS p > 0.5 ("spectrum-level indistinguishable", per
