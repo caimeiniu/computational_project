@@ -39,8 +39,10 @@ project/PtAu/
 │   ├── summarize_hmc_scan_PtAu.py          # HMC JSONs -> scan CSV with closed-box FD
 │   ├── plot_hmc_scan_PtAu.py               # scan CSV -> final 700 K HMC/FD figure
 │   ├── seed_gb_solute_PtAu.py              # make GB-seeded initial structures
-│   └── plot_hmc_initial_condition_check_PtAu.py
+│   ├── plot_hmc_initial_condition_check_PtAu.py
 │                                               # random vs GB-seeded X_GB(t)
+│   ├── mark_gb_solute_for_ovito_PtAu.py    # rewrite types for Pt/Au + GB coloring
+│   └── make_ptau_ovito_snapshots.sh        # batch-export X=0.03 OVITO files
 ├── output/                                  # fits + figures (gitignored)
 ├── CHANGELOG.md                             # decisions + status log (reverse chronological)
 └── README.md                                # this file
@@ -183,6 +185,9 @@ python "$PROJECT/PtAu/scripts/plot_hmc_initial_condition_check_PtAu.py" \
 # If the high-concentration GB-seeded check remains above the random-start
 # plateau, continue only that run:
 sbatch "$PROJECT/PtAu/data/decks/submit_hmc_PtAu_T700_Xc0.10_gbseed_resume_jiayi.sh"
+
+# OVITO-friendly structure snapshots for professor-facing structural checks.
+bash "$PROJECT/PtAu/scripts/make_ptau_ovito_snapshots.sh"
 ```
 
 Project pass bar: KS p > 0.5 ("spectrum-level indistinguishable", per

@@ -48,6 +48,15 @@ outputs carry coordinates for OVITO/snapshot and local-structure checks.
 The existing `hmc_xgb_timeseries.py` still reads the same `id` and `type`
 columns and ignores the extra coordinates for composition counting.
 
+Added OVITO export helpers:
+
+- `PtAu/scripts/mark_gb_solute_for_ovito_PtAu.py` rewrites atom types to
+  `1=Pt bulk`, `2=Au bulk`, `3=Pt GB`, `4=Au GB`.
+- `PtAu/scripts/make_ptau_ovito_snapshots.sh` exports initial/final
+  random-start and GB-seeded structures at `X_total=0.03`, the first
+  clear breakdown point that also passes the reverse initial-condition
+  check.
+
 Submit on Euler:
 
 ```bash
