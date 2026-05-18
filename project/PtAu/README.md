@@ -42,7 +42,8 @@ project/PtAu/
 │   ├── plot_hmc_initial_condition_check_PtAu.py
 │                                               # random vs GB-seeded X_GB(t)
 │   ├── mark_gb_solute_for_ovito_PtAu.py    # rewrite types for Pt/Au + GB coloring
-│   └── make_ptau_ovito_snapshots.sh        # batch-export X=0.03 OVITO files
+│   ├── make_ptau_ovito_snapshots.sh        # batch-export X=0.03 OVITO files
+│   └── plot_fd_wagih_comparison_PtAu.py    # ours/Wagih reservoir FD + closed-box FD
 ├── output/                                  # fits + figures (gitignored)
 ├── CHANGELOG.md                             # decisions + status log (reverse chronological)
 └── README.md                                # this file
@@ -109,6 +110,13 @@ python "$PROJECT/PtAu/scripts/fermi_dirac_predict_PtAu.py" \
     --n-gb 23272 \
     --out-png "$PROJECT/PtAu/output/fd_curves_PtAu_100A.png" \
     --out-json "$PROJECT/PtAu/output/fd_curves_PtAu_100A.json"
+
+python "$PROJECT/PtAu/scripts/plot_fd_wagih_comparison_PtAu.py" \
+    --ours-npz "$SCRATCH/delta_e_results_n500_PtAu_100A_tight.npz" \
+    --wagih-dump "$WAGIH_DUMP" \
+    --temp 700 \
+    --out-png "$PROJECT/PtAu/output/fd_wagih_comparison_PtAu_T700.png" \
+    --out-csv "$PROJECT/PtAu/output/fd_wagih_comparison_PtAu_T700.csv"
 ```
 
 ## KS test against Wagih reference

@@ -57,6 +57,12 @@ Added OVITO export helpers:
   clear breakdown point that also passes the reverse initial-condition
   check.
 
+Added `PtAu/scripts/plot_fd_wagih_comparison_PtAu.py` for the concentration
+comparison against Wagih's FD model: it plots our reservoir FD, Wagih
+reservoir FD, and our closed-box FD baseline used for HMC. There is no
+Wagih HMC curve in the database, so this is the appropriate concentration
+comparison to Wagih.
+
 Submit on Euler:
 
 ```bash
