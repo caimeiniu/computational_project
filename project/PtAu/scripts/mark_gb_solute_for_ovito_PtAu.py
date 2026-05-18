@@ -15,6 +15,9 @@ from pathlib import Path
 
 import numpy as np
 
+PT_MASS = 195.0900
+AU_MASS = 196.9665
+
 
 def _is_atom_line(line: str) -> bool:
     parts = line.split()
@@ -32,6 +35,7 @@ def rewrite_data(input_path: Path, output_path: Path, gb_mask: np.ndarray) -> di
     lines = input_path.read_text().splitlines(keepends=True)
     out_lines: list[str] = []
     in_atoms = False
+    in_masses = False
     saw_atoms = False
     counts = {1: 0, 2: 0, 3: 0, 4: 0}
 
@@ -43,7 +47,60 @@ def rewrite_data(input_path: Path, output_path: Path, gb_mask: np.ndarray) -> di
             out_lines.append("4 atom types\n")
             continue
 
+        if stripped == "Masses" or stripped.startswith("Masses "):
+            in_masses = True
+            out_lines.append(line)
+            continue
+
+        if in_masses:
+            if stripped == "":
+                out_lines.append(line)
+                continue
+            if stripped == "Atoms" or stripped.startswith("Atoms "):
+                out_lines.extend(
+                    [
+                        f"1 {PT_MASS:.4f}\n",
+                        f"2 {AU_MASS:.4f}\n",
+                        f"3 {PT_MASS:.4f}\n",
+                        f"4 {AU_MASS:.4f}\n",
+                        "\n",
+                    ]
+                )
+                in_masses = False
+                # Fall through and handle the Atoms section header below.
+            if _is_atom_line(line):
+                out_lines.extend(
+                    [
+                        f"1 {PT_MASS:.4f}\n",
+                        f"2 {AU_MASS:.4f}\n",
+                        f"3 {PT_MASS:.4f}\n",
+                        f"4 {AU_MASS:.4f}\n",
+                        "\n",
+                    ]
+                )
+                in_masses = False
+                # Fall through and handle this first Atoms line below.
+            else:
+                mass_parts = stripped.split()
+                if mass_parts and mass_parts[0].isdigit():
+                    continue
+                if not (stripped == "Atoms" or stripped.startswith("Atoms ")):
+                    out_lines.append(line)
+                    in_masses = False
+                    continue
+
         if stripped == "Atoms" or stripped.startswith("Atoms "):
+            if in_masses:
+                out_lines.extend(
+                    [
+                        f"1 {PT_MASS:.4f}\n",
+                        f"2 {AU_MASS:.4f}\n",
+                        f"3 {PT_MASS:.4f}\n",
+                        f"4 {AU_MASS:.4f}\n",
+                        "\n",
+                    ]
+                )
+                in_masses = False
             in_atoms = True
             saw_atoms = True
             out_lines.append(line)
