@@ -69,6 +69,11 @@ the random-start plateau even after 1.2 ns. The threshold conclusion is
 therefore based on `X_total=0.02` and `0.03`, which both pass the
 random-vs-GB-seeded structural check.
 
+The same plotter can now overlay Wagih's reservoir FD curve directly
+(`--wagih-dump ...`). This gives the requested concentration comparison:
+our HMC points versus Wagih's FD baseline, while retaining our closed-box
+FD as the apples-to-apples HMC baseline.
+
 Submit on Euler:
 
 ```bash

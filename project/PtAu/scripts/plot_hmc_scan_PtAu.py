@@ -9,6 +9,8 @@ from pathlib import Path
 
 import numpy as np
 
+from fermi_dirac_predict_PtAu import load_wagih_dump, x_gb_curve
+
 
 def _load_rows(path: Path) -> list[dict[str, float | str]]:
     rows: list[dict[str, float | str]] = []
@@ -28,6 +30,8 @@ def main() -> None:
     parser.add_argument("--out-png", required=True)
     parser.add_argument("--out-csv", help="Optional compact plotting table.")
     parser.add_argument("--title", default="Pt(Au) HMC vs closed-box FD at 700 K")
+    parser.add_argument("--wagih-dump", help="Optional Wagih Pt(Au) dump for reservoir FD overlay.")
+    parser.add_argument("--temp", type=float, default=700.0)
     parser.add_argument(
         "--slow-mixing-x",
         type=float,
@@ -45,6 +49,14 @@ def main() -> None:
     ratio = hmc / fd
     slow = np.isclose(x, args.slow_mixing_x, rtol=0.0, atol=5e-5)
     main = ~slow
+    wagih_x = None
+    wagih_fd = None
+    wagih_fd_at_hmc = None
+    if args.wagih_dump:
+        dE_wagih = load_wagih_dump(Path(args.wagih_dump))
+        wagih_x = np.logspace(np.log10(max(float(x.min()), 1e-5)), np.log10(float(x.max())), 160)
+        wagih_fd = x_gb_curve(dE_wagih, args.temp, wagih_x)
+        wagih_fd_at_hmc = x_gb_curve(dE_wagih, args.temp, x)
 
     import matplotlib
 
@@ -60,6 +72,15 @@ def main() -> None:
         gridspec_kw={"height_ratios": [2.2, 1.0]},
     )
 
+    if wagih_x is not None and wagih_fd is not None:
+        ax.plot(
+            wagih_x,
+            wagih_fd,
+            color="#4c6f9f",
+            lw=1.8,
+            ls="--",
+            label="Wagih reservoir FD",
+        )
     ax.plot(x, fd, color="#2f5d50", lw=2.0, label="closed-box FD")
     ax.errorbar(
         x[main],
@@ -144,17 +165,26 @@ def main() -> None:
                     "X_total",
                     "X_GB_HMC",
                     "X_GB_FD_closed",
+                    "X_GB_Wagih_reservoir_FD",
                     "HMC_minus_FD_closed",
                     "HMC_over_FD_closed",
                 ],
             )
             writer.writeheader()
-            for xi, hi, fi, di, ri in zip(x, hmc, fd, delta, ratio):
+            if wagih_fd_at_hmc is None:
+                wagih_fd_iter = [""] * len(x)
+            else:
+                wagih_fd_iter = [float(v) for v in wagih_fd_at_hmc]
+            for xi, hi, fi, wi, di, ri in zip(x, hmc, fd, wagih_fd_iter, delta, ratio):
+                wagih_at_x = ""
+                if args.wagih_dump:
+                    wagih_at_x = wi
                 writer.writerow(
                     {
                         "X_total": xi,
                         "X_GB_HMC": hi,
                         "X_GB_FD_closed": fi,
+                        "X_GB_Wagih_reservoir_FD": wagih_at_x,
                         "HMC_minus_FD_closed": di,
                         "HMC_over_FD_closed": ri,
                     }

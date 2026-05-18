@@ -175,6 +175,8 @@ python "$PROJECT/PtAu/scripts/summarize_hmc_scan_PtAu.py" \
 
 python "$PROJECT/PtAu/scripts/plot_hmc_scan_PtAu.py" \
     --scan-csv "$PROJECT/PtAu/output/hmc_PtAu_T700_scan_summary.csv" \
+    --wagih-dump "$WAGIH_DUMP" \
+    --temp 700 \
     --out-png "$PROJECT/PtAu/output/hmc_PtAu_T700_scan.png" \
     --out-csv "$PROJECT/PtAu/output/hmc_PtAu_T700_plot_table.csv"
 
