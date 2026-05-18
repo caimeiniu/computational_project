@@ -28,6 +28,12 @@ def main() -> None:
     parser.add_argument("--out-png", required=True)
     parser.add_argument("--out-csv", help="Optional compact plotting table.")
     parser.add_argument("--title", default="Pt(Au) HMC vs closed-box FD at 700 K")
+    parser.add_argument(
+        "--slow-mixing-x",
+        type=float,
+        default=0.10,
+        help="Mark this concentration as a slow-mixing/stress point.",
+    )
     args = parser.parse_args()
 
     rows = _load_rows(Path(args.scan_csv))
@@ -37,6 +43,8 @@ def main() -> None:
     fd = np.array([row["X_GB_FD_closed"] for row in rows], dtype=float)
     delta = hmc - fd
     ratio = hmc / fd
+    slow = np.isclose(x, args.slow_mixing_x, rtol=0.0, atol=5e-5)
+    main = ~slow
 
     import matplotlib
 
@@ -54,9 +62,9 @@ def main() -> None:
 
     ax.plot(x, fd, color="#2f5d50", lw=2.0, label="closed-box FD")
     ax.errorbar(
-        x,
-        hmc,
-        yerr=hmc_std,
+        x[main],
+        hmc[main],
+        yerr=hmc_std[main],
         color="#9b3d2e",
         marker="o",
         ms=4.5,
@@ -64,6 +72,29 @@ def main() -> None:
         capsize=2.5,
         label="HMC",
     )
+    if np.any(slow):
+        ax.errorbar(
+            x[slow],
+            hmc[slow],
+            yerr=hmc_std[slow],
+            color="#777777",
+            marker="o",
+            mfc="white",
+            mec="#777777",
+            ms=5.5,
+            lw=0.0,
+            capsize=2.5,
+            label="HMC slow-mixing check",
+        )
+        ax.annotate(
+            "slow mixing",
+            xy=(x[slow][0], hmc[slow][0]),
+            xytext=(-58, -18),
+            textcoords="offset points",
+            arrowprops={"arrowstyle": "->", "lw": 0.8, "color": "#666666"},
+            fontsize=8,
+            color="#555555",
+        )
     ax.plot(x, x, ":", color="#777777", lw=1.0, label=r"$X_\mathrm{GB}=X_\mathrm{total}$")
     ax.set_ylabel(r"GB Au fraction $X_\mathrm{GB}$")
     ax.set_title(args.title)
@@ -71,7 +102,18 @@ def main() -> None:
     ax.legend(frameon=False, loc="upper left")
 
     ax_delta.axhline(0.0, color="#555555", lw=1.0)
-    ax_delta.plot(x, delta, color="#5b4b8a", marker="s", ms=4.0, lw=1.5)
+    ax_delta.plot(x[main], delta[main], color="#5b4b8a", marker="s", ms=4.0, lw=1.5)
+    if np.any(slow):
+        ax_delta.plot(
+            x[slow],
+            delta[slow],
+            color="#777777",
+            marker="s",
+            mfc="white",
+            mec="#777777",
+            ms=5.0,
+            lw=0.0,
+        )
     ax_delta.axvspan(0.015, 0.02, color="#d8b45a", alpha=0.22, lw=0)
     ax_delta.text(
         0.0175,

@@ -63,6 +63,12 @@ reservoir FD, and our closed-box FD baseline used for HMC. There is no
 Wagih HMC curve in the database, so this is the appropriate concentration
 comparison to Wagih.
 
+Updated `plot_hmc_scan_PtAu.py` to mark `X_total=0.10` as a hollow
+slow-mixing/stress point, since the GB-seeded reverse check remains above
+the random-start plateau even after 1.2 ns. The threshold conclusion is
+therefore based on `X_total=0.02` and `0.03`, which both pass the
+random-vs-GB-seeded structural check.
+
 Submit on Euler:
 
 ```bash
