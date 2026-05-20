@@ -43,7 +43,9 @@ project/PtAu/
 │                                               # random vs GB-seeded X_GB(t)
 │   ├── mark_gb_solute_for_ovito_PtAu.py    # rewrite types for Pt/Au + GB coloring
 │   ├── make_ptau_ovito_snapshots.sh        # batch-export X=0.03 OVITO files
-│   └── plot_fd_wagih_comparison_PtAu.py    # ours/Wagih reservoir FD + closed-box FD
+│   ├── plot_fd_wagih_comparison_PtAu.py    # ours/Wagih reservoir FD + closed-box FD
+│   ├── plot_hmc_site_diagnostics_PtAu.py   # P_i vs ΔE_i and local Au neighbours
+│   └── plot_hmc_pair_clustering_PtAu.py    # Au-Au GB pair clustering
 ├── output/                                  # fits + figures (gitignored)
 ├── CHANGELOG.md                             # decisions + status log (reverse chronological)
 └── README.md                                # this file
@@ -198,6 +200,26 @@ sbatch "$PROJECT/PtAu/data/decks/submit_hmc_PtAu_T700_Xc0.10_gbseed_resume_jiayi
 
 # OVITO-friendly structure snapshots for professor-facing structural checks.
 bash "$PROJECT/PtAu/scripts/make_ptau_ovito_snapshots.sh"
+
+# Cainiu-style site-resolved HMC diagnostics at the clean X=0.03 point.
+python "$PROJECT/PtAu/scripts/plot_hmc_site_diagnostics_PtAu.py" \
+    --dump "$SCRATCH/hmc_PtAu_T700_Xc0.03_gbseed.dump" \
+    --data "$SCRATCH/hmc_PtAu_T700_Xc0.03_gbseed_final.lmp" \
+    --deltae-npz "$SCRATCH/delta_e_results_n500_PtAu_100A_tight.npz" \
+    --gb-mask "$SCRATCH/gb_mask_PtAu_100A.npy" \
+    --summary-json "$PROJECT/PtAu/output/hmc_PtAu_T700_Xc0.03_gbseed_xgb_summary.json" \
+    --temp 700 \
+    --xc 0.03 \
+    --energy-bin -30 -15 \
+    --out-prefix "$PROJECT/PtAu/output/hmc_PtAu_T700_Xc0.03_site_diag"
+
+python "$PROJECT/PtAu/scripts/plot_hmc_pair_clustering_PtAu.py" \
+    --gb-mask "$SCRATCH/gb_mask_PtAu_100A.npy" \
+    --data "$SCRATCH/hmc_PtAu_T700_Xc0.02_gbseed_final.lmp" --label "X=0.02" \
+    --data "$SCRATCH/hmc_PtAu_T700_Xc0.03_gbseed_final.lmp" --label "X=0.03" \
+    --data "$SCRATCH/hmc_PtAu_T700_Xc0.10_gbseed_final.lmp" --label "X=0.10 gbseed" \
+    --n-random 10 \
+    --out-png "$PROJECT/PtAu/output/hmc_PtAu_T700_pair_clustering.png"
 ```
 
 Project pass bar: KS p > 0.5 ("spectrum-level indistinguishable", per

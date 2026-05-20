@@ -74,6 +74,13 @@ The same plotter can now overlay Wagih's reservoir FD curve directly
 our HMC points versus Wagih's FD baseline, while retaining our closed-box
 FD as the apples-to-apples HMC baseline.
 
+Added Cainiu-style site diagnostics for Pt(Au):
+
+- `plot_hmc_site_diagnostics_PtAu.py` generates `P_i` vs. `ΔE_i` and
+  `P_i` vs. local Au-neighbour count for sampled ΔE sites.
+- `plot_hmc_pair_clustering_PtAu.py` compares Au-Au pair density on GB
+  against a uniform-random GB reference.
+
 Submit on Euler:
 
 ```bash
