@@ -148,6 +148,13 @@ def main() -> None:
     parser.add_argument("--temp", type=float, default=700.0)
     parser.add_argument("--xc", type=float, required=True)
     parser.add_argument("--energy-bin", nargs=2, type=float, default=[-30.0, -15.0], help="kJ/mol")
+    parser.add_argument(
+        "--energy-xlim",
+        nargs=2,
+        type=float,
+        default=None,
+        help="Optional x-axis limits for the P_i vs Delta E_i plot, in kJ/mol.",
+    )
     parser.add_argument("--neighbor-cutoff", type=float, default=5.0)
     parser.add_argument("--out-prefix", required=True)
     args = parser.parse_args()
@@ -194,6 +201,8 @@ def main() -> None:
     ax.errorbar(xc_bin, p_bin, yerr=e_bin, fmt="o", color="#e31a1c", capsize=3, label="HMC measurement")
     ax.axvspan(min(args.energy_bin), max(args.energy_bin), color="#d8ead8", alpha=0.45)
     ax.axvline(0.0, color="#76a476", lw=1.0)
+    if args.energy_xlim is not None:
+        ax.set_xlim(min(args.energy_xlim), max(args.energy_xlim))
     ax.set_xlabel(r"$\Delta E_i$  [kJ/mol]")
     ax.set_ylabel(r"Au occupation probability $P_i$")
     ax.set_title(
