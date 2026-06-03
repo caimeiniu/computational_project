@@ -8,9 +8,9 @@ source of truth.
 
 | job ID | run | scheduler outcome | report output |
 |---:|---|---|---|
-| 1803476 | `hmc_AlMg_T500_Xc0.10_fdseed_resume11` | `COMPLETED`, 21:17:45 | `assets/data/hmc_T500_Xc010_fdseed_resume11.json` |
-| 1803474 | `hmc_AlMg_T700_Xc0.10_fdseed_targeted_resume5` | `COMPLETED`, 22:54:34 | `assets/data/hmc_T700_Xc010_fdseed_targeted_resume5.json` |
-| 1803475 | `hmc_AlMg_T800_Xc0.10_fdseed_targeted_resume5` | `TIMEOUT`, manually postprocessed from scratch dump | `assets/data/hmc_T800_Xc010_fdseed_targeted_resume5.json` |
+| 1803476 | `hmc_AlMg_T500_Xc0.10_fdseed_resume11` | `COMPLETED`, 21:17:45 | `results/hmc_T500_Xc0.10_fdseed_resume11.json` |
+| 1803474 | `hmc_AlMg_T700_Xc0.10_fdseed_targeted_resume5` | `COMPLETED`, 22:54:34 | `results/hmc_T700_Xc0.10_fdseed_targeted_resume5.json` |
+| 1803475 | `hmc_AlMg_T800_Xc0.10_fdseed_targeted_resume5` | `TIMEOUT`, manually postprocessed from scratch dump | `results/hmc_T800_Xc0.10_fdseed_targeted_resume5.json` |
 
 The T800 timeout was a wall-time cutoff, not a simulation crash. The scratch
 dump and restarts existed under `/cluster/fs/scratchnv/06/cainiu/hmc_AlMg`, and
@@ -31,9 +31,9 @@ dump and restarts existed under `/cluster/fs/scratchnv/06/cainiu/hmc_AlMg`, and
 
 Supporting files:
 
-- `assets/data/compare_vs_wagih_200A_tight.json`
-- `assets/data/bootstrap_vs_wagih_200A_tight.json`
-- `assets/data/paired_pipeline_residual_n500_tight.json`
+- `results/compare_vs_wagih_200A_tight.json`
+- `results/bootstrap_vs_wagih_200A_tight.json`
+- `results/paired_pipeline_residual_n500_tight.json`
 
 Paired-pipeline residual on Wagih structure: mean PE residual
 `-0.0346 meV`, Pearson r = `0.999999999996`.
@@ -67,10 +67,10 @@ Relative to the 2026-06-02 snapshot, the new upper-branch means moved down by:
 
 ## Regenerated Report Figures
 
-- Fig. 2 candidate: `assets/figures/02_prediction_hmc_vs_fd_current.png`
-  with traceability JSON `assets/data/almg_report_02_prediction_hmc_vs_fd_current.json`.
-- Fig. 5 candidate: `assets/figures/05_ergodicity_bracket_T700_T800_current.png`
-  with traceability JSON `assets/data/almg_report_05_ergodicity_bracket_T700_T800_current.json`.
+- Fig. 2 candidate: `figures/02_prediction_hmc_vs_fd_current.png`
+  with traceability JSON `results/almg_report_02_prediction_hmc_vs_fd_current.json`.
+- Fig. 5 candidate: `figures/05_ergodicity_bracket_T700_T800_current.png`
+  with traceability JSON `results/almg_report_05_ergodicity_bracket_T700_T800_current.json`.
 
 ## Mechanism Snapshot
 
@@ -85,11 +85,11 @@ Fixed-DeltaE local-density test at T=500 K, Xc=0.075:
 
 Supporting files:
 
-- `assets/figures/07_MgMg_clustering.png`
-- `assets/figures/08_occupation_breakdown.png`
-- `assets/figures/10_repulsion_fixed_deltaE.png`
-- `assets/data/solute_correlation_analysis.json`
-- `assets/data/03_mgmg_repulsion_fixed_dE.json`
+- `figures/01_MgMg_clustering.png`
+- `figures/02_occupation_breakdown.png`
+- `figures/03_mgmg_repulsion_fixed_dE.png`
+- `results/solute_correlation_analysis.json`
+- `results/03_mgmg_repulsion_fixed_dE.json`
 
 ## Writing Implications
 

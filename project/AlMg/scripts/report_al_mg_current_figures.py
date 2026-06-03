@@ -2,11 +2,13 @@
 """Generate current Al(Mg) report figures after the 2026-06-03 job check.
 
 Outputs:
-  output/almg_report_02_prediction_hmc_vs_fd_current.{json,png}
-  output/almg_report_05_ergodicity_bracket_T700_T800_current.{json,png}
+  results/almg_report_02_prediction_hmc_vs_fd_current.{json,png}
+  results/almg_report_05_ergodicity_bracket_T700_T800_current.{json,png}
+  figures/02_prediction_hmc_vs_fd_current.png
+  figures/05_ergodicity_bracket_T700_T800_current.png
 
-This script intentionally uses repo-side snapshots and output JSONs instead of
-the older /cluster/scratch paths used by legacy plotting scripts.
+This script intentionally uses only files inside project/AlMg instead of the
+older /cluster/scratch paths used by legacy plotting scripts.
 """
 from __future__ import annotations
 
@@ -24,14 +26,17 @@ from fermi_dirac_predict import load_ours, x_gb_canonical_curve
 
 
 REPO = Path(__file__).resolve().parents[1]
-OUT = REPO / "output"
-SNAP = REPO / "data" / "snapshots"
+OUT = REPO / "results"
+FIG = REPO / "figures"
+SNAP = REPO / "data"
 
 SPECTRUM_NPZ = SNAP / "delta_e_results_n500_200A_tight.npz"
 GB_MASK_NPY = SNAP / "gb_mask_200A.npy"
 
 FIG2_PREFIX = OUT / "almg_report_02_prediction_hmc_vs_fd_current"
 FIG5_PREFIX = OUT / "almg_report_05_ergodicity_bracket_T700_T800_current"
+FIG2_REPORT = FIG / "02_prediction_hmc_vs_fd_current.png"
+FIG5_REPORT = FIG / "05_ergodicity_bracket_T700_T800_current.png"
 
 
 def load_run(filename: str) -> dict:
@@ -178,6 +183,7 @@ def figure_2() -> dict:
     ax.legend(loc="upper left", fontsize=8.8, framealpha=0.95)
     fig.tight_layout()
     fig.savefig(FIG2_PREFIX.with_suffix(".png"), dpi=180)
+    fig.savefig(FIG2_REPORT, dpi=180)
     plt.close(fig)
     return summary
 
@@ -285,18 +291,23 @@ def figure_5() -> dict:
     fig.suptitle("700 K and 800 K two-branch checks remain open", y=1.10)
     fig.tight_layout()
     fig.savefig(FIG5_PREFIX.with_suffix(".png"), dpi=180, bbox_inches="tight")
+    fig.savefig(FIG5_REPORT, dpi=180, bbox_inches="tight")
     plt.close(fig)
     FIG5_PREFIX.with_suffix(".json").write_text(json.dumps(summary, indent=2))
     return summary
 
 
 def main() -> None:
+    OUT.mkdir(exist_ok=True)
+    FIG.mkdir(exist_ok=True)
     fig2 = figure_2()
     fig5 = figure_5()
     print(f"wrote {FIG2_PREFIX.with_suffix('.json')}")
     print(f"wrote {FIG2_PREFIX.with_suffix('.png')}")
+    print(f"wrote {FIG2_REPORT}")
     print(f"wrote {FIG5_PREFIX.with_suffix('.json')}")
     print(f"wrote {FIG5_PREFIX.with_suffix('.png')}")
+    print(f"wrote {FIG5_REPORT}")
     print("latest T500 Xc=0.10:",
           fig2["descending_upper_bound_points"][-1]["X_GB_mean"])
     for panel in fig5["panels"]:

@@ -27,7 +27,7 @@ Not included:
 From the repository root:
 
 ```bash
-cd project
+cd project/AlMg
 python -m pip install -r requirements-report.txt
 ```
 
@@ -38,36 +38,36 @@ packages as described in `README.md`.
 ## Regenerate Current Report Figures
 
 ```bash
-cd project
+cd project/AlMg
 python scripts/report_al_mg_current_figures.py
 ```
 
 Expected outputs:
 
 ```text
-output/almg_report_02_prediction_hmc_vs_fd_current.json
-output/almg_report_02_prediction_hmc_vs_fd_current.png
-output/almg_report_05_ergodicity_bracket_T700_T800_current.json
-output/almg_report_05_ergodicity_bracket_T700_T800_current.png
+results/almg_report_02_prediction_hmc_vs_fd_current.json
+results/almg_report_02_prediction_hmc_vs_fd_current.png
+results/almg_report_05_ergodicity_bracket_T700_T800_current.json
+results/almg_report_05_ergodicity_bracket_T700_T800_current.png
 ```
 
-The same PNGs are linked from:
+The report-ready PNGs are also stored in:
 
 ```text
-report/al_mg_report/assets/figures/02_prediction_hmc_vs_fd_current.png
-report/al_mg_report/assets/figures/05_ergodicity_bracket_T700_T800_current.png
+figures/02_prediction_hmc_vs_fd_current.png
+figures/05_ergodicity_bracket_T700_T800_current.png
 ```
 
 ## Verify Headline Numbers
 
 ```bash
-cd project
+cd project/AlMg
 python - <<'PY'
 import json
 from pathlib import Path
 
-fig2 = json.loads(Path("output/almg_report_02_prediction_hmc_vs_fd_current.json").read_text())
-fig5 = json.loads(Path("output/almg_report_05_ergodicity_bracket_T700_T800_current.json").read_text())
+fig2 = json.loads(Path("results/almg_report_02_prediction_hmc_vs_fd_current.json").read_text())
+fig5 = json.loads(Path("results/almg_report_05_ergodicity_bracket_T700_T800_current.json").read_text())
 
 latest = fig2["descending_upper_bound_points"][-1]
 print(f"T500 Xc=0.10 X_GB = {latest['X_GB_mean']:.5f}")
@@ -89,8 +89,8 @@ T800 latest bracket = 0.02489
 ## Source Of Truth
 
 - Current numerical snapshot:
-  `report/al_mg_report/RESULT_SNAPSHOT_2026-06-03.md`
+  `RESULT_SNAPSHOT_2026-06-03.md`
 - Claim-to-file mapping:
-  `report/al_mg_report/PROVENANCE.md`
+  `PROVENANCE.md`
 - Main-text figure plan:
-  `report/al_mg_report/FIGURE_PLAN.md`
+  `FIGURE_PLAN.md`
