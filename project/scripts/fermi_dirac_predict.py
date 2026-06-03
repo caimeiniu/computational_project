@@ -9,6 +9,14 @@ sample_delta_e.py, evaluate the dilute-limit prediction
 on a (T, X_c) grid. Optionally overlay the same calculation done on
 Wagih's 82,646 ΔE pool as a reference curve.
 
+The standard form above is *grand-canonical*: X_c is the bulk solute
+mole fraction, held fixed by an implicit infinite reservoir. For a
+closed simulation box (canonical / total-Mg-conserved) this can predict
+X_GB unreachable in finite-size: X_GB^FD × N_GB > X_c × N_total. The
+canonical version (`x_gb_canonical`) self-consistently solves for the
+post-segregation bulk fraction X_bulk under mass conservation, so the
+comparison to a closed-box HMC is apples-to-apples.
+
 Sign convention: ΔE_i = E_GB^solute - E_bulk^solute (eV). Negative
 means the GB site is energetically preferred → P → 1 (segregates).
 
@@ -17,6 +25,7 @@ Unit tests (--self-test):
     X_c → 1:    X_GB → 1
     T → ∞:      X_GB → X_c             (no thermodynamic preference)
     T → 0:      X_GB → fraction of ΔE_i < 0
+    canonical:  total Mg conserved within rounding for any (T, X_c_total)
 """
 from __future__ import annotations
 
@@ -49,6 +58,65 @@ def x_gb(dE_eV: np.ndarray, T: float, X_c: float) -> float:
 
 def x_gb_curve(dE_eV: np.ndarray, T: float, X_c_grid: np.ndarray) -> np.ndarray:
     return np.array([x_gb(dE_eV, T, x) for x in X_c_grid])
+
+
+def solve_x_bulk_canonical(dE_eV: np.ndarray, T: float, X_c_total: float,
+                           n_gb_total: int, n_atoms_total: int) -> float:
+    """Self-consistent bulk fraction in a closed box.
+
+    Treats the ΔE_eV sample as representative of the full N_GB GB population
+    (mean P_i(X_bulk) is the unbiased estimator of the GB-occupied fraction).
+    Mass balance:
+
+        X_bulk · N_bulk + <P_i(T, X_bulk)> · N_GB  =  X_c_total · N_total
+
+    F(X_bulk) is strictly monotone increasing on (0, 1), so brentq finds the
+    unique root. Bracket: [tiny, X_bulk_max] where X_bulk_max corresponds to
+    "all Mg in bulk, none at GB" = X_c_total · N_total / N_bulk.
+    """
+    from scipy.optimize import brentq
+    n_bulk = n_atoms_total - n_gb_total
+    target = X_c_total * n_atoms_total
+
+    def F(xb: float) -> float:
+        return xb * n_bulk + x_gb(dE_eV, T, xb) * n_gb_total - target
+
+    # X_bulk_max: assume P_i = 0 (no segregation) → all Mg uniformly in bulk
+    xb_max = min(0.999999, X_c_total * n_atoms_total / n_bulk)
+    # if even at xb_max the GB pulls away enough, F(xb_max) > 0; we still
+    # need xb such that the sum equals target. expand bracket if needed.
+    f_lo = F(1e-300)  # ≈ -target  (negative)
+    f_hi = F(xb_max)
+    if f_hi < 0:
+        # fallback: GB is so attractive that even xb_max can't supply enough
+        # — should not happen since P_i ≤ 1; xb_max already accounts for
+        # X_GB=0. But defend against numerical edge cases.
+        xb_max = min(1.0 - 1e-12, X_c_total * 2.0)
+        f_hi = F(xb_max)
+    return float(brentq(F, max(1e-300, X_c_total * 1e-6), xb_max,
+                        xtol=1e-14, rtol=1e-12))
+
+
+def x_gb_canonical(dE_eV: np.ndarray, T: float, X_c_total: float,
+                   n_gb_total: int, n_atoms_total: int) -> tuple[float, float]:
+    """Closed-box prediction: returns (X_GB, X_bulk) at canonical equilibrium."""
+    if X_c_total <= 0.0:
+        return 0.0, 0.0
+    if X_c_total >= 1.0:
+        return 1.0, 1.0
+    xb = solve_x_bulk_canonical(dE_eV, T, X_c_total, n_gb_total, n_atoms_total)
+    return x_gb(dE_eV, T, xb), xb
+
+
+def x_gb_canonical_curve(dE_eV: np.ndarray, T: float, X_c_grid: np.ndarray,
+                         n_gb_total: int, n_atoms_total: int):
+    """Vectorised canonical FD curve. Returns (X_GB, X_bulk) arrays."""
+    out_gb = np.empty_like(X_c_grid)
+    out_bulk = np.empty_like(X_c_grid)
+    for k, x in enumerate(X_c_grid):
+        out_gb[k], out_bulk[k] = x_gb_canonical(dE_eV, T, float(x),
+                                                n_gb_total, n_atoms_total)
+    return out_gb, out_bulk
 
 
 def load_ours(npz_path: Path) -> np.ndarray:
@@ -84,6 +152,29 @@ def self_test() -> None:
     expected = float((dE < 0).mean())
     v = x_gb(dE, 1.0, 0.5)  # 1 K, 50%: dominated by ΔE sign
     assert abs(v - expected) < 1e-3, f"T→0 failed: {v} vs {expected}"
+
+    # Canonical FD: total Mg conserved within numerical tolerance.
+    # Toy box: 10000 atoms, 1900 GB sites (mimics our ~19% GB fraction).
+    n_total, n_gb_total = 10000, 1900
+    n_bulk = n_total - n_gb_total
+    for X_c_total in [1e-4, 1e-3, 1e-2, 1e-1, 0.4]:
+        x_gb_c, x_bulk = x_gb_canonical(dE, 500.0, X_c_total, n_gb_total, n_total)
+        recovered = (x_bulk * n_bulk + x_gb_c * n_gb_total) / n_total
+        assert abs(recovered - X_c_total) / X_c_total < 1e-6, (
+            f"canonical conservation failed at X_c={X_c_total}: "
+            f"recovered {recovered:.6e} vs {X_c_total:.6e}")
+        # Sanity: canonical X_GB ≤ X_c_total · N_total / N_GB (all Mg piled at GB)
+        ceiling = X_c_total * n_total / n_gb_total
+        assert x_gb_c <= ceiling + 1e-12, (
+            f"canonical X_GB exceeds ceiling at X_c={X_c_total}: "
+            f"{x_gb_c} > {ceiling}")
+
+    # T → ∞ canonical: X_GB → X_c_total (no thermodynamic preference)
+    for X_c_total in [0.01, 0.1, 0.5]:
+        x_gb_c, _ = x_gb_canonical(dE, 1e10, X_c_total, n_gb_total, n_total)
+        assert abs(x_gb_c - X_c_total) < 1e-6, (
+            f"canonical T→∞ failed at X_c={X_c_total}: {x_gb_c}")
+
     print(f"  self-test OK  (N={dE.size}; expected fraction(ΔE<0)={expected:.3f})")
 
 

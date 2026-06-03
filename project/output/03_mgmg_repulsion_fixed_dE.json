@@ -1,0 +1,203 @@
+{
+  "x_c": 0.075,
+  "T_K": 500.0,
+  "kT_kjmol": 4.157,
+  "r_local_angstrom": 5.0,
+  "snapshot": "data/snapshots/hmc_T500_Xc0.075_preseg_final.lmp",
+  "favorable_bin": {
+    "delta_e_kjmol": [
+      -30.0,
+      -15.0
+    ],
+    "n_sites": 112,
+    "wagih_p_min": 0.7495222290459745,
+    "wagih_p_max": 0.9910262486300381,
+    "wagih_p_mean": 0.9038250156169854,
+    "linear_slope_per_neighbour": -0.08043350044234736,
+    "linear_intercept": 0.7647449130050131,
+    "n_sites_min_for_plot": 3,
+    "per_integer_stats": [
+      {
+        "n_local": 0,
+        "n_sites": 1,
+        "p_hat": 1.0,
+        "ci_lo": 0.0,
+        "ci_hi": 1.0
+      },
+      {
+        "n_local": 1,
+        "n_sites": 3,
+        "p_hat": 1.0,
+        "ci_lo": 0.3466666666666667,
+        "ci_hi": 1.0
+      },
+      {
+        "n_local": 2,
+        "n_sites": 6,
+        "p_hat": 0.3333333333333333,
+        "ci_lo": 0.0,
+        "ci_hi": 0.7105355092038887
+      },
+      {
+        "n_local": 3,
+        "n_sites": 9,
+        "p_hat": 0.4444444444444444,
+        "ci_lo": 0.11980050104447498,
+        "ci_hi": 0.7690883878444139
+      },
+      {
+        "n_local": 4,
+        "n_sites": 30,
+        "p_hat": 0.4666666666666667,
+        "ci_lo": 0.28814201332194833,
+        "ci_hi": 0.645191320011385
+      },
+      {
+        "n_local": 5,
+        "n_sites": 14,
+        "p_hat": 0.5714285714285714,
+        "ci_lo": 0.31219894349225696,
+        "ci_hi": 0.8306581993648858
+      },
+      {
+        "n_local": 6,
+        "n_sites": 20,
+        "p_hat": 0.15,
+        "ci_lo": 0.0,
+        "ci_hi": 0.30649345034217884
+      },
+      {
+        "n_local": 7,
+        "n_sites": 16,
+        "p_hat": 0.125,
+        "ci_lo": 0.0,
+        "ci_hi": 0.2870522678027062
+      },
+      {
+        "n_local": 8,
+        "n_sites": 5,
+        "p_hat": 0.4,
+        "ci_lo": 0.0,
+        "ci_hi": 0.8294144850840502
+      },
+      {
+        "n_local": 9,
+        "n_sites": 5,
+        "p_hat": 0.0,
+        "ci_lo": 0.0,
+        "ci_hi": 0.392
+      },
+      {
+        "n_local": 10,
+        "n_sites": 2,
+        "p_hat": 0.0,
+        "ci_lo": 0.0,
+        "ci_hi": 0.98
+      },
+      {
+        "n_local": 11,
+        "n_sites": 1,
+        "p_hat": 0.0,
+        "ci_lo": 0.0,
+        "ci_hi": 1.0
+      }
+    ]
+  },
+  "neutral_bin_falsification": {
+    "delta_e_kjmol": [
+      -5.0,
+      5.0
+    ],
+    "n_sites": 128,
+    "wagih_p_min": 0.023774127011652952,
+    "wagih_p_max": 0.21256798836908047,
+    "linear_slope_per_neighbour": -0.025162087063908597,
+    "linear_intercept": 0.3578264896573015,
+    "per_integer_stats": [
+      {
+        "n_local": 0,
+        "n_sites": 0,
+        "p_hat": NaN,
+        "ci_lo": NaN,
+        "ci_hi": NaN
+      },
+      {
+        "n_local": 1,
+        "n_sites": 1,
+        "p_hat": 1.0,
+        "ci_lo": 0.0,
+        "ci_hi": 1.0
+      },
+      {
+        "n_local": 2,
+        "n_sites": 11,
+        "p_hat": 0.36363636363636365,
+        "ci_lo": 0.07935652563159407,
+        "ci_hi": 0.6479162016411333
+      },
+      {
+        "n_local": 3,
+        "n_sites": 19,
+        "p_hat": 0.42105263157894735,
+        "ci_lo": 0.19904545890021433,
+        "ci_hi": 0.6430598042576804
+      },
+      {
+        "n_local": 4,
+        "n_sites": 23,
+        "p_hat": 0.13043478260869565,
+        "ci_lo": 0.0,
+        "ci_hi": 0.2680732862653049
+      },
+      {
+        "n_local": 5,
+        "n_sites": 26,
+        "p_hat": 0.11538461538461539,
+        "ci_lo": 0.0,
+        "ci_hi": 0.2381909006677895
+      },
+      {
+        "n_local": 6,
+        "n_sites": 22,
+        "p_hat": 0.18181818181818182,
+        "ci_lo": 0.02064666308025001,
+        "ci_hi": 0.34298970055611366
+      },
+      {
+        "n_local": 7,
+        "n_sites": 17,
+        "p_hat": 0.23529411764705882,
+        "ci_lo": 0.03365055539969364,
+        "ci_hi": 0.436937679894424
+      },
+      {
+        "n_local": 8,
+        "n_sites": 6,
+        "p_hat": 0.3333333333333333,
+        "ci_lo": 0.0,
+        "ci_hi": 0.7105355092038887
+      },
+      {
+        "n_local": 9,
+        "n_sites": 3,
+        "p_hat": 0.3333333333333333,
+        "ci_lo": 0.0,
+        "ci_hi": 0.8667777662061142
+      },
+      {
+        "n_local": 10,
+        "n_sites": 0,
+        "p_hat": NaN,
+        "ci_lo": NaN,
+        "ci_hi": NaN
+      },
+      {
+        "n_local": 11,
+        "n_sites": 0,
+        "p_hat": NaN,
+        "ci_lo": NaN,
+        "ci_hi": NaN
+      }
+    ]
+  }
+}

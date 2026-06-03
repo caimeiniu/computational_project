@@ -1,0 +1,26 @@
+{
+  "ours_source": "/cluster/scratch/cainiu/wagih_pipeline_test/delta_e_results_wagih_n500_tight.npz",
+  "ours_kind": "npz (final)",
+  "wagih_seg": "/cluster/scratch/cainiu/wagih_zenodo/learning_segregation_energies/machine_learning_notebook/seg_energies_Al_Mg.txt",
+  "n_paired": 500,
+  "residual_pe_eV": {
+    "mean": -3.4618097357451914e-05,
+    "std": 4.78108767822894e-07,
+    "median": -3.462005406618118e-05,
+    "min": -3.67301981896162e-05,
+    "max": -3.300001844763756e-05
+  },
+  "residual_pe_meV": {
+    "mean": -0.034618097357451916,
+    "std": 0.00047810876782289395,
+    "min": -0.0367301981896162,
+    "max": -0.03300001844763756
+  },
+  "residual_pe_kJmol": {
+    "mean": -0.003340127123533748,
+    "std": 4.6130324463391925e-05,
+    "min": -0.0035439131723251195,
+    "max": -0.00318400677992031
+  },
+  "pearson_r": 0.9999999999960549
+}
