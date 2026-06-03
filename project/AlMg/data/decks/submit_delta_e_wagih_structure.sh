@@ -34,7 +34,7 @@ conda activate myenv
 RUN_DIR=/cluster/scratch/cainiu/wagih_pipeline_test
 ANNEALED=$RUN_DIR/wagih_Al_200A.lmp
 GB_MASK=$RUN_DIR/wagih_gb_mask.npy
-POTENTIAL=/cluster/home/cainiu/Computational_modeling/project/data/potentials/Al-Mg.eam.fs
+POTENTIAL=/cluster/home/cainiu/Computational_modeling/project/AlMg/data/potentials/Al-Mg.eam.fs
 DRIVER=/cluster/home/cainiu/Computational_modeling/project/scripts/sample_delta_e.py
 
 N_GB=500

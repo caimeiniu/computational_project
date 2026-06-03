@@ -76,7 +76,7 @@ file and a few CLI flags — see *Cu(Ni) quickstart* below.
 | `scripts/sample_delta_e.py` | per-site ΔE_seg via single-substitution + tight CG | yes — `--elements "Cu Ni" --masses "63.546 58.6934"` |
 | `scripts/fit_delta_e_spectrum.py` | skew-normal fit of ΔE spectrum | yes — pure NPZ → fit |
 | `scripts/fermi_dirac_predict.py` | X_GB^FD(T, X_c) curves from ΔE NPZ | yes — pure NPZ → curves |
-| `data/decks/anneal_AlMg.lammps` | Wagih-style anneal (CG → ramp → NPT hold → cool → CG) | yes — `-var EL1 -var EL2 -var MASS1 -var MASS2 -var T_HOLD` |
+| `AlMg/data/decks/anneal_AlMg.lammps` | Wagih-style anneal (CG → ramp → NPT hold → cool → CG) | yes — `-var EL1 -var EL2 -var MASS1 -var MASS2 -var T_HOLD` |
 
 ## Validation-only (Al(Mg)-specific, not relevant to Cu(Ni) unless they have a Wagih-style reference dataset)
 
@@ -91,7 +91,7 @@ file and a few CLI flags — see *Cu(Ni) quickstart* below.
 
 | Item | Status |
 |------|--------|
-| `data/decks/hmc_AlMg.lammps` + `submit_hmc_dryrun.sh` | dry-run pending; merge after swap acceptance rate (target 5–30 %), PE plateau, and X_GB(t) post-pipeline are verified |
+| `AlMg/data/decks/hmc_AlMg.lammps` + `submit_hmc_dryrun.sh` | dry-run pending; merge after swap acceptance rate (target 5–30 %), PE plateau, and X_GB(t) post-pipeline are verified |
 | HMC post-processing (`hmc_xgb_timeseries.py`) | not written |
 
 ## Cu(Ni) quickstart
@@ -115,7 +115,7 @@ file and a few CLI flags — see *Cu(Ni) quickstart* below.
 - **Cu-Ni EAM/fs source**: NIST Interatomic Potentials Repository
   (https://www.ctcms.nist.gov/potentials/) hosts several Cu-Ni alloy
   potentials (Foiles 1986, Onat & Durukanoglu 2014, …). Pick one and
-  drop into `data/potentials/`.
+  drop it into a per-alloy folder such as `CuNi/data/potentials/`.
 
 ### Workflow
 
@@ -124,7 +124,7 @@ file and a few CLI flags — see *Cu(Ni) quickstart* below.
 ALLOY=CuNi
 SCRATCH=/cluster/scratch/$USER/$ALLOY                                 # Euler example
 PROJECT=/cluster/home/$USER/Computational_modeling/project            # your clone
-POT=$PROJECT/data/potentials/Cu-Ni.eam.fs                             # provide yourself
+POT=$PROJECT/CuNi/data/potentials/Cu-Ni.eam.fs                        # provide yourself
 mkdir -p "$SCRATCH" && cd "$SCRATCH"
 
 # ----- Step 1: generate 20³ nm³, 16-grain FCC polycrystal -----
@@ -138,7 +138,7 @@ python "$PROJECT/scripts/generate_polycrystal.py" \
 # Copy the AlMg submit shell as a starting template, then edit the variables
 # (RUN_DIR, DATAFILE, OUTSTUB, POTENTIAL, and add EL1/EL2/MASS1/MASS2/T_HOLD).
 # T_HOLD = 0.4·T_melt(Cu=1357 K) ≈ 540 K.
-cp "$PROJECT/data/decks/submit_anneal_200A.sh" submit_anneal_Cu_200A.sh
+cp "$PROJECT/AlMg/data/decks/submit_anneal_200A.sh" submit_anneal_Cu_200A.sh
 # … edit the file:
 #   RUN_DIR=$SCRATCH
 #   DATAFILE=poly_Cu_200A_16g.lmp
@@ -160,7 +160,7 @@ python "$PROJECT/scripts/gb_identify.py" \
 # DO NOT run sample_delta_e.py directly on the login node — it spawns
 # `mpirun lmp` per site and will be killed. Use sbatch.
 # Copy the AlMg submit shell as template:
-cp "$PROJECT/data/decks/submit_delta_e_200A.sh" submit_delta_e_Cu_200A.sh
+cp "$PROJECT/AlMg/data/decks/submit_delta_e_200A.sh" submit_delta_e_Cu_200A.sh
 # … edit the file:
 #   RUN_DIR=$SCRATCH
 #   ANNEALED=$RUN_DIR/poly_Cu_200A_16g_annealed.lmp

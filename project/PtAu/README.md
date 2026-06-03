@@ -1,6 +1,6 @@
 # Pt(Au) GB segregation pipeline
 
-Mirror of the Al(Mg) pipeline at `project/data/decks/anneal_AlMg.lammps` +
+Mirror of the Al(Mg) pipeline at `project/AlMg/data/decks/anneal_AlMg.lammps` +
 `project/scripts/sample_delta_e.py`, adapted to the **Pt-host, Au-solute**
 direction with the **O'Brien et al. 2017 PtAu EAM/alloy** potential.
 
@@ -171,5 +171,5 @@ No canonical script (`project/scripts/sample_delta_e.py`,
 `project/scripts/fermi_dirac_predict.py`,
 `project/scripts/compare_vs_wagih.py`,
 `project/scripts/bootstrap_vs_wagih.py`,
-`project/data/decks/anneal_AlMg.lammps`) was modified, per the
+`project/AlMg/data/decks/anneal_AlMg.lammps`) was modified, per the
 no-in-place-script-edits rule.

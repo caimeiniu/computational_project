@@ -8,6 +8,7 @@ directory; raw LAMMPS dumps, restarts, and final `.lmp` snapshots are excluded.
 
 - Latest numerical results: `results/*.json`.
 - Canonical-FD input snapshots: `data/*.npz` and `data/*.npy`.
+- LAMMPS decks and Al-Mg potential: `data/decks/` and `data/potentials/`.
 - Report-ready figure candidates: `figures/`.
 - Methods and explanatory notes: `notes/`.
 - Reproduction commands: `REPRODUCE.md`.
@@ -76,7 +77,10 @@ kept as the pre-landing handoff record.
 - `REPRODUCE.md`: clean-clone commands for regenerating the current report
   figures and checking the headline numbers.
 - `PROVENANCE.md`: claim-to-file mapping and stale/ignore list.
-- `data/`: small canonical-FD input snapshots.
+- `data/`: small canonical-FD input snapshots plus tracked decks/potentials.
+  Local-only `data/ovito_check/` and `data/snapshots/` may exist in a working
+  checkout for visualization and restart provenance, but raw `.lmp`/`.dump`
+  files are not part of the reproducibility commit.
 - `results/`: postprocessed JSON/PNG outputs used by the report.
 - `figures/`: report-ready figure assets.
 - `scripts/`: Python scripts needed to regenerate figures and inspect HMC JSONs.

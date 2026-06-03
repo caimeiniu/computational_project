@@ -17,6 +17,7 @@ build/
 log.lammps
 *.restart
 *.dump
+*.lmp
 *.data.out
 *.lammpstrj
 *.atom
@@ -33,6 +34,11 @@ output/
 *.hdf5
 *.npy
 *.npz
+
+# Local Al(Mg) run artifacts kept out of the reproducibility package
+project/AlMg/data/decks/submit_hmc_*.sh
+project/AlMg/data/ovito_check/
+project/AlMg/data/snapshots/
 
 # OS
 .DS_Store

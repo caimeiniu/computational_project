@@ -116,7 +116,7 @@ and σ are the skew-normal *location* and *scale*, not the mean and std
 (see CHANGELOG 2026-04-24 late).
 
 **Our apples-to-apples target is the Mendelev 2009 row (SI Fig. 3 Mg¹⁵)**
-— that's the potential we ship at `data/potentials/Al-Mg.eam.fs`. The Fig 2
+— that's the potential we ship at `AlMg/data/potentials/Al-Mg.eam.fs`. The Fig 2
 aggregate row is kept for context but is **not** the right comparison since
 Fig 2 averages over multiple potentials.
 

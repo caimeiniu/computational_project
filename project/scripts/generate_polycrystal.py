@@ -2,9 +2,9 @@
 
 Supports FCC, BCC, and HCP crystal structures (the three lattice families
 covered by Wagih et al., Nat. Commun. 2020). Writes a LAMMPS data file
-compatible with the equilibration decks under
-`project/data/examples/nc_swap_CuNi/` (single atom type; solute is introduced
-later via LAMMPS `set type/fraction`). Replaces the advisor's 2D columnar
+compatible with the equilibration decks under `project/AlMg/data/decks/`
+(single atom type; solute is introduced later via LAMMPS
+`set type/fraction`). Replaces the advisor's 2D columnar
 `create_nanocrystal.py` for the 3D Wagih-style pipeline.
 
 Usage as module:

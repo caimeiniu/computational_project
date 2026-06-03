@@ -68,11 +68,11 @@ python scripts/generate_polycrystal.py \
 
 ## Stage 2: Anneal
 
-**Submit script**:`data/decks/submit_anneal_200A.sh` → sbatch
-**LAMMPS deck**:`data/decks/anneal_AlMg.lammps`(被 submit 调用)
+**Submit script**:`AlMg/data/decks/submit_anneal_200A.sh` → sbatch
+**LAMMPS deck**:`AlMg/data/decks/anneal_AlMg.lammps`(被 submit 调用)
 
 ```bash
-sbatch project/data/decks/submit_anneal_200A.sh
+sbatch project/AlMg/data/decks/submit_anneal_200A.sh
 ```
 
 SLURM 参数:32 ranks × 8 h budget,实际 ~1–2 h。
@@ -82,7 +82,7 @@ SLURM 参数:32 ranks × 8 h budget,实际 ~1–2 h。
 - `outstub`:输出文件前缀
 - `T_HOLD=373`:hold 温度(K),= 0.4 × T_melt(Al)
 - `EL1=Al MASS1=26.9815 EL2=Mg MASS2=24.305`:元素 + 质量
-- `POTFILE`:`data/potentials/Al-Mg.eam.fs`
+- `POTFILE`:`AlMg/data/potentials/Al-Mg.eam.fs`
 
 **LAMMPS 5 阶段**(`anneal_AlMg.lammps`):
 
@@ -151,11 +151,11 @@ a-CNA 把每个 atom 分类为 `{fcc, hcp, bcc, ico, unknown}`。**GB site = 不
 
 ## Stage 4: 每点 ΔE_seg 采样(production)
 
-**Submit script**:`data/decks/submit_delta_e_200A.sh` → sbatch
+**Submit script**:`AlMg/data/decks/submit_delta_e_200A.sh` → sbatch
 **驱动**:`scripts/sample_delta_e.py`(被 submit 调用)
 
 ```bash
-sbatch project/data/decks/submit_delta_e_200A.sh
+sbatch project/AlMg/data/decks/submit_delta_e_200A.sh
 ```
 
 16–32 ranks × 4 h budget,实际 ~15-30 min for n=500 (Al-Mg);Pt(Au) ~1h23m
@@ -256,8 +256,8 @@ python scripts/fermi_dirac_predict.py \
 
 ## Stage 6: HMC,一个 (T, X_c) 一个 job
 
-**Submit script** 例:`data/decks/submit_hmc_T500_Xc0.10_fdseed.sh`(每个 X_c/T 一个 .sh)
-**LAMMPS deck**:`data/decks/hmc_AlMg_v2.lammps`(所有 X_c/T 共用)
+**Submit script** 例:`AlMg/data/decks/submit_hmc_T500_Xc0.10_fdseed.sh`(每个 X_c/T 一个 .sh)
+**LAMMPS deck**:`AlMg/data/decks/hmc_AlMg_v2.lammps`(所有 X_c/T 共用)
 
 每个 SLURM 作业 16 ranks × 24 h,实际跑满或 plateau。
 
@@ -310,7 +310,7 @@ write_data      ${outstub}_final.lmp
 ```bash
 python scripts/hmc_xgb_timeseries.py \
   --stub /cluster/scratch/cainiu/hmc_AlMg/hmc_T500_Xc0.10_fdseed \
-  --gb-mask project/data/snapshots/gb_mask_200A.npy \
+  --gb-mask project/AlMg/data/gb_mask_200A.npy \
   --xc 0.10 --temp 500 --fd-pred 0.3519 \
   --out-prefix project/output/hmc_T500_Xc0.10_fdseed
 ```
@@ -392,13 +392,13 @@ python scripts/report_headline_T500_9pt.py
 | LAMMPS dump 轨迹 | `.dump` | scratch | 100 MB - 2 GB | gitignored |
 | LAMMPS restart | `.rst1`/`.rst2` | scratch | 40 MB | gitignored |
 | LAMMPS log | `.log` | scratch | KB | gitignored |
-| GB mask | `.npy` | scratch + `project/data/snapshots/` | KB | tracked(snapshot 副本) |
+| GB mask | `.npy` | scratch + `project/AlMg/data/` | KB | tracked(snapshot copy) |
 | Per-site 能量 | `.npz` | scratch | KB | gitignored |
 | Summary stats | `.json` | scratch (meta) + `project/output/` (report) | KB | tracked |
 | Figure | `.png` | `project/output/` 或 `project/report/figures/` | KB | tracked |
 | Script | `.py` | `project/scripts/` | KB | tracked |
-| LAMMPS deck | `.lammps` | `project/data/decks/` | KB | tracked |
-| Submit script | `.sh` | `project/data/decks/` | KB | tracked |
+| LAMMPS deck | `.lammps` | `project/AlMg/data/decks/` | KB | tracked |
+| Submit script | `.sh` | `project/AlMg/data/decks/` | KB | tracked |
 
 ---
 

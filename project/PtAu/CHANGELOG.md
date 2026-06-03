@@ -208,7 +208,7 @@ that decision:
 
 1. **Potential.** The only EAM file available for this binary on NIST
    is O'Brien et al. 2017 `PtAu.eam.alloy` (downloaded into
-   `data/potentials/`). Its header reads `2 Pt Au` with Pt equilibrium
+   `PtAu/data/potentials/`). Its header reads `2 Pt Au` with Pt equilibrium
    lattice 3.9764 Å and Au equilibrium lattice 4.1537 Å. The potential
    supports both directions.
 
@@ -277,8 +277,8 @@ eam/alloy`. The rest of the pipeline is alloy-agnostic.
 
 The two lines where the pair_style is hardcoded:
 
-- `data/decks/anneal_PtAu.lammps:70` — was line 61 in
-  `project/data/decks/anneal_AlMg.lammps` with `eam/fs`.
+- `PtAu/data/decks/anneal_PtAu.lammps:70` — was line 61 in
+  `project/AlMg/data/decks/anneal_AlMg.lammps` with `eam/fs`.
 - `scripts/sample_delta_e_PtAu.py:466` — was line 454 in
   `project/scripts/sample_delta_e.py` with `eam/fs`.
 
@@ -288,14 +288,14 @@ Everything else is parameter defaults and rename plumbing.
 ### Canonical scripts not modified in place
 
 The project convention is that canonical generic scripts under
-`project/scripts/` and `project/data/decks/` stay untouched when a
+`project/scripts/` and `project/AlMg/data/decks/` stay untouched when a
 second alloy is added; behavior-extending changes go in renamed copies
 inside the per-alloy folder. The reason is that the Al(Mg) pipeline is
 still being actively run, and in-place edits to canonical files have
 caused regressions before. So only the two files that hardcode the
 pair_style were copied:
 
-- `project/data/decks/anneal_AlMg.lammps` → `project/PtAu/data/decks/anneal_PtAu.lammps`
+- `project/AlMg/data/decks/anneal_AlMg.lammps` → `project/PtAu/data/decks/anneal_PtAu.lammps`
 - `project/scripts/sample_delta_e.py`     → `project/PtAu/scripts/sample_delta_e_PtAu.py`
 
 Every other Python script in `project/scripts/` already takes the alloy
@@ -334,10 +334,10 @@ CLI flags — no copy needed):
 
 | File | Change vs Al(Mg) original |
 |---|---|
-| `data/decks/anneal_PtAu.lammps` | `pair_style eam/fs` → `eam/alloy`; default elements `EL1=Al → Pt`, `EL2=Mg → Au`; masses `26.9815 → 195.0900` and `24.3050 → 196.9665`; `T_HOLD 373 → 816 K` (0.4 × T_melt(Pt) where T_melt(Pt) = 2041 K, CRC); potential file path |
+| `PtAu/data/decks/anneal_PtAu.lammps` | `pair_style eam/fs` → `eam/alloy`; default elements `EL1=Al → Pt`, `EL2=Mg → Au`; masses `26.9815 → 195.0900` and `24.3050 → 196.9665`; `T_HOLD 373 → 816 K` (0.4 × T_melt(Pt) where T_melt(Pt) = 2041 K, CRC); potential file path |
 | `scripts/sample_delta_e_PtAu.py` | `pair_style eam/fs` → `eam/alloy` (line 466); `_DEFAULT_ELEMENTS = ("Al","Mg") → ("Pt","Au")`; `_DEFAULT_MASSES = (26.9815, 24.3050) → (195.0900, 196.9665)`; docstring + CLI defaults updated. `--help` syntax-verified. |
-| `data/decks/submit_anneal_PtAu_100A.sh` | scratch dir `prototype_AlMg_100A → prototype_PtAu_100A`; deck path; T_HOLD; EL1/EL2/MASS1/MASS2 passed explicitly; wall budget 4 h → 6 h (higher T_hold means more cool ps after the hold) |
-| `data/decks/submit_delta_e_PtAu_100A.sh` | scratch dir; driver path; `--elements`/`--masses` passed explicitly; the auto-fallback `gb_identify.py` invocation uses `--lattice-a 3.9764` (Pt) instead of `4.05` (Al) |
+| `PtAu/data/decks/submit_anneal_PtAu_100A.sh` | scratch dir `prototype_AlMg_100A → prototype_PtAu_100A`; deck path; T_HOLD; EL1/EL2/MASS1/MASS2 passed explicitly; wall budget 4 h → 6 h (higher T_hold means more cool ps after the hold) |
+| `PtAu/data/decks/submit_delta_e_PtAu_100A.sh` | scratch dir; driver path; `--elements`/`--masses` passed explicitly; the auto-fallback `gb_identify.py` invocation uses `--lattice-a 3.9764` (Pt) instead of `4.05` (Al) |
 
 ### Polycrystal generated and validated
 

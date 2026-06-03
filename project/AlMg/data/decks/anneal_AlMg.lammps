@@ -32,7 +32,7 @@ variable T_HOLD         index 373.0       # Kelvin  (0.4 T_melt for Al)
 variable T_HOLD_PS      index 250         # ps
 variable COOL_RATE      index 3.0         # K/ps
 variable VELOCITY_SEED  index 20240101
-variable POTFILE        index /cluster/home/cainiu/Computational_modeling/project/data/potentials/Al-Mg.eam.fs
+variable POTFILE        index /cluster/home/cainiu/Computational_modeling/project/AlMg/data/potentials/Al-Mg.eam.fs
 # Element symbols / masses for type 1 (solvent) and type 2 (solute).
 # Defaults: Al / Mg. Cu-Ni example: -var EL1 Cu -var EL2 Ni -var MASS1 63.546 -var MASS2 58.6934
 # EL1/EL2 must match the order in the EAM/fs file header.

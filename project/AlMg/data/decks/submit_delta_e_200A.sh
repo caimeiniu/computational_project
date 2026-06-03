@@ -6,7 +6,7 @@
 #   <RUN_DIR>/gb_mask_200A.npy
 #
 # Usage:
-#   sbatch /cluster/home/cainiu/Computational_modeling/project/data/decks/submit_delta_e_200A.sh
+#   sbatch /cluster/home/cainiu/Computational_modeling/project/AlMg/data/decks/submit_delta_e_200A.sh
 #
 # Timing basis (tight CG, 1e-25/1e-25): 2-site test on Wagih's 483k atoms
 # averaged 36 s/site → 510 sites ≈ 5.1 h on 16 cores. 8 h budget for variance.
@@ -32,7 +32,7 @@ conda activate myenv
 RUN_DIR=/cluster/scratch/cainiu/production_AlMg_200A
 ANNEALED=$RUN_DIR/poly_Al_200A_16g_annealed.lmp
 GB_MASK=$RUN_DIR/gb_mask_200A.npy
-POTENTIAL=/cluster/home/cainiu/Computational_modeling/project/data/potentials/Al-Mg.eam.fs
+POTENTIAL=/cluster/home/cainiu/Computational_modeling/project/AlMg/data/potentials/Al-Mg.eam.fs
 DRIVER=/cluster/home/cainiu/Computational_modeling/project/scripts/sample_delta_e.py
 
 N_GB=500

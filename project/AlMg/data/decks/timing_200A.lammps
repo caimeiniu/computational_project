@@ -7,7 +7,7 @@ boundary     p p p
 atom_style   atomic
 
 variable     datafile   index poly_Al_200A_16g.lmp
-variable     potfile    index /cluster/home/cainiu/Computational_modeling/project/data/potentials/Al-Mg.eam.fs
+variable     potfile    index /cluster/home/cainiu/Computational_modeling/project/AlMg/data/potentials/Al-Mg.eam.fs
 
 read_data    ${datafile}
 

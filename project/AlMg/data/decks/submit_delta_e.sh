@@ -6,7 +6,7 @@
 #   <RUN_DIR>/gb_mask.npy
 #
 # Usage:
-#   sbatch /cluster/home/cainiu/Computational_modeling/project/data/decks/submit_delta_e.sh
+#   sbatch /cluster/home/cainiu/Computational_modeling/project/AlMg/data/decks/submit_delta_e.sh
 #
 # To rescale, edit N_GB / N_BULK / RUN_DIR / SEED below.
 
@@ -32,7 +32,7 @@ conda activate myenv
 RUN_DIR=/cluster/scratch/cainiu/prototype_AlMg_100A
 ANNEALED=$RUN_DIR/poly_Al_100A_8g_annealed.lmp
 GB_MASK=$RUN_DIR/gb_mask.npy
-POTENTIAL=/cluster/home/cainiu/Computational_modeling/project/data/potentials/Al-Mg.eam.fs
+POTENTIAL=/cluster/home/cainiu/Computational_modeling/project/AlMg/data/potentials/Al-Mg.eam.fs
 DRIVER=/cluster/home/cainiu/Computational_modeling/project/scripts/sample_delta_e.py
 
 N_GB=500
