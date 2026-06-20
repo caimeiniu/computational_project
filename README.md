@@ -1,8 +1,5 @@
 # Grain-boundary segregation beyond the dilute limit
 
-Course project (Department of Materials, ETH Zurich). Authors: Chen Cheng,
-Fu Jiayi, Caimei Niu.
-
 Spectrum-based models predict grain-boundary (GB) solute segregation from a
 distribution of single-site segregation energies, converted to a
 finite-temperature GB composition with an independent-site Fermi-Dirac (FD)
@@ -12,11 +9,11 @@ at finite solute concentration, where solute-solute interactions matter.
 
 ## Components and folders
 
-| Component | Lead | Folder |
-|---|---|---|
-| Accelerated spectrum learning / training-site selection | Chen Cheng | [`project/point_selection/`](project/point_selection/) |
-| Pt(Au): same workflow on a second alloy | Fu Jiayi | [`project/PtAu/`](project/PtAu/) |
-| Al(Mg): independent-site FD vs finite-concentration hybrid MC/MD (HMC) | Caimei Niu | [`project/AlMg/`](project/AlMg/) |
+| Component | Folder |
+|---|---|
+| Accelerated spectrum learning / training-site selection | [`project/point_selection/`](project/point_selection/) |
+| Pt(Au): same workflow on a second alloy | [`project/PtAu/`](project/PtAu/) |
+| Al(Mg): independent-site FD vs finite-concentration hybrid MC/MD (HMC) | [`project/AlMg/`](project/AlMg/) |
 
 ## Main results
 
