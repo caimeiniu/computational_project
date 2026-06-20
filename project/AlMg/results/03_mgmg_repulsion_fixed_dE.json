@@ -3,7 +3,7 @@
   "T_K": 500.0,
   "kT_kjmol": 4.157,
   "r_local_angstrom": 5.0,
-  "snapshot": "data/snapshots/hmc_T500_Xc0.075_preseg_final.lmp",
+  "snapshot": "AlMg/data/snapshots/hmc_T500_Xc0.075_preseg_final.lmp",
   "favorable_bin": {
     "delta_e_kjmol": [
       -30.0,

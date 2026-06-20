@@ -1,0 +1,4 @@
+numpy>=1.24
+scipy>=1.10
+matplotlib>=3.7
+# Full atomistic reruns additionally require LAMMPS (MANYBODY, MC, VORONOI packages).
