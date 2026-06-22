@@ -17,6 +17,17 @@ at finite solute concentration, where solute-solute interactions matter.
 
 ## Main results
 
+- **Training-site selection (Al(Mg) spectrum learning).** With the SOAP to
+  10-D PCA descriptor and the final linear-regression model held fixed, the
+  original k-means baseline is hard to beat at a 100-label budget: global
+  MAE = 3.652 kJ/mol and downstream X_GB error = 0.0060, against 3.83-4.08
+  kJ/mol for uncertainty- and physics-aware active learning. No single
+  strategy wins every metric (tail-aware selection gives the lowest
+  low-energy-tail MAE, 5.607 kJ/mol). The 100-label k-means MAE is only 0.094
+  kJ/mol above the all-data 10-component reference, so the binding limitation
+  is the feature representation, not the label budget: raising the PCA
+  dimension from 10 to 100 lowers the all-data MAE from 3.558 to 2.913 kJ/mol,
+  even though 10 components already retain 99.89% of the SOAP variance.
 - **Al(Mg).** The n=500 segregation-energy spectrum matches the Wagih *et al.*
   reference (two-sample KS p = 0.89). Despite this, finite-concentration HMC at
   X_c = 0.10 gives GB Mg fractions **below** the canonical closed-box FD
