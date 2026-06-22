@@ -1,0 +1,5 @@
+outputs/
+data/zenodo_4107058/
+*.npy
+*.npz
+__pycache__/

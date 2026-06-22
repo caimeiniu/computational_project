@@ -1,0 +1,4 @@
+-r requirements.txt
+ase>=3.22
+ovito>=3.10
+quippy-ase>=0.9
