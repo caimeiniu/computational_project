@@ -1,6 +1,6 @@
 # Pt(Au) GB segregation pipeline
 
-Mirror of the Al(Mg) pipeline at `project/AlMg/data/decks/anneal_AlMg.lammps` +
+Mirror of the Al(Mg) pipeline at `project/data/decks/anneal_AlMg.lammps` +
 `project/scripts/sample_delta_e.py`, adapted to the **Pt-host, Au-solute**
 direction with the **O'Brien et al. 2017 PtAu EAM/alloy** potential.
 
@@ -19,13 +19,33 @@ project/PtAu/
 │   └── decks/
 │       ├── anneal_PtAu.lammps              # Wagih-style anneal, eam/alloy
 │       ├── submit_anneal_PtAu_100A.sh      # SLURM submit for 10³ nm³ prototype
-│       └── submit_delta_e_PtAu_100A.sh     # SLURM submit for n=500 sampling
+│       ├── submit_delta_e_PtAu_100A.sh     # SLURM submit for n=500 sampling
+│       ├── hmc_PtAu.lammps                 # fresh HMC run deck
+│       ├── hmc_PtAu_resume.lammps          # restart-based HMC continuation deck
+│       ├── submit_hmc_PtAu_T700_bracket_jiayi.sh
+│       │                                       # 700 K lower-Xc array bracket
+│       ├── submit_hmc_PtAu_gbseed_check_jiayi.sh
+│       │                                       # reverse IC check: Au starts on GB
+│       ├── submit_hmc_PtAu_T700_Xc0.10_gbseed_resume_jiayi.sh
+│       │                                       # continue slow Xc=0.10 GB-seeded run
+│       └── submit_hmc_PtAu_T700_Xc0.10_random_resume66755862_jiayi.sh
+│                                               # resumes the 700 K, Xc=0.10 job 66755862
 ├── scripts/
 │   ├── sample_delta_e_PtAu.py              # copy with pair_style eam/alloy
 │   ├── fit_delta_e_spectrum_PtAu.py        # copy with Pt(Au) title + Wagih Pt(Au) ref values
 │   ├── fermi_dirac_predict_PtAu.py         # copy with Pt(Au) title + "100 Å" legend + --wagih-dump
 │   ├── compare_vs_wagih_PtAu.py            # new; KS driver reading dump's seg_kJ_per_mol
-│   └── bootstrap_vs_wagih_PtAu.py          # new; bootstrap CI driver reading the same dump
+│   ├── bootstrap_vs_wagih_PtAu.py          # new; bootstrap CI driver reading the same dump
+│   ├── summarize_hmc_scan_PtAu.py          # HMC JSONs -> scan CSV with closed-box FD
+│   ├── plot_hmc_scan_PtAu.py               # scan CSV -> final 700 K HMC/FD figure
+│   ├── seed_gb_solute_PtAu.py              # make GB-seeded initial structures
+│   ├── plot_hmc_initial_condition_check_PtAu.py
+│                                               # random vs GB-seeded X_GB(t)
+│   ├── mark_gb_solute_for_ovito_PtAu.py    # rewrite types for Pt/Au + GB coloring
+│   ├── make_ptau_ovito_snapshots.sh        # batch-export X=0.03 OVITO files
+│   ├── plot_fd_wagih_comparison_PtAu.py    # ours/Wagih reservoir FD + closed-box FD
+│   ├── plot_hmc_site_diagnostics_PtAu.py   # P_i vs ΔE_i and local Au neighbours
+│   └── plot_hmc_pair_clustering_PtAu.py    # Au-Au GB pair clustering
 ├── output/                                  # fits + figures (gitignored)
 ├── CHANGELOG.md                             # decisions + status log (reverse chronological)
 └── README.md                                # this file
@@ -88,8 +108,17 @@ python "$PROJECT/PtAu/scripts/fermi_dirac_predict_PtAu.py" \
     --ours-npz "$SCRATCH/delta_e_results_n500_PtAu_100A_tight.npz" \
     --wagih-dump "$WAGIH_DUMP" \
     --T-list 500,700,900,1100 \
+    --n-total 62096 \
+    --n-gb 23272 \
     --out-png "$PROJECT/PtAu/output/fd_curves_PtAu_100A.png" \
     --out-json "$PROJECT/PtAu/output/fd_curves_PtAu_100A.json"
+
+python "$PROJECT/PtAu/scripts/plot_fd_wagih_comparison_PtAu.py" \
+    --ours-npz "$SCRATCH/delta_e_results_n500_PtAu_100A_tight.npz" \
+    --wagih-dump "$WAGIH_DUMP" \
+    --temp 700 \
+    --out-png "$PROJECT/PtAu/output/fd_wagih_comparison_PtAu_T700.png" \
+    --out-csv "$PROJECT/PtAu/output/fd_wagih_comparison_PtAu_T700.csv"
 ```
 
 ## KS test against Wagih reference
@@ -127,6 +156,70 @@ python "$PROJECT/PtAu/scripts/bootstrap_vs_wagih_PtAu.py" \
     --ours-npz "$SCRATCH/delta_e_results_n500_PtAu_100A_tight.npz" \
     --wagih-dump "$WAGIH_DUMP" \
     --out-json "$PROJECT/PtAu/output/bootstrap_vs_wagih_PtAu_100A.json"
+
+# ----- Step 6: HMC resume for T=700 K, Xc=0.10, job 66755862 -----
+# Default continuation is 300 ps. Override with e.g. PROD_PS=600 sbatch ...
+sbatch "$PROJECT/PtAu/data/decks/submit_hmc_PtAu_T700_Xc0.10_random_resume66755862_jiayi.sh"
+
+# ----- Step 7: HMC lower-Xc bracket at 700 K -----
+# Follows the Al(Mg) FD-first scan idea, now adjusted to Pt(Au):
+# use the converged Xc=0.10 point as the high-concentration anchor and
+# run lower total-Au fractions to locate the onset of HMC/FD divergence.
+sbatch "$PROJECT/PtAu/data/decks/submit_hmc_PtAu_T700_bracket_jiayi.sh"
+
+python "$PROJECT/PtAu/scripts/summarize_hmc_scan_PtAu.py" \
+    "$PROJECT"/PtAu/output/hmc_PtAu_T700_Xc*_random_xgb_summary.json \
+    "$PROJECT"/PtAu/output/hmc_PtAu_T700_Xc0.10_random_resume66755862_xgb_summary.json \
+    --deltae-npz "$SCRATCH/delta_e_results_n500_PtAu_100A_tight.npz" \
+    --n-total 62096 \
+    --n-gb 23272 \
+    --out-csv "$PROJECT/PtAu/output/hmc_PtAu_T700_scan_summary.csv"
+
+python "$PROJECT/PtAu/scripts/plot_hmc_scan_PtAu.py" \
+    --scan-csv "$PROJECT/PtAu/output/hmc_PtAu_T700_scan_summary.csv" \
+    --wagih-dump "$WAGIH_DUMP" \
+    --temp 700 \
+    --out-png "$PROJECT/PtAu/output/hmc_PtAu_T700_scan.png" \
+    --out-csv "$PROJECT/PtAu/output/hmc_PtAu_T700_plot_table.csv"
+
+# ----- Step 8: reverse initial-condition check -----
+# Starts with Au already preferentially on GB sites. If equilibrated, this
+# over-segregated start and the homogeneous random start should converge to
+# the same X_GB plateau.
+sbatch "$PROJECT/PtAu/data/decks/submit_hmc_PtAu_gbseed_check_jiayi.sh"
+
+python "$PROJECT/PtAu/scripts/plot_hmc_initial_condition_check_PtAu.py" \
+    --random-csv "$PROJECT/PtAu/output/hmc_PtAu_T700_Xc0.02_random_xgb_timeseries.csv" \
+    --gbseed-csv "$PROJECT/PtAu/output/hmc_PtAu_T700_Xc0.02_gbseed_xgb_timeseries.csv" \
+    --out-png "$PROJECT/PtAu/output/hmc_PtAu_T700_Xc0.02_ic_check.png" \
+    --title "Pt(Au) 700 K, X=0.02: random vs GB-seeded"
+
+# If the high-concentration GB-seeded check remains above the random-start
+# plateau, continue only that run:
+sbatch "$PROJECT/PtAu/data/decks/submit_hmc_PtAu_T700_Xc0.10_gbseed_resume_jiayi.sh"
+
+# OVITO-friendly structure snapshots for professor-facing structural checks.
+bash "$PROJECT/PtAu/scripts/make_ptau_ovito_snapshots.sh"
+
+# Cainiu-style site-resolved HMC diagnostics at the clean X=0.03 point.
+python "$PROJECT/PtAu/scripts/plot_hmc_site_diagnostics_PtAu.py" \
+    --dump "$SCRATCH/hmc_PtAu_T700_Xc0.03_gbseed.dump" \
+    --data "$SCRATCH/hmc_PtAu_T700_Xc0.03_gbseed_final.lmp" \
+    --deltae-npz "$SCRATCH/delta_e_results_n500_PtAu_100A_tight.npz" \
+    --gb-mask "$SCRATCH/gb_mask_PtAu_100A.npy" \
+    --summary-json "$PROJECT/PtAu/output/hmc_PtAu_T700_Xc0.03_gbseed_xgb_summary.json" \
+    --temp 700 \
+    --xc 0.03 \
+    --energy-bin -30 -15 \
+    --out-prefix "$PROJECT/PtAu/output/hmc_PtAu_T700_Xc0.03_site_diag"
+
+python "$PROJECT/PtAu/scripts/plot_hmc_pair_clustering_PtAu.py" \
+    --gb-mask "$SCRATCH/gb_mask_PtAu_100A.npy" \
+    --data "$SCRATCH/hmc_PtAu_T700_Xc0.02_gbseed_final.lmp" --label "X=0.02" \
+    --data "$SCRATCH/hmc_PtAu_T700_Xc0.03_gbseed_final.lmp" --label "X=0.03" \
+    --data "$SCRATCH/hmc_PtAu_T700_Xc0.10_gbseed_final.lmp" --label "X=0.10 gbseed" \
+    --n-random 10 \
+    --out-png "$PROJECT/PtAu/output/hmc_PtAu_T700_pair_clustering.png"
 ```
 
 Project pass bar: KS p > 0.5 ("spectrum-level indistinguishable", per
@@ -164,12 +257,12 @@ The remaining steps are wall-time-bound execution:
 | `compare_vs_wagih_PtAu.py` | new file; `load_wagih(seg.txt + bulk.dat)` → `load_wagih_dump(dump)` reading `seg_kJ_per_mol` column directly. The Pt(Au) reference lives in the accelerated_model dump (already in kJ/mol per site, bulk atoms = 0), not in the smaller `seg_energies_*.txt + bulk_solute_*.dat` pair that exists only for Al(Mg) under `machine_learning_notebook/`. |
 | `bootstrap_vs_wagih_PtAu.py` | new file; same `load_wagih_dump` adapter as `compare_vs_wagih_PtAu.py`; otherwise identical to the Al(Mg) bootstrap script. |
 | `fit_delta_e_spectrum_PtAu.py` | copy with three substantive label changes: plot title `"Al(Mg) per-site GB segregation spectrum"` → `"Pt(Au) per-site GB segregation spectrum"`; the `WAGIH_ALMG` constant (μ=9, σ=23, α=−2.3, source `Mg^15` SI Fig. 3) → `WAGIH_PTAU` (μ=3.65, σ=11.92, α=−1.42, source `Wagih 2020 Zenodo accelerated_model Pt_Au_20nm_GB_segregation.dump`); JSON key `wagih_alm_reference` → `wagih_ptau_reference`. Pt(Au) reference values come from `scipy.stats.skewnorm.fit` on the Wagih dump's 97,440 seg_kJ_per_mol entries (the same dump used by `compare_vs_wagih_PtAu.py`). |
-| `fermi_dirac_predict_PtAu.py` | copy with two label changes: plot title `"Fermi-Dirac dilute-limit prediction — Al(Mg)"` → `"... Pt(Au)"`; legend `"ours 200 Å"` → `"ours 100 Å"` (we are on the 10³ nm³ prototype). Additionally swaps the dead `--wagih-seg`/`--wagih-bulk` flag pair (Al(Mg) seg.txt + bulk.dat format) for a single `--wagih-dump` flag that reads `Pt_Au_20nm_GB_segregation.dump` directly via the same loader as `bootstrap_vs_wagih_PtAu.py`. Default `--T-list` shifted `300,500,700,900` → `500,700,900,1100` to bracket Pt's higher T_melt. |
+| `fermi_dirac_predict_PtAu.py` | copy with two label changes: plot title `"Fermi-Dirac dilute-limit prediction — Al(Mg)"` → `"... Pt(Au)"`; legend `"ours 200 Å"` → `"ours 100 Å"` (we are on the 10³ nm³ prototype). Additionally swaps the dead `--wagih-seg`/`--wagih-bulk` flag pair (Al(Mg) seg.txt + bulk.dat format) for a single `--wagih-dump` flag that reads `Pt_Au_20nm_GB_segregation.dump` directly via the same loader as `bootstrap_vs_wagih_PtAu.py`. Default `--T-list` shifted `300,500,700,900` → `500,700,900,1100` to bracket Pt's higher T_melt. Pt(Au) also adds optional `--n-total/--n-gb` closed-box FD curves, because HMC fixes total Au while Wagih's reservoir formula fixes bulk Au. |
 
 No canonical script (`project/scripts/sample_delta_e.py`,
 `project/scripts/fit_delta_e_spectrum.py`,
 `project/scripts/fermi_dirac_predict.py`,
 `project/scripts/compare_vs_wagih.py`,
 `project/scripts/bootstrap_vs_wagih.py`,
-`project/AlMg/data/decks/anneal_AlMg.lammps`) was modified, per the
+`project/data/decks/anneal_AlMg.lammps`) was modified, per the
 no-in-place-script-edits rule.

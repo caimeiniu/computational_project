@@ -3,7 +3,7 @@
 # 10³ nm³ / 8 grains / ~64k atoms box (mirrors prototype_AlMg_100A).
 #
 # Usage (from anywhere):
-#   sbatch /cluster/home/cainiu/Computational_modeling/project/PtAu/data/decks/submit_anneal_PtAu_100A.sh
+#   sbatch "$HOME/computational_project/project/PtAu/data/decks/submit_anneal_PtAu_100A.sh"
 #
 # Timing estimate: ~1 h on 16 cores for 549 ps MD at ~64k atoms (NPT cool to
 # 0 K is longer than Al-Mg because T_hold is higher → more cool ps); 6 h budget.
@@ -14,8 +14,8 @@
 #SBATCH --ntasks=16
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=2G
-#SBATCH --output=/cluster/scratch/cainiu/prototype_PtAu_100A/%x-%j.out
-#SBATCH --error=/cluster/scratch/cainiu/prototype_PtAu_100A/%x-%j.err
+#SBATCH --output=/cluster/scratch/%u/prototype_PtAu_100A/%x-%j.out
+#SBATCH --error=/cluster/scratch/%u/prototype_PtAu_100A/%x-%j.err
 
 set -euo pipefail
 
@@ -24,9 +24,10 @@ module purge
 module load stack/2024-06 gcc/12.2.0 openmpi/4.1.6 lammps/20240829.4
 
 # ----- job parameters -----
-RUN_DIR=/cluster/scratch/cainiu/prototype_PtAu_100A
-DECK=/cluster/home/cainiu/Computational_modeling/project/PtAu/data/decks/anneal_PtAu.lammps
-POTENTIAL=/cluster/home/cainiu/Computational_modeling/project/PtAu/data/potentials/PtAu.eam.alloy
+PROJECT="${PROJECT:-$HOME/computational_project/project}"
+RUN_DIR="${RUN_DIR:-/cluster/scratch/$USER/prototype_PtAu_100A}"
+DECK="$PROJECT/PtAu/data/decks/anneal_PtAu.lammps"
+POTENTIAL="$PROJECT/PtAu/data/potentials/PtAu.eam.alloy"
 DATAFILE=poly_Pt_100A_8g.lmp
 OUTSTUB=poly_Pt_100A_8g
 T_HOLD=816.0        # K  (0.4 T_melt for Pt ≈ 2041 K) — middle Wagih range

@@ -19,6 +19,181 @@ alloy-agnostic Python scripts in `project/scripts/` are reused verbatim.
 
 ---
 
+## 2026-05-17 — Reverse initial-condition structural check added
+
+Professor feedback: checking energy alone is insufficient; also verify
+that the structure/composition equilibrates from different initial
+conditions. Added a reverse check in which Au starts already segregated
+on GB atoms, then HMC should desegregate toward the same plateau reached
+from the homogeneous random start.
+
+New files:
+
+- `PtAu/scripts/seed_gb_solute_PtAu.py`: rewrites the annealed LAMMPS
+  data file so type-2 Au is placed preferentially on GB atoms according
+  to `gb_mask_PtAu_100A.npy`. For `X_total=0.10`, the initial
+  `X_GB` is about `0.267`, above the equilibrated random-start value
+  `0.210`, so the test is a true reverse relaxation.
+- `PtAu/data/decks/submit_hmc_PtAu_gbseed_check_jiayi.sh`: Slurm array
+  for GB-seeded checks, defaulting to `X_total=0.02` and `0.10` at
+  700 K with 600 ps production.
+- `PtAu/data/decks/submit_hmc_PtAu_T700_Xc0.10_gbseed_resume_jiayi.sh`:
+  focused continuation for the high-concentration GB-seeded run if it
+  remains above the random-start plateau after the first 600 ps.
+- `PtAu/scripts/plot_hmc_initial_condition_check_PtAu.py`: plots
+  random-start and GB-seeded `X_GB(t)` on the same axes.
+
+Also changed the HMC dumps from `id type` to `id type x y z` so future
+outputs carry coordinates for OVITO/snapshot and local-structure checks.
+The existing `hmc_xgb_timeseries.py` still reads the same `id` and `type`
+columns and ignores the extra coordinates for composition counting.
+
+Added OVITO export helpers:
+
+- `PtAu/scripts/mark_gb_solute_for_ovito_PtAu.py` rewrites atom types to
+  `1=Pt bulk`, `2=Au bulk`, `3=Pt GB`, `4=Au GB`.
+- `PtAu/scripts/make_ptau_ovito_snapshots.sh` exports initial/final
+  random-start and GB-seeded structures at `X_total=0.03`, the first
+  clear breakdown point that also passes the reverse initial-condition
+  check.
+
+Added `PtAu/scripts/plot_fd_wagih_comparison_PtAu.py` for the concentration
+comparison against Wagih's FD model: it plots our reservoir FD, Wagih
+reservoir FD, and our closed-box FD baseline used for HMC. There is no
+Wagih HMC curve in the database, so this is the appropriate concentration
+comparison to Wagih.
+
+Updated `plot_hmc_scan_PtAu.py` to mark `X_total=0.10` as a hollow
+slow-mixing/stress point, since the GB-seeded reverse check remains above
+the random-start plateau even after 1.2 ns. The threshold conclusion is
+therefore based on `X_total=0.02` and `0.03`, which both pass the
+random-vs-GB-seeded structural check.
+
+The same plotter can now overlay Wagih's reservoir FD curve directly
+(`--wagih-dump ...`). This gives the requested concentration comparison:
+our HMC points versus Wagih's FD baseline, while retaining our closed-box
+FD as the apples-to-apples HMC baseline.
+
+Added Cainiu-style site diagnostics for Pt(Au):
+
+- `plot_hmc_site_diagnostics_PtAu.py` generates `P_i` vs. `ΔE_i` and
+  `P_i` vs. local Au-neighbour count for sampled ΔE sites.
+- `plot_hmc_pair_clustering_PtAu.py` compares Au-Au pair density on GB
+  against a uniform-random GB reference.
+
+Submit on Euler:
+
+```bash
+sbatch /cluster/home/jiayfu/computational_project/project/PtAu/data/decks/submit_hmc_PtAu_gbseed_check_jiayi.sh
+```
+
+To repeat at 500 K after the 700 K check:
+
+```bash
+sbatch --export=ALL,T=500.0,XC_LIST="0.02 0.10" --array=0-1%2 \
+  /cluster/home/jiayfu/computational_project/project/PtAu/data/decks/submit_hmc_PtAu_gbseed_check_jiayi.sh
+```
+
+---
+
+## 2026-05-17 — 700 K Pt(Au) HMC/FD breakdown bracket
+
+Following the Al(Mg) FD-first idea, the Pt(Au) 700 K scan now compares
+closed-box HMC against a closed-box FD baseline using the same 100 Å box
+(`N_total=62096`, `N_GB=23272`). The closed-box correction matters: the
+old reservoir FD value at `X_total=0.10` was not the apples-to-apples
+baseline for a fixed-composition HMC run.
+
+Final 700 K scan:
+
+| X_total | X_GB^HMC | X_GB^FD closed | HMC - FD | HMC/FD |
+|---:|---:|---:|---:|---:|
+| 0.005 | 0.0097 | 0.0099 | -0.0002 | 0.98 |
+| 0.010 | 0.0206 | 0.0195 | +0.0011 | 1.06 |
+| 0.015 | 0.0326 | 0.0288 | +0.0038 | 1.13 |
+| 0.020 | 0.0440 | 0.0378 | +0.0062 | 1.16 |
+| 0.025 | 0.0540 | 0.0467 | +0.0074 | 1.16 |
+| 0.030 | 0.0664 | 0.0553 | +0.0111 | 1.20 |
+| 0.050 | 0.1094 | 0.0884 | +0.0211 | 1.24 |
+| 0.070 | 0.1488 | 0.1192 | +0.0296 | 1.25 |
+| 0.100 | 0.2102 | 0.1622 | +0.0480 | 1.30 |
+
+Verdict: at 700 K, closed-box FD agrees with HMC through about
+`X_total=0.01`. A measurable positive deviation starts around
+`X_total=0.015–0.02`, and breakdown is clear by `X_total=0.03`.
+
+Added `PtAu/scripts/plot_hmc_scan_PtAu.py` to render
+`PtAu/output/hmc_PtAu_T700_scan.png` and a compact plot table from the
+scan summary CSV.
+
+---
+
+## 2026-05-16 — HMC T=700 K, Xc=0.10 needs continuation
+
+Current HMC result from job `66755862` is not yet accepted as equilibrated:
+`X_GB=0.1876` versus FD `0.1605`, with `fwd/rev=1.237` and imbalance
+`+0.106`. Added restart-resume infrastructure for the Jiayi scratch path:
+
+- `data/decks/hmc_PtAu_resume.lammps` reads a LAMMPS binary restart and
+  continues production HMC without re-randomizing composition or rerunning
+  minimization/equilibration.
+- `data/decks/submit_hmc_PtAu_T700_Xc0.10_random_resume66755862_jiayi.sh`
+  selects the newest `hmc_PtAu_T700_Xc0.10_random.rst1/.rst2` in
+  `/cluster/scratch/jiayfu/prototype_PtAu_100A`, runs an additional
+  `PROD_PS` ps (default 300), and post-processes the original plus resumed
+  dump stream.
+- `project/scripts/hmc_xgb_timeseries.py` was filled in after being empty:
+  it now computes `X_GB(t)`, `X_bulk(t)`, tail averages, JSON summary, CSV,
+  and a PNG plot from one or more HMC dump stubs.
+
+Submit command on Euler:
+
+```bash
+sbatch /cluster/home/jiayfu/computational_project/project/PtAu/data/decks/submit_hmc_PtAu_T700_Xc0.10_random_resume66755862_jiayi.sh
+```
+
+For a longer continuation:
+
+```bash
+PROD_PS=600 sbatch /cluster/home/jiayfu/computational_project/project/PtAu/data/decks/submit_hmc_PtAu_T700_Xc0.10_random_resume66755862_jiayi.sh
+```
+
+The resumed job `66768704` finished the extra 300 ps successfully. Combined
+original+resume post-processing gives 601 frames through step 610000:
+
+| window | mean X_GB | mean X_bulk |
+|---|---:|---:|
+| block 7, steps 430000–489000 | 0.2094 | 0.0341 |
+| block 8, steps 490000–549000 | 0.2107 | 0.0333 |
+| block 9, steps 550000–610000 | 0.2103 | 0.0335 |
+
+Verdict: stop resuming this point. It is equilibrated near
+`X_GB^HMC ≈ 0.2103`, well above the original FD comparison value
+`0.1605`. Following the Al(Mg) strategy, the next Pt(Au)-specific step is
+not more runtime at `X_c=0.10`, but a lower-concentration bracket at the
+same temperature to locate the onset of divergence. Added:
+
+- `data/decks/submit_hmc_PtAu_T700_bracket_jiayi.sh`: Slurm array over
+  total Au fractions `0.005, 0.01, 0.03, 0.05, 0.07`, capped at `%3`
+  concurrent 16-rank jobs to fit the 48-core public quota. Default
+  production length is 600 ps because the `X_c=0.10` point needed about
+  that long to plateau.
+- `PtAu/scripts/summarize_hmc_scan_PtAu.py`: collects HMC JSON summaries
+  into one CSV table for the later HMC-vs-FD plot.
+- `PtAu/scripts/fermi_dirac_predict_PtAu.py`: added a closed-box FD curve
+  (`ours_canonical_total`) that solves for the bulk Au fraction under mass
+  conservation. This is the Pt(Au) adjustment to Cainiu's Al(Mg) FD-first
+  idea: compare closed-box HMC against a closed-box FD baseline, while still
+  retaining Wagih's reservoir formula for reference.
+
+Submit the bracket on Euler:
+
+```bash
+sbatch /cluster/home/jiayfu/computational_project/project/PtAu/data/decks/submit_hmc_PtAu_T700_bracket_jiayi.sh
+```
+
+---
+
 ## Current status (2026-05-13, 16:00 CEST)
 
 | Stage | Status |
@@ -208,7 +383,7 @@ that decision:
 
 1. **Potential.** The only EAM file available for this binary on NIST
    is O'Brien et al. 2017 `PtAu.eam.alloy` (downloaded into
-   `PtAu/data/potentials/`). Its header reads `2 Pt Au` with Pt equilibrium
+   `data/potentials/`). Its header reads `2 Pt Au` with Pt equilibrium
    lattice 3.9764 Å and Au equilibrium lattice 4.1537 Å. The potential
    supports both directions.
 
@@ -277,8 +452,8 @@ eam/alloy`. The rest of the pipeline is alloy-agnostic.
 
 The two lines where the pair_style is hardcoded:
 
-- `PtAu/data/decks/anneal_PtAu.lammps:70` — was line 61 in
-  `project/AlMg/data/decks/anneal_AlMg.lammps` with `eam/fs`.
+- `data/decks/anneal_PtAu.lammps:70` — was line 61 in
+  `project/data/decks/anneal_AlMg.lammps` with `eam/fs`.
 - `scripts/sample_delta_e_PtAu.py:466` — was line 454 in
   `project/scripts/sample_delta_e.py` with `eam/fs`.
 
@@ -288,14 +463,14 @@ Everything else is parameter defaults and rename plumbing.
 ### Canonical scripts not modified in place
 
 The project convention is that canonical generic scripts under
-`project/scripts/` and `project/AlMg/data/decks/` stay untouched when a
+`project/scripts/` and `project/data/decks/` stay untouched when a
 second alloy is added; behavior-extending changes go in renamed copies
 inside the per-alloy folder. The reason is that the Al(Mg) pipeline is
 still being actively run, and in-place edits to canonical files have
 caused regressions before. So only the two files that hardcode the
 pair_style were copied:
 
-- `project/AlMg/data/decks/anneal_AlMg.lammps` → `project/PtAu/data/decks/anneal_PtAu.lammps`
+- `project/data/decks/anneal_AlMg.lammps` → `project/PtAu/data/decks/anneal_PtAu.lammps`
 - `project/scripts/sample_delta_e.py`     → `project/PtAu/scripts/sample_delta_e_PtAu.py`
 
 Every other Python script in `project/scripts/` already takes the alloy
@@ -334,10 +509,10 @@ CLI flags — no copy needed):
 
 | File | Change vs Al(Mg) original |
 |---|---|
-| `PtAu/data/decks/anneal_PtAu.lammps` | `pair_style eam/fs` → `eam/alloy`; default elements `EL1=Al → Pt`, `EL2=Mg → Au`; masses `26.9815 → 195.0900` and `24.3050 → 196.9665`; `T_HOLD 373 → 816 K` (0.4 × T_melt(Pt) where T_melt(Pt) = 2041 K, CRC); potential file path |
+| `data/decks/anneal_PtAu.lammps` | `pair_style eam/fs` → `eam/alloy`; default elements `EL1=Al → Pt`, `EL2=Mg → Au`; masses `26.9815 → 195.0900` and `24.3050 → 196.9665`; `T_HOLD 373 → 816 K` (0.4 × T_melt(Pt) where T_melt(Pt) = 2041 K, CRC); potential file path |
 | `scripts/sample_delta_e_PtAu.py` | `pair_style eam/fs` → `eam/alloy` (line 466); `_DEFAULT_ELEMENTS = ("Al","Mg") → ("Pt","Au")`; `_DEFAULT_MASSES = (26.9815, 24.3050) → (195.0900, 196.9665)`; docstring + CLI defaults updated. `--help` syntax-verified. |
-| `PtAu/data/decks/submit_anneal_PtAu_100A.sh` | scratch dir `prototype_AlMg_100A → prototype_PtAu_100A`; deck path; T_HOLD; EL1/EL2/MASS1/MASS2 passed explicitly; wall budget 4 h → 6 h (higher T_hold means more cool ps after the hold) |
-| `PtAu/data/decks/submit_delta_e_PtAu_100A.sh` | scratch dir; driver path; `--elements`/`--masses` passed explicitly; the auto-fallback `gb_identify.py` invocation uses `--lattice-a 3.9764` (Pt) instead of `4.05` (Al) |
+| `data/decks/submit_anneal_PtAu_100A.sh` | scratch dir `prototype_AlMg_100A → prototype_PtAu_100A`; deck path; T_HOLD; EL1/EL2/MASS1/MASS2 passed explicitly; wall budget 4 h → 6 h (higher T_hold means more cool ps after the hold) |
+| `data/decks/submit_delta_e_PtAu_100A.sh` | scratch dir; driver path; `--elements`/`--masses` passed explicitly; the auto-fallback `gb_identify.py` invocation uses `--lattice-a 3.9764` (Pt) instead of `4.05` (Al) |
 
 ### Polycrystal generated and validated
 

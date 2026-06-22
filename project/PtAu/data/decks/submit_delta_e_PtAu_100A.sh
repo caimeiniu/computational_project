@@ -6,7 +6,7 @@
 #   <RUN_DIR>/gb_mask_PtAu_100A.npy
 #
 # Usage:
-#   sbatch /cluster/home/cainiu/Computational_modeling/project/PtAu/data/decks/submit_delta_e_PtAu_100A.sh
+#   sbatch "$HOME/computational_project/project/PtAu/data/decks/submit_delta_e_PtAu_100A.sh"
 #
 # Timing estimate: ~15 min on 16 cores for n=500 (tight CG) at ~64k atoms;
 # 4 h budget for variance / first-run unknowns.
@@ -17,23 +17,27 @@
 #SBATCH --ntasks=16
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=2G
-#SBATCH --output=/cluster/scratch/cainiu/prototype_PtAu_100A/%x-%j.out
-#SBATCH --error=/cluster/scratch/cainiu/prototype_PtAu_100A/%x-%j.err
+#SBATCH --output=/cluster/scratch/%u/prototype_PtAu_100A/%x-%j.out
+#SBATCH --error=/cluster/scratch/%u/prototype_PtAu_100A/%x-%j.err
 
 set -euo pipefail
 
 # ----- environment -----
 module purge
 module load stack/2024-06 gcc/12.2.0 openmpi/4.1.6 lammps/20240829.4
-source /cluster/home/cainiu/miniconda3/etc/profile.d/conda.sh
-conda activate myenv
+CONDA_SH="${CONDA_SH:-$HOME/miniconda3/etc/profile.d/conda.sh}"
+if [[ -f "$CONDA_SH" ]]; then
+    source "$CONDA_SH"
+    conda activate "${CONDA_ENV:-myenv}"
+fi
 
 # ----- job parameters -----
-RUN_DIR=/cluster/scratch/cainiu/prototype_PtAu_100A
+PROJECT="${PROJECT:-$HOME/computational_project/project}"
+RUN_DIR="${RUN_DIR:-/cluster/scratch/$USER/prototype_PtAu_100A}"
 ANNEALED=$RUN_DIR/poly_Pt_100A_8g_annealed.lmp
 GB_MASK=$RUN_DIR/gb_mask_PtAu_100A.npy
-POTENTIAL=/cluster/home/cainiu/Computational_modeling/project/PtAu/data/potentials/PtAu.eam.alloy
-DRIVER=/cluster/home/cainiu/Computational_modeling/project/PtAu/scripts/sample_delta_e_PtAu.py
+POTENTIAL="$PROJECT/PtAu/data/potentials/PtAu.eam.alloy"
+DRIVER="$PROJECT/PtAu/scripts/sample_delta_e_PtAu.py"
 
 N_GB=500
 N_BULK=10
@@ -58,7 +62,7 @@ echo "=========================================================="
 # ----- sanity: did gb_identify run already? -----
 if [[ ! -f "$GB_MASK" ]]; then
     echo "gb_mask missing — running gb_identify.py first" >&2
-    python /cluster/home/cainiu/Computational_modeling/project/scripts/gb_identify.py \
+    python "$PROJECT/AlMg/scripts/gb_identify.py" \
         "$ANNEALED" \
         --parent fcc --lattice-a 3.9764 \
         --out-mask "$GB_MASK" \
