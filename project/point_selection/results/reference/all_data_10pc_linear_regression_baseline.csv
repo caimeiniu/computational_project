@@ -1,0 +1,2 @@
+model_name,n_training_sites,n_evaluation_sites,feature_space,model,mae,rmse,r2,tail_mae,xgb_true,xgb_pred,xgb_abs_error
+all_data_10pc_linear_regression,82645,82645,raw pc1...pc10; no StandardScaler; no new PCA,sklearn.linear_model.LinearRegression,3.5583287363910854,5.149337406318982,0.8944914013352954,5.378884148072436,0.26298367352280055,0.2551661959712554,0.00781747755154516
